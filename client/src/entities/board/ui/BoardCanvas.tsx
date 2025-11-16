@@ -1,48 +1,21 @@
 import { useState } from "react";
 import { ContextMenu } from "../../../features/shape-context-menu/ui/ContextMenu";
-import type { Shape, Tool } from "../../../entities/block/model/types";
-import { ShapeBlock } from "../../../entities/block/ui/ShapeBlock";
-import { TextBlock } from "../../../entities/block/ui/TextBlock";
-import { ResizableDraggableShape } from "../../../entities/block/ui/ResizableDraggableShape";
+import type { Shape, Tool } from "../../block/model/types";
+import { ShapeBlock } from "../../block/ui/ShapeBlock";
+import { TextBlock } from "../../block/ui/TextBlock";
+import { ResizableDraggableShape } from "../../block/ui/ResizableDraggableShape";
+import { useBoardShapes } from "../model/useBoardShapes";
 
-interface CanvasProps {
+interface BoardCanvasProps {
+  boardId: string;
   activeTool: Tool;
   zoom: number;
 }
 
-export function Canvas({ activeTool, zoom }: CanvasProps) {
-  const [shapes, setShapes] = useState<Shape[]>([
-    {
-      boardId: "1",
-      id: "1",
-      type: "rectangle",
-      x: 200,
-      y: 150,
-      width: 180,
-      height: 120,
-    },
-    {
-      boardId: "1",
-      id: "2",
-      type: "text",
-      x: 450,
-      y: 180,
-      width: 220,
-      height: 80,
-      text: "Привет! Я блок текста 😊",
-    },
-    {
-      boardId: "1",
-      id: "3",
-      type: "rectangle",
-      x: 250,
-      y: 350,
-      width: 160,
-      height: 100,
-    },
-  ]);
+export function BoardCanvas({ boardId, activeTool, zoom }: BoardCanvasProps) {
+  const { shapes, loading, error, updateShape } = useBoardShapes(boardId);
 
-  const [selectedId, setSelectedId] = useState<string | null>("2");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -72,6 +45,22 @@ export function Canvas({ activeTool, zoom }: CanvasProps) {
   };
 
   const closeContextMenu = () => setContextMenu(null);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        Загружаем доску…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-red-500">
+        Ошибка загрузки доски: {error.message}
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 relative overflow-hidden">
@@ -103,11 +92,11 @@ export function Canvas({ activeTool, zoom }: CanvasProps) {
               shape={shape}
               zoom={zoom}
               isSelected={selectedId === shape.id}
-              onChange={(next) =>
-                setShapes((prev) =>
-                  prev.map((s) => (s.id === next.id ? next : s))
-                )
-              }
+              onChange={(next: Shape) => {
+                // вместо локального setShapes → отправляем в хук,
+                // а тот уже обновит локальный стейт + отправит mutation
+                updateShape(next);
+              }}
               onClick={() => handleShapeClick(shape.id)}
               onContextMenu={(e) => handleContextMenu(e, shape.id)}
             >

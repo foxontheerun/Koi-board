@@ -3,6 +3,7 @@ import { Canvas } from "./widgets/canvas/ui/Canvas";
 import type { Tool } from "./entities/block/model/types";
 import { TopBar } from "./widgets/top-bar/ui/TopBar";
 import { Toolbar } from "./widgets/toolbar/ui/Toolbar";
+import { BoardPage } from "./pages/board/ui/BoardPage";
 
 export default function App() {
   const [activeTool, setActiveTool] = useState<Tool>("pointer");
