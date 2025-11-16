@@ -54,7 +54,7 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		UpdateShape func(childComplexity int, boardID string, shape ShapeInput) int
+		UpdateShape func(childComplexity int, boardID string, shape ShapeInput, clientID string) int
 	}
 
 	Query struct {
@@ -79,7 +79,7 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	UpdateShape(ctx context.Context, boardID string, shape ShapeInput) (*Shape, error)
+	UpdateShape(ctx context.Context, boardID string, shape ShapeInput, clientID string) (*Shape, error)
 }
 type QueryResolver interface {
 	Hello(ctx context.Context) (string, error)
@@ -137,7 +137,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateShape(childComplexity, args["boardId"].(string), args["shape"].(ShapeInput)), true
+		return e.complexity.Mutation.UpdateShape(childComplexity, args["boardId"].(string), args["shape"].(ShapeInput), args["clientId"].(string)), true
 
 	case "Query.board":
 		if e.complexity.Query.Board == nil {
@@ -373,6 +373,11 @@ func (ec *executionContext) field_Mutation_updateShape_args(ctx context.Context,
 		return nil, err
 	}
 	args["shape"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "clientId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["clientId"] = arg2
 	return args, nil
 }
 
@@ -574,7 +579,7 @@ func (ec *executionContext) _Mutation_updateShape(ctx context.Context, field gra
 		ec.fieldContext_Mutation_updateShape,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().UpdateShape(ctx, fc.Args["boardId"].(string), fc.Args["shape"].(ShapeInput))
+			return ec.resolvers.Mutation().UpdateShape(ctx, fc.Args["boardId"].(string), fc.Args["shape"].(ShapeInput), fc.Args["clientId"].(string))
 		},
 		nil,
 		ec.marshalNShape2ᚖserverᚐShape,

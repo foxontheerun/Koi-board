@@ -31,7 +31,7 @@ input ShapeInput {
 }
 
 type Mutation {
-  updateShape(boardId: ID!, shape: ShapeInput!): Shape!
+  updateShape(boardId: ID!, shape: ShapeInput!, clientId: ID!): Shape!
 }
 
 type Subscription {
