@@ -1,35 +1,20 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from "react";
+import { Canvas } from "./widgets/canvas/ui/Canvas";
+import type { Tool } from "./entities/block/model/types";
+import { TopBar } from "./widgets/top-bar/ui/TopBar";
+import { Toolbar } from "./widgets/toolbar/ui/Toolbar";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [activeTool, setActiveTool] = useState<Tool>("pointer");
+  const [zoom, setZoom] = useState(100);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="w-full h-screen flex flex-col bg-[#F5F5F5] overflow-hidden">
+      <TopBar zoom={zoom} setZoom={setZoom} />
+      <div className="flex-1 flex relative overflow-hidden">
+        <Toolbar activeTool={activeTool} setActiveTool={setActiveTool} />
+        <Canvas activeTool={activeTool} zoom={zoom} />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
-
-export default App

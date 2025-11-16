@@ -9,3 +9,15 @@ export type IBlock = {
   height: number;
   text?: string;
 };
+
+export type Tool = "pointer" | "rectangle" | "text" | "hand" | "delete";
+
+export interface Shape {
+  id: string;
+  type: "rectangle" | "text";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  content?: string;
+}
