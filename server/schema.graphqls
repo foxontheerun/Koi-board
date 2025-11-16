@@ -19,3 +19,21 @@ type Shape {
   height: Float!
   text: String
 }
+
+input ShapeInput {
+  id: ID!
+  type: String!
+  x: Float!
+  y: Float!
+  width: Float!
+  height: Float!
+  text: String
+}
+
+type Mutation {
+  updateShape(boardId: ID!, shape: ShapeInput!): Shape!
+}
+
+type Subscription {
+  shapeUpdated(boardId: ID!): Shape!
+}
