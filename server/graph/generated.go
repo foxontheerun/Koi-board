@@ -85,9 +85,11 @@ type ComplexityRoot struct {
 	}
 
 	TransientShape struct {
-		ID func(childComplexity int) int
-		X  func(childComplexity int) int
-		Y  func(childComplexity int) int
+		Height func(childComplexity int) int
+		ID     func(childComplexity int) int
+		Width  func(childComplexity int) int
+		X      func(childComplexity int) int
+		Y      func(childComplexity int) int
 	}
 }
 
@@ -291,12 +293,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Subscription.ShapeUpdated(childComplexity, args["boardId"].(string)), true
 
+	case "TransientShape.height":
+		if e.complexity.TransientShape.Height == nil {
+			break
+		}
+
+		return e.complexity.TransientShape.Height(childComplexity), true
 	case "TransientShape.id":
 		if e.complexity.TransientShape.ID == nil {
 			break
 		}
 
 		return e.complexity.TransientShape.ID(childComplexity), true
+	case "TransientShape.width":
+		if e.complexity.TransientShape.Width == nil {
+			break
+		}
+
+		return e.complexity.TransientShape.Width(childComplexity), true
 	case "TransientShape.x":
 		if e.complexity.TransientShape.X == nil {
 			break
@@ -518,14 +532,18 @@ input ShapeInput {
 `, BuiltIn: false},
 	{Name: "../graphql/transient.graphqls", Input: `type TransientShape {
   id: ID!
-  x: Float!
-  y: Float!
+  x: Float
+  y: Float
+  width: Float
+  height: Float
 }
 
 input TransientShapeInput {
   id: ID!
-  x: Float!
-  y: Float!
+  x: Float
+  y: Float
+  width: Float
+  height: Float
 }
 `, BuiltIn: false},
 }
@@ -1525,6 +1543,10 @@ func (ec *executionContext) fieldContext_Subscription_shapeMoved(ctx context.Con
 				return ec.fieldContext_TransientShape_x(ctx, field)
 			case "y":
 				return ec.fieldContext_TransientShape_y(ctx, field)
+			case "width":
+				return ec.fieldContext_TransientShape_width(ctx, field)
+			case "height":
+				return ec.fieldContext_TransientShape_height(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type TransientShape", field.Name)
 		},
@@ -1653,9 +1675,9 @@ func (ec *executionContext) _TransientShape_x(ctx context.Context, field graphql
 			return obj.X, nil
 		},
 		nil,
-		ec.marshalNFloat2float64,
+		ec.marshalOFloat2ᚖfloat64,
 		true,
-		true,
+		false,
 	)
 }
 
@@ -1682,13 +1704,71 @@ func (ec *executionContext) _TransientShape_y(ctx context.Context, field graphql
 			return obj.Y, nil
 		},
 		nil,
-		ec.marshalNFloat2float64,
+		ec.marshalOFloat2ᚖfloat64,
 		true,
-		true,
+		false,
 	)
 }
 
 func (ec *executionContext) fieldContext_TransientShape_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransientShape",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransientShape_width(ctx context.Context, field graphql.CollectedField, obj *TransientShape) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransientShape_width,
+		func(ctx context.Context) (any, error) {
+			return obj.Width, nil
+		},
+		nil,
+		ec.marshalOFloat2ᚖfloat64,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransientShape_width(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransientShape",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransientShape_height(ctx context.Context, field graphql.CollectedField, obj *TransientShape) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransientShape_height,
+		func(ctx context.Context) (any, error) {
+			return obj.Height, nil
+		},
+		nil,
+		ec.marshalOFloat2ᚖfloat64,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransientShape_height(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "TransientShape",
 		Field:      field,
@@ -3265,7 +3345,7 @@ func (ec *executionContext) unmarshalInputTransientShapeInput(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "x", "y"}
+	fieldsInOrder := [...]string{"id", "x", "y", "width", "height"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -3281,18 +3361,32 @@ func (ec *executionContext) unmarshalInputTransientShapeInput(ctx context.Contex
 			it.ID = data
 		case "x":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("x"))
-			data, err := ec.unmarshalNFloat2float64(ctx, v)
+			data, err := ec.unmarshalOFloat2ᚖfloat64(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.X = data
 		case "y":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("y"))
-			data, err := ec.unmarshalNFloat2float64(ctx, v)
+			data, err := ec.unmarshalOFloat2ᚖfloat64(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.Y = data
+		case "width":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("width"))
+			data, err := ec.unmarshalOFloat2ᚖfloat64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Width = data
+		case "height":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("height"))
+			data, err := ec.unmarshalOFloat2ᚖfloat64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Height = data
 		}
 	}
 
@@ -3635,14 +3729,12 @@ func (ec *executionContext) _TransientShape(ctx context.Context, sel ast.Selecti
 			}
 		case "x":
 			out.Values[i] = ec._TransientShape_x(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "y":
 			out.Values[i] = ec._TransientShape_y(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
+		case "width":
+			out.Values[i] = ec._TransientShape_width(ctx, field, obj)
+		case "height":
+			out.Values[i] = ec._TransientShape_height(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

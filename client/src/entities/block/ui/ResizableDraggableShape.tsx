@@ -5,8 +5,10 @@ interface ResizableDraggableShapeProps {
   shape: Shape;
   isSelected: boolean;
   zoom: number;
-  onChange: (next: Shape) => void;
-  onDrag: (next: Shape) => void;
+
+  onDragLocal: (next: Shape) => void;
+  onDragEnd: (next: Shape) => void;
+
   onClick?: () => void;
   onContextMenu?: (e: React.MouseEvent<HTMLDivElement>) => void;
   children: React.ReactNode;
@@ -16,8 +18,8 @@ export function ResizableDraggableShape({
   shape,
   isSelected,
   zoom,
-  onChange,
-  onDrag,
+  onDragLocal,
+  onDragEnd,
   onClick,
   onContextMenu,
   children,
@@ -28,16 +30,26 @@ export function ResizableDraggableShape({
     <Rnd
       size={{ width: shape.width, height: shape.height }}
       position={{ x: shape.x, y: shape.y }}
-      onDragStop={(_e, d) => {
-        onChange({ ...shape, x: d.x, y: d.y });
-      }}
+      // drag
       onDrag={(_e, d) => {
         onClick?.();
-        onDrag({ ...shape, x: d.x, y: d.y });
+        onDragLocal({
+          ...shape,
+          x: d.x,
+          y: d.y,
+        });
       }}
+      onDragStop={(_e, d) => {
+        onDragEnd({
+          ...shape,
+          x: d.x,
+          y: d.y,
+        });
+      }}
+      // resize
       onResize={(_e, _dir, ref, _delta, position) => {
         onClick?.();
-        onDrag({
+        onDragLocal({
           ...shape,
           width: ref.offsetWidth,
           height: ref.offsetHeight,
@@ -46,7 +58,7 @@ export function ResizableDraggableShape({
         });
       }}
       onResizeStop={(_e, _dir, ref, _delta, position) => {
-        onChange({
+        onDragEnd({
           ...shape,
           width: ref.offsetWidth,
           height: ref.offsetHeight,

@@ -19,8 +19,13 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 400;
 
 export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
-  const { shapes, loading, error, updateShape, broadcastShape } =
-    useBoardShapes(boardId);
+  const {
+    shapes,
+    loading,
+    error,
+    broadcastTransientPosition,
+    saveFinalPosition,
+  } = useBoardShapes(boardId);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -125,12 +130,12 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
               shape={shape}
               zoom={zoom}
               isSelected={selectedId === shape.id}
-              onDrag={(shape) => broadcastShape(shape)}
-              onChange={(shape) => updateShape(shape)}
+              onDragLocal={(next) => broadcastTransientPosition(next)}
+              onDragEnd={(next) => saveFinalPosition(next)}
               onClick={() => handleShapeClick(shape.id)}
               onContextMenu={(e) => handleContextMenu(e, shape.id)}
             >
-              {shape.type === "rectangle" ? (
+              {shape.type === "RECT" ? (
                 <ShapeBlock shape={shape} />
               ) : (
                 <TextBlock content={shape.text || ""} />
