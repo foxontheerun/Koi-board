@@ -77,10 +77,8 @@ export function ResizableDraggableShape({
         bottomLeft: true,
       }}
       style={{
-        border: isSelected ? "2px solid #2563eb" : "1px solid #d4d4d8",
-        borderRadius: 8,
+        border: isSelected ? "1px solid #2563eb" : "none",
         boxSizing: "border-box",
-        background: "white",
       }}
       onClick={(e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();

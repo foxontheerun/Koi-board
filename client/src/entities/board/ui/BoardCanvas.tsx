@@ -7,6 +7,7 @@ import { ResizableDraggableShape } from "../../block/ui/ResizableDraggableShape"
 import { useBoardShapes } from "../model/useBoardShapes";
 import { calculateZoomTransform } from "../../../shared/lib/zoom";
 import { useGridSystem } from "../model/useGridSystem";
+import { EllipseBlock } from "../../block/ui/EllipseBlock";
 
 interface BoardCanvasProps {
   boardId: string;
@@ -150,11 +151,21 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
               onClick={() => handleShapeClick(shape.id)}
               onContextMenu={(e) => handleContextMenu(e, shape.id)}
             >
-              {shape.type === "RECT" ? (
-                <ShapeBlock shape={shape} />
-              ) : (
-                <TextBlock shape={shape} />
-              )}
+              {(() => {
+                switch (shape.type) {
+                  case "RECT":
+                    return <ShapeBlock shape={shape} />;
+
+                  case "TEXT":
+                    return <TextBlock shape={shape} />;
+
+                  case "ELLIPSE":
+                    return <EllipseBlock shape={shape} />;
+
+                  default:
+                    return null;
+                }
+              })()}
             </ResizableDraggableShape>
           ))}
         </div>

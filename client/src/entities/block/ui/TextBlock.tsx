@@ -5,15 +5,24 @@ interface TextBlockProps {
 }
 
 export function TextBlock({ shape }: TextBlockProps) {
+  const fill = shape.fill || "#FFFFFF";
+  const stroke = shape.stroke || "#E5E5E5";
+  const strokeWidth = shape.strokeWidth || 1;
+
   return (
     <div className="relative w-full h-full group">
+      {/* Text block */}
       <div
+        className={`w-full h-full rounded-[8px] p-4 flex items-center justify-center transition-all shadow-sm hover:shadow-md`}
         style={{
-          background: shape.fill || "auto",
+          backgroundColor: fill,
+          border: `${strokeWidth}px solid ${stroke}`,
+          transform: `rotate(${shape.rotation}deg)`,
         }}
-        className={`w-full h-full bg-white rounded-lg  p-4 flex items-center justify-center transition-all `}
       >
-        <p className="text-[#666666] text-center">{shape.text}</p>
+        <p className="text-[#1A1A1A] text-center select-none">
+          {shape.text || "Текст..."}
+        </p>
       </div>
     </div>
   );
