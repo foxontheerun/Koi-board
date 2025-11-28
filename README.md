@@ -51,3 +51,8 @@ realtime-board/
   client/    # frontend (React + Vite)
   server/    # backend (Go + gqlgen)
 ```
+
+## How to run localy
+
+- Front: `npm run dev`
+- Back: `go run ./cmd/api`

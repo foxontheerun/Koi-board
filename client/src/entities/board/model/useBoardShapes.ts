@@ -107,8 +107,6 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
       document: SHAPE_UPDATED_SUBSCRIPTION,
       variables: { boardId },
       updateQuery: (prev, { subscriptionData }) => {
-        console.log("subscriptionData", subscriptionData, prev);
-
         const updatedShape = subscriptionData.data?.shapeUpdated;
         if (!updatedShape) return prev;
 

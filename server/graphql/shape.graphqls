@@ -1,0 +1,44 @@
+enum ShapeType {
+  RECT
+  ELLIPSE
+  TEXT
+}
+
+type Shape {
+  id: ID!
+  boardId: ID!
+  type: ShapeType!
+
+  x: Float!
+  y: Float!
+  width: Float!
+  height: Float!
+
+  text: String
+  rotation: Float!
+  zIndex: Int!
+  locked: Boolean!
+
+  fill: String
+  stroke: String
+  strokeWidth: Float
+}
+
+# PATCH-модель
+input ShapeInput {
+  id: ID!
+  type: ShapeType
+
+  x: Float
+  y: Float
+  width: Float
+  height: Float
+
+  text: String
+  rotation: Float
+  zIndex: Int
+  locked: Boolean
+  fill: String
+  stroke: String
+  strokeWidth: Float
+}

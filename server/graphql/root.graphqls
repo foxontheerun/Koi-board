@@ -1,0 +1,30 @@
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+type Query {
+  board(id: ID!): Board
+  hello: String!
+}
+
+extend type Mutation {
+  # persisted update
+  updateShape(boardId: ID!, shape: ShapeInput!, clientId: ID!): Shape!
+
+  # realtime transient move
+  moveShapeTransient(
+    boardId: ID!
+    shape: TransientShapeInput!
+    clientId: ID!
+  ): Boolean!
+}
+
+extend type Subscription {
+  # realtime move
+  shapeMoved(boardId: ID!): TransientShape!
+
+  # persisted update
+  shapeUpdated(boardId: ID!): Shape!
+}

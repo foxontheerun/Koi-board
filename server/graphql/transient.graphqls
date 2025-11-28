@@ -1,0 +1,11 @@
+type TransientShape {
+  id: ID!
+  x: Float!
+  y: Float!
+}
+
+input TransientShapeInput {
+  id: ID!
+  x: Float!
+  y: Float!
+}

@@ -11,14 +11,15 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
 
-	"server"
+	"server/graph"
+   "server/resolvers"
 )
 
 func main() {
 	// Создаём gqlgen-сервер
-	srv := handler.New(server.NewExecutableSchema(server.Config{
-		Resolvers: &server.Resolver{},
-	}))
+	srv := handler.New(graph.NewExecutableSchema(graph.Config{
+    Resolvers: &resolvers.Resolver{},
+}))
 
 	// Включаем WebSocket-транспорт с CheckOrigin = true
 	srv.AddTransport(&transport.Websocket{

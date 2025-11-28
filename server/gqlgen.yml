@@ -1,15 +1,15 @@
 schema:
-  - schema.graphqls
+  - graphql/*.graphqls
 
 exec:
-  filename: generated.go
-  package: server
+  filename: graph/generated.go
+  package: graph
 
 model:
-  filename: models_gen.go
-  package: server
+  filename: graph/models_gen.go
+  package: graph
 
 resolver:
-  layout: single-file
-  filename: resolver.go
-  package: server
+  layout: follow-schema
+  dir: resolvers
+  package: resolvers
