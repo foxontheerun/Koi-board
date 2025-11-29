@@ -27,6 +27,7 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
     broadcastTransientPosition,
     saveFinalPosition,
     changeZIndex,
+    toggleLock,
   } = useBoardShapes(boardId);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -110,6 +111,15 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
     setContextMenu(null);
   };
 
+  const handleToggleLock = () => {
+    if (!selectedId) return;
+    toggleLock(selectedId);
+    setContextMenu(null);
+  };
+
+  const selectedShape = shapes.find((s) => s.id === selectedId);
+  const isSelectedLocked = !!selectedShape?.locked;
+
   if (loading)
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -178,6 +188,8 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
           onClose={closeContextMenu}
           onBringToFront={handleBringToFront}
           onSendToBack={handleSendToBack}
+          onToggleLock={handleToggleLock}
+          isLocked={isSelectedLocked}
         />
       )}
     </div>

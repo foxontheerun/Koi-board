@@ -25,28 +25,43 @@ export function ResizableDraggableShape({
   children,
 }: ResizableDraggableShapeProps) {
   const scale = zoom / 100;
-
-  const handleSize = 10;
+  const isLocked = !!shape.locked;
 
   return (
     <Rnd
       size={{ width: shape.width, height: shape.height }}
       position={{ x: shape.x, y: shape.y }}
+      disableDragging={isLocked}
+      enableResizing={
+        isLocked
+          ? {
+              topLeft: false,
+              top: false,
+              topRight: false,
+              right: false,
+              bottomRight: false,
+              bottom: false,
+              bottomLeft: false,
+              left: false,
+            }
+          : {
+              topLeft: true,
+              top: false,
+              topRight: true,
+              right: false,
+              bottomRight: true,
+              bottom: false,
+              bottomLeft: true,
+              left: false,
+            }
+      }
       // drag
       onDrag={(_e, d) => {
         onClick?.();
-        onDragLocal({
-          ...shape,
-          x: d.x,
-          y: d.y,
-        });
+        onDragLocal({ ...shape, x: d.x, y: d.y });
       }}
       onDragStop={(_e, d) => {
-        onDragEnd({
-          ...shape,
-          x: d.x,
-          y: d.y,
-        });
+        onDragEnd({ ...shape, x: d.x, y: d.y });
       }}
       // resize
       onResize={(_e, _dir, ref, _delta, position) => {
@@ -68,57 +83,22 @@ export function ResizableDraggableShape({
           y: position.y,
         });
       }}
-      enableResizing={{
-        right: true,
-        bottom: true,
-        bottomRight: true,
-        top: true,
-        left: true,
-        topLeft: true,
-        topRight: true,
-        bottomLeft: true,
-      }}
-      resizeHandleStyles={
-        isSelected
-          ? {
-              topLeft: {
-                borderRadius: "50%",
-                border: "1px solid #2563eb",
-                background: "#ffffff",
-              },
-              topRight: {
-                borderRadius: "50%",
-                border: "1px solid #2563eb",
-                background: "#ffffff",
-              },
-              bottomLeft: {
-                borderRadius: "50%",
-                border: "1px solid #2563eb",
-                background: "#ffffff",
-              },
-              bottomRight: {
-                borderRadius: "50%",
-                border: "1px solid #2563eb",
-                background: "#ffffff",
-              },
-            }
-          : {
-              top: { display: "none" },
-              bottom: { display: "none" },
-              left: { display: "none" },
-              right: { display: "none" },
-              topLeft: { display: "none" },
-              topRight: { display: "none" },
-              bottomLeft: { display: "none" },
-              bottomRight: { display: "none" },
-            }
-      }
+      className={`
+    absolute w-full h-full box-border rounded-lg
+    ${
+      isSelected
+        ? shape.locked
+          ? "border border-gray-400"
+          : "border border-blue-600"
+        : ""
+    }
+  `}
       style={{
-        border: isSelected ? "1px solid #2563eb" : "none",
         boxSizing: "border-box",
-        borderRadius: 6,
+        borderRadius: 8,
         background: "transparent",
       }}
+      scale={scale}
       onClick={(e: React.MouseEvent<HTMLDivElement>) => {
         e.stopPropagation();
         onClick?.();
@@ -127,9 +107,31 @@ export function ResizableDraggableShape({
         e.stopPropagation();
         onContextMenu?.(e);
       }}
-      scale={scale}
     >
-      {children}
+      <div className="relative w-full h-full">
+        {children}
+
+        {isSelected && !shape.locked && (
+          <>
+            {/* угловые точки, всегда аккуратно в углу */}
+            <HandleDot className="top-0 left-0 -translate-x-1/2 -translate-y-1/2" />
+            <HandleDot className="top-0 right-0 translate-x-1/2 -translate-y-1/2" />
+            <HandleDot className="bottom-0 left-0 -translate-x-1/2 translate-y-1/2" />
+            <HandleDot className="bottom-0 right-0 translate-x-1/2 translate-y-1/2" />
+          </>
+        )}
+      </div>
     </Rnd>
+  );
+}
+
+function HandleDot({ className }: { className?: string }) {
+  return (
+    <div
+      className={
+        "pointer-events-none absolute w-2 h-2 rounded-full border border-blue-600 bg-white " +
+        (className ?? "")
+      }
+    />
   );
 }

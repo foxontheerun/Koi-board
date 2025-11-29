@@ -7,6 +7,8 @@ interface ContextMenuProps {
   onClose: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
+  onToggleLock: () => void;
+  isLocked: boolean;
 }
 
 export function ContextMenu({
@@ -15,6 +17,8 @@ export function ContextMenu({
   onClose,
   onBringToFront,
   onSendToBack,
+  onToggleLock,
+  isLocked,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -44,8 +48,15 @@ export function ContextMenu({
       onClick: onSendToBack,
     },
     { divider: true },
-    { icon: <Lock className="w-4 h-4" />, label: "Lock" },
-    { icon: <Unlock className="w-4 h-4" />, label: "Unlock" },
+    {
+      icon: isLocked ? (
+        <Unlock className="w-4 h-4" />
+      ) : (
+        <Lock className="w-4 h-4" />
+      ),
+      label: isLocked ? "Unlock" : "Lock",
+      onClick: () => onToggleLock(),
+    },
   ];
 
   return (

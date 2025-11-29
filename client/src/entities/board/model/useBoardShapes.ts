@@ -232,6 +232,34 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
       console.error("updateShape mutation error", e);
     });
   };
+  const toggleLock = (id: string) => {
+    setShapes((current) => {
+      const target = current.find((s) => s.id === id);
+      if (!target) return current;
+
+      const nextLocked = !target.locked;
+
+      const nextShapes = current.map((s) =>
+        s.id === id ? { ...s, locked: nextLocked } : s
+      );
+
+      // отправляем patch на бэк
+      updateShapeMutation({
+        variables: {
+          boardId,
+          shape: {
+            id,
+            locked: nextLocked,
+          },
+          clientId: clientIdRef.current,
+        },
+      }).catch((e) => {
+        console.error("toggleLock mutation error", e);
+      });
+
+      return nextShapes;
+    });
+  };
 
   const changeZIndex = (id: string, mode: "front" | "back") => {
     setShapes((current) => {
@@ -289,5 +317,6 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     broadcastTransientPosition,
     saveFinalPosition,
     changeZIndex,
+    toggleLock,
   };
 }

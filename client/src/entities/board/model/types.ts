@@ -7,4 +7,5 @@ export type UseBoardShapesResult = {
   broadcastTransientPosition: (shape: Shape) => void;
   saveFinalPosition: (shape: Shape) => void;
   changeZIndex: (id: string, mode: "front" | "back") => void;
+  toggleLock: (id: string) => void;
 };

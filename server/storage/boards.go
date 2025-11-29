@@ -43,8 +43,8 @@ func defaultBoard1() *graph.Board {
 				ZIndex:     0,
 				Locked:     false,
 				Text:       nil,
-				Fill:       nil,
-				Stroke:     nil,
+				Fill:       strPtr("#dff2ffff"),
+				Stroke:      strPtr("#8eadc2ff"),
 				StrokeWidth: nil,
 			},
 			{
