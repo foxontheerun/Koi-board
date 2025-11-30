@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { gql } from "@apollo/client";
 import { useQuery, useMutation, useSubscription } from "@apollo/client/react";
 import throttle from "lodash/throttle";
+
 import type { Shape } from "../../block/model/types";
 import type {
   BoardQueryResponse,
@@ -12,102 +12,20 @@ import type {
   UseBoardShapesResult,
 } from "./types";
 
-// ------------ GQL ------------- //
+import {
+  BOARD_QUERY,
+  UPDATE_SHAPE_MUTATION,
+  MOVE_SHAPE_TRANSIENT_MUTATION,
+  SHAPE_MOVED_SUBSCRIPTION,
+  SHAPE_UPDATED_SUBSCRIPTION,
+} from "./board.gql";
 
-const BOARD_QUERY = gql`
-  query GetBoard($id: ID!) {
-    board(id: $id) {
-      id
-      title
-      shapes {
-        id
-        boardId
-        type
-
-        x
-        y
-        width
-        height
-
-        text
-        rotation
-        zIndex
-        locked
-        fill
-        stroke
-        strokeWidth
-      }
-    }
-  }
-`;
-
-const UPDATE_SHAPE_MUTATION = gql`
-  mutation UpdateShape($boardId: ID!, $shape: ShapeInput!, $clientId: ID!) {
-    updateShape(boardId: $boardId, shape: $shape, clientId: $clientId) {
-      id
-      boardId
-      type
-
-      x
-      y
-      width
-      height
-
-      text
-      rotation
-      zIndex
-      locked
-      fill
-      stroke
-      strokeWidth
-    }
-  }
-`;
-
-const MOVE_SHAPE_TRANSIENT_MUTATION = gql`
-  mutation MoveShapeTransient(
-    $boardId: ID!
-    $shape: TransientShapeInput!
-    $clientId: ID!
-  ) {
-    moveShapeTransient(boardId: $boardId, shape: $shape, clientId: $clientId)
-  }
-`;
-
-const SHAPE_MOVED_SUBSCRIPTION = gql`
-  subscription ShapeMoved($boardId: ID!) {
-    shapeMoved(boardId: $boardId) {
-      id
-      x
-      y
-      width
-      height
-    }
-  }
-`;
-
-const SHAPE_UPDATED_SUBSCRIPTION = gql`
-  subscription ShapeUpdated($boardId: ID!) {
-    shapeUpdated(boardId: $boardId) {
-      id
-      boardId
-      type
-
-      x
-      y
-      width
-      height
-
-      text
-      rotation
-      zIndex
-      locked
-      fill
-      stroke
-      strokeWidth
-    }
-  }
-`;
+import {
+  applyMovedShape,
+  applyUpdatedShape,
+  toggleLockLocal,
+  swapZIndexLocal,
+} from "./shapeState";
 
 export function useBoardShapes(boardId: string): UseBoardShapesResult {
   const [shapes, setShapes] = useState<Shape[]>([]);
@@ -137,22 +55,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
   );
 
   useEffect(() => {
-    const moved = movedData?.shapeMoved;
-    if (!moved) return;
-
-    setShapes((current) =>
-      current.map((s) =>
-        s.id === moved.id
-          ? {
-              ...s,
-              x: moved.x ?? s.x,
-              y: moved.y ?? s.y,
-              width: moved.width ?? s.width,
-              height: moved.height ?? s.height,
-            }
-          : s
-      )
-    );
+    setShapes((current) => applyMovedShape(current, movedData));
   }, [movedData]);
 
   const { data: updatedData } =
@@ -165,16 +68,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     );
 
   useEffect(() => {
-    const updated = updatedData?.shapeUpdated;
-    if (!updated) return;
-
-    setShapes((current) => {
-      const exists = current.some((s) => s.id === updated.id);
-      if (exists) {
-        return current.map((s) => (s.id === updated.id ? updated : s));
-      }
-      return [...current, updated];
-    });
+    setShapes((current) => applyUpdatedShape(current, updatedData));
   }, [updatedData]);
 
   const throttledTransient = useRef(
@@ -201,7 +95,6 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     setShapes((current) =>
       current.map((s) => (s.id === shape.id ? { ...s, ...shape } : s))
     );
-
     throttledTransient(shape);
   };
 
@@ -235,14 +128,8 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
 
   const toggleLock = (id: string) => {
     setShapes((current) => {
-      const target = current.find((s) => s.id === id);
-      if (!target) return current;
-
-      const nextLocked = !target.locked;
-
-      const nextShapes = current.map((s) =>
-        s.id === id ? { ...s, locked: nextLocked } : s
-      );
+      const { nextShapes, nextLocked } = toggleLockLocal(current, id);
+      if (nextLocked === null) return current;
 
       updateShapeMutation({
         variables: {
@@ -263,42 +150,21 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
 
   const changeZIndex = (id: string, mode: "front" | "back") => {
     setShapes((current) => {
-      if (current.length <= 1) return current;
+      const {
+        nextShapes,
+        currentShapeId,
+        neighborShapeId,
+        currentZ,
+        neighborZ,
+      } = swapZIndexLocal(current, id, mode);
 
-      const sorted = [...current].sort(
-        (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)
-      );
-
-      const idx = sorted.findIndex((s) => s.id === id);
-      if (idx === -1) return current;
-
-      const neighborIdx = mode === "front" ? idx + 1 : idx - 1;
-
-      if (neighborIdx < 0 || neighborIdx >= sorted.length) {
-        return current;
-      }
-
-      const currentShape = sorted[idx];
-      const neighborShape = sorted[neighborIdx];
-
-      const currentZ = currentShape.zIndex ?? 0;
-      const neighborZ = neighborShape.zIndex ?? 0;
-
-      const nextShapes = current.map((s) => {
-        if (s.id === currentShape.id) {
-          return { ...s, zIndex: neighborZ };
-        }
-        if (s.id === neighborShape.id) {
-          return { ...s, zIndex: currentZ };
-        }
-        return s;
-      });
+      if (!currentShapeId || !neighborShapeId) return current;
 
       updateShapeMutation({
         variables: {
           boardId,
           shape: {
-            id: currentShape.id,
+            id: currentShapeId,
             zIndex: neighborZ,
           } as ShapeInput,
           clientId: clientIdRef.current,
@@ -311,7 +177,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
         variables: {
           boardId,
           shape: {
-            id: neighborShape.id,
+            id: neighborShapeId,
             zIndex: currentZ,
           } as ShapeInput,
           clientId: clientIdRef.current,

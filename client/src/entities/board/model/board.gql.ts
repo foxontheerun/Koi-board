@@ -1,0 +1,96 @@
+import { gql } from "@apollo/client";
+
+export const BOARD_QUERY = gql`
+  query GetBoard($id: ID!) {
+    board(id: $id) {
+      id
+      title
+      shapes {
+        id
+        boardId
+        type
+
+        x
+        y
+        width
+        height
+
+        text
+        rotation
+        zIndex
+        locked
+        fill
+        stroke
+        strokeWidth
+      }
+    }
+  }
+`;
+
+export const UPDATE_SHAPE_MUTATION = gql`
+  mutation UpdateShape($boardId: ID!, $shape: ShapeInput!, $clientId: ID!) {
+    updateShape(boardId: $boardId, shape: $shape, clientId: $clientId) {
+      id
+      boardId
+      type
+
+      x
+      y
+      width
+      height
+
+      text
+      rotation
+      zIndex
+      locked
+      fill
+      stroke
+      strokeWidth
+    }
+  }
+`;
+
+export const MOVE_SHAPE_TRANSIENT_MUTATION = gql`
+  mutation MoveShapeTransient(
+    $boardId: ID!
+    $shape: TransientShapeInput!
+    $clientId: ID!
+  ) {
+    moveShapeTransient(boardId: $boardId, shape: $shape, clientId: $clientId)
+  }
+`;
+
+export const SHAPE_MOVED_SUBSCRIPTION = gql`
+  subscription ShapeMoved($boardId: ID!) {
+    shapeMoved(boardId: $boardId) {
+      id
+      x
+      y
+      width
+      height
+    }
+  }
+`;
+
+export const SHAPE_UPDATED_SUBSCRIPTION = gql`
+  subscription ShapeUpdated($boardId: ID!) {
+    shapeUpdated(boardId: $boardId) {
+      id
+      boardId
+      type
+
+      x
+      y
+      width
+      height
+
+      text
+      rotation
+      zIndex
+      locked
+      fill
+      stroke
+      strokeWidth
+    }
+  }
+`;
