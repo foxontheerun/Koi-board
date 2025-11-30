@@ -122,15 +122,11 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     MOVE_SHAPE_TRANSIENT_MUTATION
   );
 
-  // -------- initial load -------- //
-
   useEffect(() => {
     if (data?.board?.shapes) {
       setShapes(data.board.shapes);
     }
   }, [data]);
-
-  // -------- subscriptions: transient move -------- //
 
   const { data: movedData } = useSubscription<ShapeMovedSubscriptionResponse>(
     SHAPE_MOVED_SUBSCRIPTION,
@@ -159,8 +155,6 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     );
   }, [movedData]);
 
-  // -------- subscriptions: persisted update -------- //
-
   const { data: updatedData } =
     useSubscription<ShapeUpdatedSubscriptionResponse>(
       SHAPE_UPDATED_SUBSCRIPTION,
@@ -183,8 +177,6 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     });
   }, [updatedData]);
 
-  // -------- actions: transient broadcast (drag) -------- //
-
   const throttledTransient = useRef(
     throttle((shape: Shape) => {
       moveShapeTransientMutation({
@@ -206,22 +198,16 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
   ).current;
 
   const broadcastTransientPosition = (shape: Shape) => {
-    // локально сразу обновляем позицию + размер
     setShapes((current) =>
       current.map((s) => (s.id === shape.id ? { ...s, ...shape } : s))
     );
 
-    // и шлём транзиент-событие
     throttledTransient(shape);
   };
 
-  // -------- actions: final save (mouse up) -------- //
-
   const saveFinalPosition = (shape: Shape) => {
-    // локально фиксируем
     setShapes((current) => current.map((s) => (s.id === shape.id ? shape : s)));
 
-    // отправляем полный patch
     updateShapeMutation({
       variables: {
         boardId,
@@ -258,7 +244,6 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
         s.id === id ? { ...s, locked: nextLocked } : s
       );
 
-      // отправляем patch на бэк
       updateShapeMutation({
         variables: {
           boardId,
@@ -278,35 +263,56 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
 
   const changeZIndex = (id: string, mode: "front" | "back") => {
     setShapes((current) => {
-      if (current.length === 0) return current;
+      if (current.length <= 1) return current;
 
-      const target = current.find((s) => s.id === id);
-
-      if (!target) return current;
-
-      const zValues = current.map((s) => s.zIndex ?? 0);
-      const maxZ = Math.max(...zValues);
-      const minZ = Math.min(...zValues);
-
-      let nextZ: number;
-      if (mode === "front") {
-        nextZ = maxZ + 1;
-      } else {
-        // "back"
-        nextZ = minZ - 1;
-      }
-
-      const nextShapes = current.map((s) =>
-        s.id === id ? { ...s, zIndex: nextZ } : s
+      const sorted = [...current].sort(
+        (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)
       );
 
-      // шлём patch на бэк
+      const idx = sorted.findIndex((s) => s.id === id);
+      if (idx === -1) return current;
+
+      const neighborIdx = mode === "front" ? idx + 1 : idx - 1;
+
+      if (neighborIdx < 0 || neighborIdx >= sorted.length) {
+        return current;
+      }
+
+      const currentShape = sorted[idx];
+      const neighborShape = sorted[neighborIdx];
+
+      const currentZ = currentShape.zIndex ?? 0;
+      const neighborZ = neighborShape.zIndex ?? 0;
+
+      const nextShapes = current.map((s) => {
+        if (s.id === currentShape.id) {
+          return { ...s, zIndex: neighborZ };
+        }
+        if (s.id === neighborShape.id) {
+          return { ...s, zIndex: currentZ };
+        }
+        return s;
+      });
+
       updateShapeMutation({
         variables: {
           boardId,
           shape: {
-            id,
-            zIndex: nextZ,
+            id: currentShape.id,
+            zIndex: neighborZ,
+          } as ShapeInput,
+          clientId: clientIdRef.current,
+        },
+      }).catch((e) => {
+        console.error("changeZIndex mutation error", e);
+      });
+
+      updateShapeMutation({
+        variables: {
+          boardId,
+          shape: {
+            id: neighborShape.id,
+            zIndex: currentZ,
           } as ShapeInput,
           clientId: clientIdRef.current,
         },

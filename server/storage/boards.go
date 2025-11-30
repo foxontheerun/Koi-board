@@ -72,7 +72,7 @@ func defaultBoard1() *graph.Board {
 				Width:      150,
 				Height:     150,
 				Rotation:   0,
-				ZIndex:     0,
+				ZIndex:     3,
 				Locked:     false,
 				Text:       strPtr("Круг"),
 				Fill:       strPtr("#c0ff96b9"),
