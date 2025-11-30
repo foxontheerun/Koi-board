@@ -81,8 +81,9 @@ type ComplexityRoot struct {
 	}
 
 	ShapeEvent struct {
-		Shape func(childComplexity int) int
-		Type  func(childComplexity int) int
+		ClientID func(childComplexity int) int
+		Shape    func(childComplexity int) int
+		Type     func(childComplexity int) int
 	}
 
 	Subscription struct {
@@ -92,11 +93,12 @@ type ComplexityRoot struct {
 	}
 
 	TransientShape struct {
-		Height func(childComplexity int) int
-		ID     func(childComplexity int) int
-		Width  func(childComplexity int) int
-		X      func(childComplexity int) int
-		Y      func(childComplexity int) int
+		ClientID func(childComplexity int) int
+		Height   func(childComplexity int) int
+		ID       func(childComplexity int) int
+		Width    func(childComplexity int) int
+		X        func(childComplexity int) int
+		Y        func(childComplexity int) int
 	}
 }
 
@@ -174,7 +176,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.MoveShapeTransient(childComplexity, args["boardId"].(string), args["shape"].(TransientShapeInput), args["clientId"].(string)), true
+		return e.complexity.Mutation.MoveShapeTransient(childComplexity, args["boardId"].(string), args["shape"].(TransientShapeInput), args["clientID"].(string)), true
 	case "Mutation.updateShape":
 		if e.complexity.Mutation.UpdateShape == nil {
 			break
@@ -185,7 +187,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateShape(childComplexity, args["boardId"].(string), args["shape"].(ShapeInput), args["clientId"].(string)), true
+		return e.complexity.Mutation.UpdateShape(childComplexity, args["boardId"].(string), args["shape"].(ShapeInput), args["clientID"].(string)), true
 
 	case "Query.board":
 		if e.complexity.Query.Board == nil {
@@ -290,6 +292,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Shape.ZIndex(childComplexity), true
 
+	case "ShapeEvent.clientID":
+		if e.complexity.ShapeEvent.ClientID == nil {
+			break
+		}
+
+		return e.complexity.ShapeEvent.ClientID(childComplexity), true
 	case "ShapeEvent.shape":
 		if e.complexity.ShapeEvent.Shape == nil {
 			break
@@ -337,6 +345,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Subscription.ShapeUpdated(childComplexity, args["boardId"].(string)), true
 
+	case "TransientShape.clientID":
+		if e.complexity.TransientShape.ClientID == nil {
+			break
+		}
+
+		return e.complexity.TransientShape.ClientID(childComplexity), true
 	case "TransientShape.height":
 		if e.complexity.TransientShape.Height == nil {
 			break
@@ -511,13 +525,13 @@ type Query {
 
 extend type Mutation {
   # persisted update
-  updateShape(boardId: ID!, shape: ShapeInput!, clientId: ID!): Shape!
+  updateShape(boardId: ID!, shape: ShapeInput!, clientID: ID!): Shape!
 
   # realtime transient move
   moveShapeTransient(
     boardId: ID!
     shape: TransientShapeInput!
-    clientId: ID!
+    clientID: ID!
   ): Boolean!
 
   deleteShape(boardId: ID!, shapeId: ID!): Boolean!
@@ -588,6 +602,7 @@ enum ShapeEventType {
 type ShapeEvent {
   type: ShapeEventType!
   shape: Shape!
+  clientID: ID!
 }
 `, BuiltIn: false},
 	{Name: "../graphql/transient.graphqls", Input: `type TransientShape {
@@ -596,6 +611,7 @@ type ShapeEvent {
   y: Float
   width: Float
   height: Float
+  clientID: ID!
 }
 
 input TransientShapeInput {
@@ -642,11 +658,11 @@ func (ec *executionContext) field_Mutation_moveShapeTransient_args(ctx context.C
 		return nil, err
 	}
 	args["shape"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "clientId", ec.unmarshalNID2string)
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "clientID", ec.unmarshalNID2string)
 	if err != nil {
 		return nil, err
 	}
-	args["clientId"] = arg2
+	args["clientID"] = arg2
 	return args, nil
 }
 
@@ -663,11 +679,11 @@ func (ec *executionContext) field_Mutation_updateShape_args(ctx context.Context,
 		return nil, err
 	}
 	args["shape"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "clientId", ec.unmarshalNID2string)
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "clientID", ec.unmarshalNID2string)
 	if err != nil {
 		return nil, err
 	}
-	args["clientId"] = arg2
+	args["clientID"] = arg2
 	return args, nil
 }
 
@@ -903,7 +919,7 @@ func (ec *executionContext) _Mutation_updateShape(ctx context.Context, field gra
 		ec.fieldContext_Mutation_updateShape,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().UpdateShape(ctx, fc.Args["boardId"].(string), fc.Args["shape"].(ShapeInput), fc.Args["clientId"].(string))
+			return ec.resolvers.Mutation().UpdateShape(ctx, fc.Args["boardId"].(string), fc.Args["shape"].(ShapeInput), fc.Args["clientID"].(string))
 		},
 		nil,
 		ec.marshalNShape2ᚖserverᚋgraphᚐShape,
@@ -974,7 +990,7 @@ func (ec *executionContext) _Mutation_moveShapeTransient(ctx context.Context, fi
 		ec.fieldContext_Mutation_moveShapeTransient,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().MoveShapeTransient(ctx, fc.Args["boardId"].(string), fc.Args["shape"].(TransientShapeInput), fc.Args["clientId"].(string))
+			return ec.resolvers.Mutation().MoveShapeTransient(ctx, fc.Args["boardId"].(string), fc.Args["shape"].(TransientShapeInput), fc.Args["clientID"].(string))
 		},
 		nil,
 		ec.marshalNBoolean2bool,
@@ -1728,6 +1744,35 @@ func (ec *executionContext) fieldContext_ShapeEvent_shape(_ context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _ShapeEvent_clientID(ctx context.Context, field graphql.CollectedField, obj *ShapeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ShapeEvent_clientID,
+		func(ctx context.Context) (any, error) {
+			return obj.ClientID, nil
+		},
+		nil,
+		ec.marshalNID2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ShapeEvent_clientID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ShapeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Subscription_shapeMoved(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
 	return graphql.ResolveFieldStream(
 		ctx,
@@ -1763,6 +1808,8 @@ func (ec *executionContext) fieldContext_Subscription_shapeMoved(ctx context.Con
 				return ec.fieldContext_TransientShape_width(ctx, field)
 			case "height":
 				return ec.fieldContext_TransientShape_height(ctx, field)
+			case "clientID":
+				return ec.fieldContext_TransientShape_clientID(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type TransientShape", field.Name)
 		},
@@ -1881,6 +1928,8 @@ func (ec *executionContext) fieldContext_Subscription_shapeEvents(ctx context.Co
 				return ec.fieldContext_ShapeEvent_type(ctx, field)
 			case "shape":
 				return ec.fieldContext_ShapeEvent_shape(ctx, field)
+			case "clientID":
+				return ec.fieldContext_ShapeEvent_clientID(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ShapeEvent", field.Name)
 		},
@@ -2039,6 +2088,35 @@ func (ec *executionContext) fieldContext_TransientShape_height(_ context.Context
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransientShape_clientID(ctx context.Context, field graphql.CollectedField, obj *TransientShape) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransientShape_clientID,
+		func(ctx context.Context) (any, error) {
+			return obj.ClientID, nil
+		},
+		nil,
+		ec.marshalNID2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransientShape_clientID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransientShape",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3980,6 +4058,11 @@ func (ec *executionContext) _ShapeEvent(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "clientID":
+			out.Values[i] = ec._ShapeEvent_clientID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -4051,6 +4134,11 @@ func (ec *executionContext) _TransientShape(ctx context.Context, sel ast.Selecti
 			out.Values[i] = ec._TransientShape_width(ctx, field, obj)
 		case "height":
 			out.Values[i] = ec._TransientShape_height(ctx, field, obj)
+		case "clientID":
+			out.Values[i] = ec._TransientShape_clientID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

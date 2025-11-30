@@ -32,6 +32,7 @@ import {
 export function useBoardShapes(boardId: string): UseBoardShapesResult {
   const [shapes, setShapes] = useState<Shape[]>([]);
   const clientIdRef = useRef<string>(crypto.randomUUID());
+
   const initialDataAppliedRef = useRef(false);
 
   const { data, loading, error } = useQuery<BoardQueryResponse>(BOARD_QUERY, {
@@ -66,6 +67,14 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
   );
 
   useEffect(() => {
+    console.log(
+      "movedData",
+      movedData?.shapeMoved?.clientID,
+      clientIdRef.current
+    );
+
+    if (movedData?.shapeMoved?.clientID === clientIdRef.current) return;
+
     setShapes((current) => applyMovedShape(current, movedData));
   }, [movedData]);
 
@@ -78,6 +87,8 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
   );
 
   useEffect(() => {
+    if (eventsData?.shapeEvents.clientID === clientIdRef.current) return;
+
     setShapes((current) => applyShapeEvent(current, eventsData));
   }, [eventsData]);
 
@@ -93,7 +104,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
             width: shape.width,
             height: shape.height,
           } as TransientShapeInput,
-          clientId: clientIdRef.current,
+          clientID: clientIdRef.current,
         },
       }).catch((e) => {
         console.error("moveShapeTransient mutation error", e);
@@ -129,7 +140,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
           stroke: shape.stroke ?? null,
           strokeWidth: shape.strokeWidth ?? null,
         } as ShapeInput,
-        clientId: clientIdRef.current,
+        clientID: clientIdRef.current,
       },
     }).catch((e) => {
       console.error("updateShape mutation error", e);
@@ -148,7 +159,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
             id,
             locked: nextLocked,
           } as ShapeInput,
-          clientId: clientIdRef.current,
+          clientID: clientIdRef.current,
         },
       }).catch((e) => {
         console.error("toggleLock mutation error", e);
@@ -177,7 +188,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
             id: currentShapeId,
             zIndex: neighborZ,
           } as ShapeInput,
-          clientId: clientIdRef.current,
+          clientID: clientIdRef.current,
         },
       }).catch((e) => {
         console.error("changeZIndex mutation error", e);
@@ -190,7 +201,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
             id: neighborShapeId,
             zIndex: currentZ,
           } as ShapeInput,
-          clientId: clientIdRef.current,
+          clientID: clientIdRef.current,
         },
       }).catch((e) => {
         console.error("changeZIndex mutation error", e);

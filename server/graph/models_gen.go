@@ -39,8 +39,9 @@ type Shape struct {
 }
 
 type ShapeEvent struct {
-	Type  ShapeEventType `json:"type"`
-	Shape *Shape         `json:"shape"`
+	Type     ShapeEventType `json:"type"`
+	Shape    *Shape         `json:"shape"`
+	ClientID string         `json:"clientID"`
 }
 
 type ShapeInput struct {
@@ -63,11 +64,12 @@ type Subscription struct {
 }
 
 type TransientShape struct {
-	ID     string   `json:"id"`
-	X      *float64 `json:"x,omitempty"`
-	Y      *float64 `json:"y,omitempty"`
-	Width  *float64 `json:"width,omitempty"`
-	Height *float64 `json:"height,omitempty"`
+	ID       string   `json:"id"`
+	X        *float64 `json:"x,omitempty"`
+	Y        *float64 `json:"y,omitempty"`
+	Width    *float64 `json:"width,omitempty"`
+	Height   *float64 `json:"height,omitempty"`
+	ClientID string   `json:"clientID"`
 }
 
 type TransientShapeInput struct {

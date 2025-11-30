@@ -91,7 +91,6 @@ export function ResizableDraggableShape({
 
         {isSelected && !shape.locked && (
           <>
-            {/* угловые точки, всегда аккуратно в углу */}
             <HandleDot className="top-0 left-0 -translate-x-1/2 -translate-y-1/2" />
             <HandleDot className="top-0 right-0 translate-x-1/2 -translate-y-1/2" />
             <HandleDot className="bottom-0 left-0 -translate-x-1/2 translate-y-1/2" />
