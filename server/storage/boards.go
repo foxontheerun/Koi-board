@@ -59,9 +59,9 @@ func defaultBoard1() *graph.Board {
 				ZIndex:     1,
 				Locked:     false,
 				Text:       strPtr("Привет с бэкенда 👋"),
-				Fill:       strPtr("#ff86aeff"),
-				Stroke:     strPtr("#db2c75ff"),
-				StrokeWidth: f64Ptr(2),
+				Fill:       strPtr("transparent"),
+				Stroke:     strPtr("none"),
+				StrokeWidth: f64Ptr(0),
 			},
 			{
 				ID:         "10",

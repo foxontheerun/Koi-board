@@ -1,17 +1,11 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ContextMenu } from "../../../features/shape-context-menu/ui/ContextMenu";
-import type { Tool } from "../../block/model/types";
+import type { Shape, Tool } from "../../block/model/types";
 import { useBoardShapes } from "../model/useBoardShapes";
 import { calculateZoomTransform } from "../../../shared/lib/zoom";
 import { useGridSystem } from "../model/useGridSystem";
-import {
-  ResizableDraggableShape,
-  ShapeBlock,
-  TextBlock,
-  EllipseBlock,
-  type StickyColorId,
-  STICKY_PRESETS,
-} from "../../block";
+import { type StickyColorId, STICKY_PRESETS } from "../../block";
+import { ShapeItem } from "../../block/ui/ShapeItem";
 
 interface BoardCanvasProps {
   boardId: string;
@@ -52,7 +46,6 @@ export function BoardCanvas({
   } | null>(null);
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [isCreating, setIsCreating] = useState(false);
   const [draftShape, setDraftShape] = useState<{
     x: number;
     y: number;
@@ -73,7 +66,7 @@ export function BoardCanvas({
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
+    // if (e.target !== e.currentTarget) return;
 
     if (activeTool !== "rectangle" && activeTool !== "text") return;
 
@@ -83,7 +76,6 @@ export function BoardCanvas({
     const boardY = (e.clientY - rect.top) / zoomScale;
 
     creationStartRef.current = { x: boardX, y: boardY };
-    setIsCreating(true);
 
     setDraftShape({
       x: boardX,
@@ -161,16 +153,9 @@ export function BoardCanvas({
       });
     }
 
-    setIsCreating(false);
     setDraftShape(null);
     creationStartRef.current = null;
     setActiveTool("pointer");
-  };
-
-  const handleContextMenu = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    setSelectedId(id);
-    setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
   const closeContextMenu = () => setContextMenu(null);
@@ -235,6 +220,31 @@ export function BoardCanvas({
     setContextMenu(null);
   };
 
+  const handleCopyClick = () => {};
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      setSelectedId(null);
+      setContextMenu(null);
+    }
+  };
+
+  const handleShapeContextMenu = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setSelectedId(id);
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  // оборачиваем в useCallback, чтобы сами функции были стабильны
+  const handleShapeClickCb = useCallback(handleShapeClick, []);
+  const handleShapeContextMenuCb = useCallback(handleShapeContextMenu, []);
+  const handleTextChange = useCallback(
+    (shape: Shape, text: string) => {
+      saveFinalPosition({ ...shape, text });
+    },
+    [saveFinalPosition]
+  );
+
   const selectedShape = shapes.find((s) => s.id === selectedId);
   const isSelectedLocked = !!selectedShape?.locked;
 
@@ -261,6 +271,7 @@ export function BoardCanvas({
         <div className="absolute inset-0" style={gridStyles} />
         <div
           ref={containerRef}
+          onClick={handleCanvasClick}
           className="absolute inset-0"
           style={{
             transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoomScale})`,
@@ -280,37 +291,23 @@ export function BoardCanvas({
                   top: draftShape.y,
                   width: draftShape.width,
                   height: draftShape.height,
+                  zIndex: 1000,
                 }}
               />
             )}
 
           {orderedShapes.map((shape) => (
-            <ResizableDraggableShape
+            <ShapeItem
               key={shape.id}
               shape={shape}
               zoom={zoom}
               isSelected={selectedId === shape.id}
-              onDragLocal={(next) => broadcastTransientPosition(next)}
-              onDragEnd={(next) => saveFinalPosition(next)}
-              onClick={() => handleShapeClick(shape.id)}
-              onContextMenu={(e) => handleContextMenu(e, shape.id)}
-            >
-              {(() => {
-                switch (shape.type) {
-                  case "RECT":
-                    return <ShapeBlock shape={shape} />;
-
-                  case "TEXT":
-                    return <TextBlock shape={shape} />;
-
-                  case "ELLIPSE":
-                    return <EllipseBlock shape={shape} />;
-
-                  default:
-                    return null;
-                }
-              })()}
-            </ResizableDraggableShape>
+              onDragLocal={broadcastTransientPosition}
+              onDragEnd={saveFinalPosition}
+              onShapeClick={handleShapeClickCb}
+              onShapeContextMenu={handleShapeContextMenuCb}
+              onTextChange={handleTextChange}
+            />
           ))}
         </div>
       </div>
@@ -325,6 +322,7 @@ export function BoardCanvas({
           onToggleLock={handleToggleLock}
           isLocked={isSelectedLocked}
           onDeleteClick={handleDeleteClick}
+          onCopyClick={handleCopyClick}
         />
       )}
     </div>

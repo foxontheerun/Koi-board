@@ -10,6 +10,7 @@ interface ContextMenuProps {
   onToggleLock: () => void;
   isLocked: boolean;
   onDeleteClick: () => void;
+  onCopyClick: () => void;
 }
 
 export function ContextMenu({
@@ -20,6 +21,7 @@ export function ContextMenu({
   onSendToBack,
   onToggleLock,
   onDeleteClick,
+  onCopyClick,
   isLocked,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,7 +38,7 @@ export function ContextMenu({
   }, [onClose]);
 
   const menuItems = [
-    { icon: <Copy className="w-4 h-4" />, label: "Copy" },
+    { icon: <Copy className="w-4 h-4" />, label: "Copy", onClick: onCopyClick },
     {
       icon: <Trash2 className="w-4 h-4" />,
       label: "Delete",

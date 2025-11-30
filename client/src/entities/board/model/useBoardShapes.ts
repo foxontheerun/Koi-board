@@ -67,12 +67,6 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
   );
 
   useEffect(() => {
-    console.log(
-      "movedData",
-      movedData?.shapeMoved?.clientID,
-      clientIdRef.current
-    );
-
     if (movedData?.shapeMoved?.clientID === clientIdRef.current) return;
 
     setShapes((current) => applyMovedShape(current, movedData));
@@ -112,14 +106,31 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     }, 40)
   ).current;
 
-  const broadcastTransientPosition = (shape: Shape) => {
-    setShapes((current) =>
-      current.map((s) => (s.id === shape.id ? { ...s, ...shape } : s))
-    );
-    throttledTransient(shape);
-  };
+  const rafIdRef = useRef<number | null>(null);
+  const pendingShapeRef = useRef<Shape | null>(null);
 
-  const saveFinalPosition = (shape: Shape) => {
+  const broadcastTransientPosition = useCallback(
+    (shape: Shape) => {
+      pendingShapeRef.current = shape;
+
+      if (rafIdRef.current == null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          const last = pendingShapeRef.current;
+          if (!last) return;
+
+          setShapes((current) =>
+            current.map((s) => (s.id === last.id ? { ...s, ...last } : s))
+          );
+
+          throttledTransient(last);
+        });
+      }
+    },
+    [throttledTransient]
+  );
+
+  const saveFinalPosition = useCallback((shape: Shape) => {
     setShapes((current) => current.map((s) => (s.id === shape.id ? shape : s)));
 
     updateShapeMutation({
@@ -145,9 +156,9 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     }).catch((e) => {
       console.error("updateShape mutation error", e);
     });
-  };
+  }, []);
 
-  const toggleLock = (id: string) => {
+  const toggleLock = useCallback((id: string) => {
     setShapes((current) => {
       const { nextShapes, nextLocked } = toggleLockLocal(current, id);
       if (nextLocked === null) return current;
@@ -167,9 +178,9 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
 
       return nextShapes;
     });
-  };
+  }, []);
 
-  const changeZIndex = (id: string, mode: "front" | "back") => {
+  const changeZIndex = useCallback((id: string, mode: "front" | "back") => {
     setShapes((current) => {
       const {
         nextShapes,
@@ -209,10 +220,14 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
 
       return nextShapes;
     });
-  };
+  }, []);
 
   const createShape = useCallback(
     async (input: CreateShapeInput) => {
+      const zIndex = [...shapes].sort(
+        (a, b) => (b.zIndex || 1) - (a.zIndex || 1)
+      )?.[0]?.zIndex;
+
       const newShape: Shape = {
         id: crypto.randomUUID(),
         boardId,
@@ -223,7 +238,7 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
         height: input.height,
         text: input.text ?? "",
         rotation: 0,
-        zIndex: 1,
+        zIndex: (zIndex || 1) + 1,
         locked: false,
         fill:
           input.fill ??

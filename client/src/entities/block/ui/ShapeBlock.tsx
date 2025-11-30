@@ -1,10 +1,11 @@
+import React from "react";
 import type { Shape } from "../model/types";
 
 interface ShapeBlockProps {
   shape: Shape;
 }
 
-export function ShapeBlock({ shape }: ShapeBlockProps) {
+export const ShapeBlock = React.memo(({ shape }: ShapeBlockProps) => {
   const fill = shape.fill || "#F9F9F9";
   const stroke = shape.stroke || "#E5E5E5";
   const strokeWidth = shape.strokeWidth || 1;
@@ -22,4 +23,4 @@ export function ShapeBlock({ shape }: ShapeBlockProps) {
       />
     </div>
   );
-}
+});
