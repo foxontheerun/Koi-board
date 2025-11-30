@@ -21,10 +21,11 @@ export function BoardPage() {
 
   return (
     <div className="board-root">
-      <TopBar zoom={zoom} setZoom={setZoom} />
+      <TopBar zoom={zoom} setZoom={setZoom} boardId={id} />
       <div className="flex-1 flex relative overflow-hidden bg-[#F5F5F5]">
         <Toolbar activeTool={activeTool} setActiveTool={setActiveTool} />
         <BoardCanvas
+          setActiveTool={setActiveTool}
           boardId={id}
           activeTool={activeTool}
           zoom={zoom}

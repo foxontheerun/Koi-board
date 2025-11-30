@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useSubscription } from "@apollo/client/react";
 import throttle from "lodash/throttle";
 
 import type { Shape } from "../../block/model/types";
 import type {
   BoardQueryResponse,
+  CreateShapeInput,
   ShapeInput,
   ShapeMovedSubscriptionResponse,
   ShapeUpdatedSubscriptionResponse,
@@ -190,6 +191,32 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     });
   };
 
+  const createShape = useCallback(
+    async (input: CreateShapeInput) => {
+      const newShape: Shape = {
+        id: crypto.randomUUID(),
+        boardId,
+        type: input.type,
+        x: input.x,
+        y: input.y,
+        width: input.width,
+        height: input.height,
+        text: input.text ?? "",
+        rotation: 0,
+        zIndex: shapes.length,
+        locked: false,
+      };
+
+      saveFinalPosition(newShape);
+    },
+    [boardId, shapes]
+  );
+
+  const deleteShape = (id: string) => {
+    // пока только локальное удаление
+    setShapes((prev) => prev.filter((s) => s.id !== id));
+  };
+
   const resultError = useMemo(
     () => (error ? new Error(error.message) : null),
     [error]
@@ -199,9 +226,12 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
     shapes,
     loading,
     error: resultError,
+    board: data?.board,
     broadcastTransientPosition,
     saveFinalPosition,
     changeZIndex,
     toggleLock,
+    createShape,
+    deleteShape,
   };
 }

@@ -16,12 +16,18 @@ interface BoardCanvasProps {
   activeTool: Tool;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  setActiveTool: (tool: Tool) => void;
 }
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 400;
 
-export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
+export function BoardCanvas({
+  boardId,
+  zoom,
+  onZoomChange,
+  activeTool,
+}: BoardCanvasProps) {
   const {
     shapes,
     loading,
@@ -30,6 +36,8 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
     saveFinalPosition,
     changeZIndex,
     toggleLock,
+    createShape,
+    deleteShape,
   } = useBoardShapes(boardId);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -39,6 +47,14 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
   } | null>(null);
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isCreating, setIsCreating] = useState(false);
+  const [draftShape, setDraftShape] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const creationStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const zoomScale = zoom / 100;
   const gridStyles = useGridSystem(zoomScale);
@@ -52,10 +68,100 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      setSelectedId(null);
-      setContextMenu(null);
+    // Создаём фигуру только если клик по пустому фону
+    if (e.target !== e.currentTarget) return;
+
+    // Только для инструментов создания
+    if (activeTool !== "rectangle" && activeTool !== "text") return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+
+    // координаты клика в системe доски (до scale)
+    const boardX = (e.clientX - rect.left) / zoomScale;
+    const boardY = (e.clientY - rect.top) / zoomScale;
+
+    creationStartRef.current = { x: boardX, y: boardY };
+    setIsCreating(true);
+
+    // начальный draft — точка, ширина/высота 0
+    setDraftShape({
+      x: boardX,
+      y: boardY,
+      width: 0,
+      height: 0,
+    });
+
+    // при начале создания сбрасываем выделение / контекстное меню
+    setSelectedId(null);
+    setContextMenu(null);
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isCreating || !creationStartRef.current) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const boardX = (e.clientX - rect.left) / zoomScale;
+    const boardY = (e.clientY - rect.top) / zoomScale;
+
+    const start = creationStartRef.current;
+
+    const dx = boardX - start.x;
+    const dy = boardY - start.y;
+
+    const x = dx >= 0 ? start.x : start.x + dx;
+    const y = dy >= 0 ? start.y : start.y + dy;
+    const width = Math.abs(dx);
+    const height = Math.abs(dy);
+
+    setDraftShape({
+      x,
+      y,
+      width,
+      height,
+    });
+  };
+
+  const handleCanvasMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isCreating || !creationStartRef.current) return;
+
+    const start = creationStartRef.current;
+
+    const defaultWidth = activeTool === "text" ? 160 : 120;
+    const defaultHeight = activeTool === "text" ? 40 : 80;
+
+    let x: number;
+    let y: number;
+    let width: number;
+    let height: number;
+
+    // если юзер просто кликнул, без реального драг-чего
+    if (!draftShape || draftShape.width < 4 || draftShape.height < 4) {
+      x = start.x - defaultWidth / 2;
+      y = start.y - defaultHeight / 2;
+      width = defaultWidth;
+      height = defaultHeight;
+    } else {
+      x = draftShape.x;
+      y = draftShape.y;
+      width = draftShape.width;
+      height = draftShape.height;
     }
+
+    if (activeTool === "rectangle" || activeTool === "text") {
+      createShape({
+        type: activeTool === "rectangle" ? "RECT" : "TEXT",
+        x,
+        y,
+        width,
+        height,
+        text: activeTool === "text" ? "New text" : undefined,
+      });
+    }
+
+    setIsCreating(false);
+    setDraftShape(null);
+    creationStartRef.current = null;
+    // setActiveTool("pointer");
   };
 
   const handleContextMenu = (e: React.MouseEvent, id: string) => {
@@ -119,6 +225,12 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
     setContextMenu(null);
   };
 
+  const handleDeleteClick = () => {
+    if (!selectedId) return;
+    deleteShape(selectedId);
+    setContextMenu(null);
+  };
+
   const selectedShape = shapes.find((s) => s.id === selectedId);
   const isSelectedLocked = !!selectedShape?.locked;
 
@@ -151,7 +263,23 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
             transformOrigin: "0 0",
           }}
           onMouseDown={handleCanvasMouseDown}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseUp={handleCanvasMouseUp}
         >
+          {draftShape &&
+            (activeTool === "rectangle" || activeTool === "text") && (
+              <div
+                className="pointer-events-none border-2 border-dashed border-blue-500/80 bg-blue-500/5"
+                style={{
+                  position: "absolute",
+                  left: draftShape.x,
+                  top: draftShape.y,
+                  width: draftShape.width,
+                  height: draftShape.height,
+                }}
+              />
+            )}
+
           {orderedShapes.map((shape) => (
             <ResizableDraggableShape
               key={shape.id}
@@ -192,6 +320,7 @@ export function BoardCanvas({ boardId, zoom, onZoomChange }: BoardCanvasProps) {
           onSendToBack={handleSendToBack}
           onToggleLock={handleToggleLock}
           isLocked={isSelectedLocked}
+          onDeleteClick={handleDeleteClick}
         />
       )}
     </div>
