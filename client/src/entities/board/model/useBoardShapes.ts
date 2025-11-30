@@ -215,8 +215,13 @@ export function useBoardShapes(boardId: string): UseBoardShapesResult {
         zIndex: 1,
         locked: false,
         fill:
-          input.type === "RECT" ? "oklch(80.9% 0.105 251.813)" : "transparent",
-        stroke: input.type === "RECT" ? "oklch(58.8% 0.158 241.966)" : "none",
+          input.fill ??
+          (input.type === "RECT"
+            ? "oklch(80.9% 0.105 251.813)"
+            : "transparent"),
+        stroke:
+          input.stroke ??
+          (input.type === "RECT" ? "oklch(58.8% 0.158 241.966)" : "none"),
       };
 
       saveFinalPosition(newShape);

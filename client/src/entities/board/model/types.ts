@@ -79,4 +79,6 @@ export type CreateShapeInput = {
   width: number;
   height: number;
   text?: string;
+  fill?: string;
+  stroke?: string;
 };

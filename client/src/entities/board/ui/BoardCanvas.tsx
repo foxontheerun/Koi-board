@@ -9,6 +9,8 @@ import {
   ShapeBlock,
   TextBlock,
   EllipseBlock,
+  type StickyColorId,
+  STICKY_PRESETS,
 } from "../../block";
 
 interface BoardCanvasProps {
@@ -17,6 +19,7 @@ interface BoardCanvasProps {
   zoom: number;
   onZoomChange: (zoom: number) => void;
   setActiveTool: (tool: Tool) => void;
+  stickyColorId: StickyColorId;
 }
 
 const MIN_ZOOM = 1;
@@ -27,6 +30,7 @@ export function BoardCanvas({
   zoom,
   onZoomChange,
   activeTool,
+  stickyColorId,
 }: BoardCanvasProps) {
   const {
     shapes,
@@ -148,6 +152,8 @@ export function BoardCanvas({
     }
 
     if (activeTool === "rectangle" || activeTool === "text") {
+      const preset = STICKY_PRESETS[stickyColorId];
+
       createShape({
         type: activeTool === "rectangle" ? "RECT" : "TEXT",
         x,
@@ -155,6 +161,8 @@ export function BoardCanvas({
         width,
         height,
         text: activeTool === "text" ? "New text" : undefined,
+        fill: activeTool === "rectangle" ? preset.fill : "",
+        stroke: activeTool === "rectangle" ? preset.stroke : "",
       });
     }
 
