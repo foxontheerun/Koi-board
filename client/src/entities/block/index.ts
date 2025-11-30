@@ -4,3 +4,4 @@ export { EllipseBlock } from "./ui/EllipseBlock";
 export { ResizableDraggableShape } from "./ui/ResizableDraggableShape";
 
 export * from "./model/types";
+export * from "./model/stickyPresets";

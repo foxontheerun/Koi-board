@@ -11,9 +11,8 @@ export function TextBlock({ shape }: TextBlockProps) {
 
   return (
     <div className="relative w-full h-full group">
-      {/* Text block */}
       <div
-        className={`w-full h-full rounded-[8px] p-4 flex items-center justify-center transition-all shadow-sm hover:shadow-md`}
+        className={`w-full h-full rounded-[8px] p-4 flex items-center justify-center transition-all`}
         style={{
           backgroundColor: fill,
           border: `${strokeWidth}px solid ${stroke}`,

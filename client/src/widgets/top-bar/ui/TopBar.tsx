@@ -8,7 +8,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ zoom, setZoom, boardId }: TopBarProps) {
-  const { board } = useBoardShapes(boardId);
+  // const { board } = useBoardShapes(boardId);
   const handleZoomIn = () => setZoom(Math.min(zoom + 5, 400));
   const handleZoomOut = () => setZoom(Math.max(zoom - 5, 1));
 
@@ -25,7 +25,8 @@ export function TopBar({ zoom, setZoom, boardId }: TopBarProps) {
             </svg>
           </div>
           <span className="text-[#1A1A1A]">
-            {board?.title || "Realtime Board"}
+            {/* {board?.title || "Realtime Board"} */}
+            Realtime Board
           </span>
         </div>
         <div className="h-6 w-px bg-[#E5E5E5]" />

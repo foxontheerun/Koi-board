@@ -55,8 +55,9 @@ func (r *mutationResolver) UpdateShape(ctx context.Context, boardID string, shap
 
 	// шлём событие
 	subscriptions.Publish(boardID, &graph.ShapeEvent{
-		Type:  eventType,
-		Shape: existing,
+		Type:     eventType,
+		Shape:    existing,
+		ClientID: clientID,
 	})
 
 	return existing, nil
@@ -65,11 +66,12 @@ func (r *mutationResolver) UpdateShape(ctx context.Context, boardID string, shap
 // MoveShapeTransient is the resolver for the moveShapeTransient field.
 func (r *mutationResolver) MoveShapeTransient(ctx context.Context, boardID string, shape graph.TransientShapeInput, clientID string) (bool, error) {
 	ts := &graph.TransientShape{
-		ID:     shape.ID,
-		X:      shape.X,
-		Y:      shape.Y,
-		Width:  shape.Width,
-		Height: shape.Height,
+		ID:       shape.ID,
+		X:        shape.X,
+		Y:        shape.Y,
+		Width:    shape.Width,
+		Height:   shape.Height,
+		ClientID: clientID,
 	}
 
 	// Публикуем в transient-пабсаб
@@ -103,8 +105,9 @@ func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shap
 
 	if deleted != nil {
 		subscriptions.Publish(boardID, &graph.ShapeEvent{
-			Type:  graph.ShapeEventTypeDeleted,
-			Shape: deleted,
+			Type:     graph.ShapeEventTypeDeleted,
+			Shape:    deleted,
+			ClientID: "system",
 		})
 	}
 

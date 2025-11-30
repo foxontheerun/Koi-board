@@ -52,4 +52,5 @@ enum ShapeEventType {
 type ShapeEvent {
   type: ShapeEventType!
   shape: Shape!
+  clientID: ID!
 }

@@ -9,6 +9,8 @@ import {
   ShapeBlock,
   TextBlock,
   EllipseBlock,
+  type StickyColorId,
+  STICKY_PRESETS,
 } from "../../block";
 
 interface BoardCanvasProps {
@@ -17,6 +19,7 @@ interface BoardCanvasProps {
   zoom: number;
   onZoomChange: (zoom: number) => void;
   setActiveTool: (tool: Tool) => void;
+  stickyColorId: StickyColorId;
 }
 
 const MIN_ZOOM = 1;
@@ -27,6 +30,8 @@ export function BoardCanvas({
   zoom,
   onZoomChange,
   activeTool,
+  stickyColorId,
+  setActiveTool,
 }: BoardCanvasProps) {
   const {
     shapes,
@@ -68,22 +73,18 @@ export function BoardCanvas({
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Создаём фигуру только если клик по пустому фону
     if (e.target !== e.currentTarget) return;
 
-    // Только для инструментов создания
     if (activeTool !== "rectangle" && activeTool !== "text") return;
 
     const rect = e.currentTarget.getBoundingClientRect();
 
-    // координаты клика в системe доски (до scale)
     const boardX = (e.clientX - rect.left) / zoomScale;
     const boardY = (e.clientY - rect.top) / zoomScale;
 
     creationStartRef.current = { x: boardX, y: boardY };
     setIsCreating(true);
 
-    // начальный draft — точка, ширина/высота 0
     setDraftShape({
       x: boardX,
       y: boardY,
@@ -91,13 +92,12 @@ export function BoardCanvas({
       height: 0,
     });
 
-    // при начале создания сбрасываем выделение / контекстное меню
     setSelectedId(null);
     setContextMenu(null);
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isCreating || !creationStartRef.current) return;
+    if (!creationStartRef.current) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const boardX = (e.clientX - rect.left) / zoomScale;
@@ -121,8 +121,8 @@ export function BoardCanvas({
     });
   };
 
-  const handleCanvasMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isCreating || !creationStartRef.current) return;
+  const handleCanvasMouseUp = () => {
+    if (!creationStartRef.current) return;
 
     const start = creationStartRef.current;
 
@@ -134,7 +134,6 @@ export function BoardCanvas({
     let width: number;
     let height: number;
 
-    // если юзер просто кликнул, без реального драг-чего
     if (!draftShape || draftShape.width < 4 || draftShape.height < 4) {
       x = start.x - defaultWidth / 2;
       y = start.y - defaultHeight / 2;
@@ -148,6 +147,8 @@ export function BoardCanvas({
     }
 
     if (activeTool === "rectangle" || activeTool === "text") {
+      const preset = STICKY_PRESETS[stickyColorId];
+
       createShape({
         type: activeTool === "rectangle" ? "RECT" : "TEXT",
         x,
@@ -155,13 +156,15 @@ export function BoardCanvas({
         width,
         height,
         text: activeTool === "text" ? "New text" : undefined,
+        fill: activeTool === "rectangle" ? preset.fill : "transparent",
+        stroke: activeTool === "rectangle" ? preset.stroke : "none",
       });
     }
 
     setIsCreating(false);
     setDraftShape(null);
     creationStartRef.current = null;
-    // setActiveTool("pointer");
+    setActiveTool("pointer");
   };
 
   const handleContextMenu = (e: React.MouseEvent, id: string) => {

@@ -28,8 +28,8 @@ export const BOARD_QUERY = gql`
 `;
 
 export const UPDATE_SHAPE_MUTATION = gql`
-  mutation UpdateShape($boardId: ID!, $shape: ShapeInput!, $clientId: ID!) {
-    updateShape(boardId: $boardId, shape: $shape, clientId: $clientId) {
+  mutation UpdateShape($boardId: ID!, $shape: ShapeInput!, $clientID: ID!) {
+    updateShape(boardId: $boardId, shape: $shape, clientID: $clientID) {
       id
       boardId
       type
@@ -54,9 +54,9 @@ export const MOVE_SHAPE_TRANSIENT_MUTATION = gql`
   mutation MoveShapeTransient(
     $boardId: ID!
     $shape: TransientShapeInput!
-    $clientId: ID!
+    $clientID: ID!
   ) {
-    moveShapeTransient(boardId: $boardId, shape: $shape, clientId: $clientId)
+    moveShapeTransient(boardId: $boardId, shape: $shape, clientID: $clientID)
   }
 `;
 
@@ -68,6 +68,7 @@ export const SHAPE_MOVED_SUBSCRIPTION = gql`
       y
       width
       height
+      clientID
     }
   }
 `;

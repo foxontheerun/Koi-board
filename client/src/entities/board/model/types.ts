@@ -33,6 +33,7 @@ export interface ShapeMovedSubscriptionResponse {
     y?: number;
     width?: number;
     height?: number;
+    clientID: string;
   };
 }
 
@@ -41,6 +42,7 @@ export type ShapeEventType = "CREATED" | "UPDATED" | "DELETED";
 export interface ShapeEvent {
   type: ShapeEventType;
   shape: Shape;
+  clientID: string;
 }
 
 export interface ShapeEventsSubscriptionResponse {
@@ -79,4 +81,6 @@ export type CreateShapeInput = {
   width: number;
   height: number;
   text?: string;
+  fill?: string;
+  stroke?: string;
 };

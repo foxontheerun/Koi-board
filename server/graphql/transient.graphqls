@@ -4,6 +4,7 @@ type TransientShape {
   y: Float
   width: Float
   height: Float
+  clientID: ID!
 }
 
 input TransientShapeInput {
