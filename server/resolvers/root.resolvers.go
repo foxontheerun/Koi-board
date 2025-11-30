@@ -35,6 +35,8 @@ func (r *mutationResolver) UpdateShape(ctx context.Context, boardID string, shap
 		}
 	}
 
+	eventType := graph.ShapeEventTypeUpdated
+
 	if existing == nil {
 		existing = &graph.Shape{
 			ID:       shape.ID,
@@ -44,13 +46,18 @@ func (r *mutationResolver) UpdateShape(ctx context.Context, boardID string, shap
 			Locked:   false,
 		}
 		board.Shapes = append(board.Shapes, existing)
+
+		eventType = graph.ShapeEventTypeCreated
 	}
 
-	// применяем PATCH
+	// применяем PATCH (ShapeInput -> Shape)
 	storage.ApplyShapePatch(existing, shape)
 
-	// шлём persisted-ивент
-	subscriptions.Publish(boardID, existing)
+	// шлём событие
+	subscriptions.Publish(boardID, &graph.ShapeEvent{
+		Type:  eventType,
+		Shape: existing,
+	})
 
 	return existing, nil
 }
@@ -69,6 +76,39 @@ func (r *mutationResolver) MoveShapeTransient(ctx context.Context, boardID strin
 	transient.Publish(boardID, ts)
 
 	return true, nil
+}
+
+// DeleteShape is the resolver for the deleteShape field.
+func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shapeID string) (bool, error) {
+	storage.BoardsMu.Lock()
+	defer storage.BoardsMu.Unlock()
+
+	board, exists := storage.Boards[boardID]
+	if !exists {
+		return false, nil
+	}
+
+	newShapes := make([]*graph.Shape, 0, len(board.Shapes))
+	var deleted *graph.Shape
+
+	for _, s := range board.Shapes {
+		if s.ID == shapeID {
+			deleted = s
+			continue
+		}
+		newShapes = append(newShapes, s)
+	}
+
+	board.Shapes = newShapes
+
+	if deleted != nil {
+		subscriptions.Publish(boardID, &graph.ShapeEvent{
+			Type:  graph.ShapeEventTypeDeleted,
+			Shape: deleted,
+		})
+	}
+
+	return deleted != nil, nil
 }
 
 // Board is the resolver for the board field.
@@ -108,8 +148,46 @@ func (r *subscriptionResolver) ShapeMoved(ctx context.Context, boardID string) (
 }
 
 // ShapeUpdated is the resolver for the shapeUpdated field.
+// Старый канал, теперь обёрнут над shapeEvents: пробрасываем только CREATED/UPDATED.
 func (r *subscriptionResolver) ShapeUpdated(ctx context.Context, boardID string) (<-chan *graph.Shape, error) {
-	ch := make(chan *graph.Shape, 1)
+	out := make(chan *graph.Shape, 1)       // то, что вернём наружу
+	evCh := make(chan *graph.ShapeEvent, 1) // внутренняя подписка
+
+	// подписываемся на события
+	subscriptions.Subscribe(boardID, evCh)
+
+	// отписка при завершении контекста
+	go func() {
+		<-ctx.Done()
+		subscriptions.Unsubscribe(boardID, evCh)
+		close(evCh)
+	}()
+
+	// пробрасываем только CREATED/UPDATED
+	go func() {
+		defer close(out)
+
+		for ev := range evCh {
+			if ev == nil || ev.Shape == nil {
+				continue
+			}
+
+			// старый shapeUpdated никогда не сообщал об удалении,
+			// поэтому события DELETED здесь просто пропускаем.
+			if ev.Type == graph.ShapeEventTypeDeleted {
+				continue
+			}
+
+			out <- ev.Shape
+		}
+	}()
+
+	return out, nil
+}
+
+// ShapeEvents is the resolver for the shapeEvents field.
+func (r *subscriptionResolver) ShapeEvents(ctx context.Context, boardID string) (<-chan *graph.ShapeEvent, error) {
+	ch := make(chan *graph.ShapeEvent, 1)
 	subscriptions.Subscribe(boardID, ch)
 
 	go func() {

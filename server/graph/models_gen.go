@@ -38,6 +38,11 @@ type Shape struct {
 	StrokeWidth *float64  `json:"strokeWidth,omitempty"`
 }
 
+type ShapeEvent struct {
+	Type  ShapeEventType `json:"type"`
+	Shape *Shape         `json:"shape"`
+}
+
 type ShapeInput struct {
 	ID          string     `json:"id"`
 	Type        *ShapeType `json:"type,omitempty"`
@@ -71,6 +76,63 @@ type TransientShapeInput struct {
 	Y      *float64 `json:"y,omitempty"`
 	Width  *float64 `json:"width,omitempty"`
 	Height *float64 `json:"height,omitempty"`
+}
+
+type ShapeEventType string
+
+const (
+	ShapeEventTypeCreated ShapeEventType = "CREATED"
+	ShapeEventTypeUpdated ShapeEventType = "UPDATED"
+	ShapeEventTypeDeleted ShapeEventType = "DELETED"
+)
+
+var AllShapeEventType = []ShapeEventType{
+	ShapeEventTypeCreated,
+	ShapeEventTypeUpdated,
+	ShapeEventTypeDeleted,
+}
+
+func (e ShapeEventType) IsValid() bool {
+	switch e {
+	case ShapeEventTypeCreated, ShapeEventTypeUpdated, ShapeEventTypeDeleted:
+		return true
+	}
+	return false
+}
+
+func (e ShapeEventType) String() string {
+	return string(e)
+}
+
+func (e *ShapeEventType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ShapeEventType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ShapeEventType", str)
+	}
+	return nil
+}
+
+func (e ShapeEventType) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ShapeEventType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ShapeEventType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 type ShapeType string

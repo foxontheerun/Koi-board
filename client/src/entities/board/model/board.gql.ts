@@ -94,3 +94,35 @@ export const SHAPE_UPDATED_SUBSCRIPTION = gql`
     }
   }
 `;
+
+export const SHAPE_EVENTS_SUBSCRIPTION = gql`
+  subscription ShapeEvents($boardId: ID!) {
+    shapeEvents(boardId: $boardId) {
+      type
+      shape {
+        id
+        boardId
+        type
+
+        x
+        y
+        width
+        height
+
+        text
+        rotation
+        zIndex
+        locked
+        fill
+        stroke
+        strokeWidth
+      }
+    }
+  }
+`;
+
+export const DELETE_SHAPE_MUTATION = gql`
+  mutation DeleteShape($boardId: ID!, $shapeId: ID!) {
+    deleteShape(boardId: $boardId, shapeId: $shapeId)
+  }
+`;

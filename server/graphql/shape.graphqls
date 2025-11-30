@@ -42,3 +42,14 @@ input ShapeInput {
   stroke: String
   strokeWidth: Float
 }
+
+enum ShapeEventType {
+  CREATED
+  UPDATED
+  DELETED
+}
+
+type ShapeEvent {
+  type: ShapeEventType!
+  shape: Shape!
+}

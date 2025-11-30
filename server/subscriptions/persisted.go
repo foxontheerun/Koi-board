@@ -2,49 +2,53 @@ package subscriptions
 
 import (
 	"sync"
+
 	"server/graph"
 )
 
-var (
-	SubsMuP      sync.RWMutex
-	SubsP        = map[string]map[chan *graph.Shape]struct{}{}
-)
+var mu sync.RWMutex
 
-func Publish(boardID string, s *graph.Shape) {
-	SubsMuP.RLock()
-	defer SubsMuP.RUnlock()
+var subscribers = make(map[string][]chan *graph.ShapeEvent)
 
-	if subs, ok := SubsP[boardID]; ok {
-		for ch := range subs {
-			select {
-			case ch <- s:
-			default:
-			}
+func Subscribe(boardID string, ch chan *graph.ShapeEvent) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	subscribers[boardID] = append(subscribers[boardID], ch)
+}
+
+func Unsubscribe(boardID string, ch chan *graph.ShapeEvent) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	list := subscribers[boardID]
+	if len(list) == 0 {
+		return
+	}
+
+	newList := make([]chan *graph.ShapeEvent, 0, len(list))
+	for _, c := range list {
+		if c != ch {
+			newList = append(newList, c)
 		}
 	}
-}
 
-func Subscribe(boardID string, ch chan *graph.Shape) {
-	SubsMuP.Lock()
-	defer SubsMuP.Unlock()
-
-	if SubsP[boardID] == nil {
-		SubsP[boardID] = map[chan *graph.Shape]struct{}{}
+	if len(newList) == 0 {
+		delete(subscribers, boardID)
+	} else {
+		subscribers[boardID] = newList
 	}
-
-	SubsP[boardID][ch] = struct{}{}
 }
 
-func Unsubscribe(boardID string, ch chan *graph.Shape) {
-	SubsMuP.Lock()
-	defer SubsMuP.Unlock()
+func Publish(boardID string, event *graph.ShapeEvent) {
+	mu.RLock()
+	defer mu.RUnlock()
 
-	if subs, ok := SubsP[boardID]; ok {
-		delete(subs, ch)
-		close(ch)
-
-		if len(subs) == 0 {
-			delete(SubsP, boardID)
+	for _, ch := range subscribers[boardID] {
+		select {
+		case ch <- event:
+		default:
+			// канал забит – пропускаем, чтобы не блокироваться
 		}
 	}
 }

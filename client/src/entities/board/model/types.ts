@@ -4,10 +4,13 @@ export type UseBoardShapesResult = {
   shapes: Shape[];
   loading: boolean;
   error: Error | null;
+  board?: BoardGQL;
   broadcastTransientPosition: (shape: Shape) => void;
   saveFinalPosition: (shape: Shape) => void;
   changeZIndex: (id: string, mode: "front" | "back") => void;
   toggleLock: (id: string) => void;
+  createShape: (input: CreateShapeInput) => void;
+  deleteShape: (id: string) => void;
 };
 
 // types/graphql.ts
@@ -33,8 +36,15 @@ export interface ShapeMovedSubscriptionResponse {
   };
 }
 
-export interface ShapeUpdatedSubscriptionResponse {
-  shapeUpdated: Shape;
+export type ShapeEventType = "CREATED" | "UPDATED" | "DELETED";
+
+export interface ShapeEvent {
+  type: ShapeEventType;
+  shape: Shape;
+}
+
+export interface ShapeEventsSubscriptionResponse {
+  shapeEvents: ShapeEvent;
 }
 
 // Mutation input types
@@ -61,3 +71,12 @@ export interface TransientShapeInput {
   width: number;
   height: number;
 }
+
+export type CreateShapeInput = {
+  type: Shape["type"];
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text?: string;
+};

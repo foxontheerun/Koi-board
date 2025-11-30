@@ -19,6 +19,8 @@ extend type Mutation {
     shape: TransientShapeInput!
     clientId: ID!
   ): Boolean!
+
+  deleteShape(boardId: ID!, shapeId: ID!): Boolean!
 }
 
 extend type Subscription {
@@ -27,4 +29,7 @@ extend type Subscription {
 
   # persisted update
   shapeUpdated(boardId: ID!): Shape!
+
+  # новый нормальный канал событий
+  shapeEvents(boardId: ID!): ShapeEvent!
 }

@@ -1,7 +1,7 @@
 import type { Shape } from "../../block/model/types";
 import type {
+  ShapeEventsSubscriptionResponse,
   ShapeMovedSubscriptionResponse,
-  ShapeUpdatedSubscriptionResponse,
 } from "./types";
 
 export function applyMovedShape(
@@ -24,18 +24,36 @@ export function applyMovedShape(
   );
 }
 
-export function applyUpdatedShape(
+export function applyShapeEvent(
   current: Shape[],
-  updatedData?: ShapeUpdatedSubscriptionResponse
+  eventsData?: ShapeEventsSubscriptionResponse
 ): Shape[] {
-  const updated = updatedData?.shapeUpdated;
-  if (!updated) return current;
+  const event = eventsData?.shapeEvents;
+  if (!event) return current;
 
-  const exists = current.some((s) => s.id === updated.id);
-  if (exists) {
-    return current.map((s) => (s.id === updated.id ? updated : s));
+  const { type, shape } = event;
+  if (!shape) return current;
+
+  switch (type) {
+    case "DELETED": {
+      return current.filter((s) => s.id !== shape.id);
+    }
+
+    case "CREATED":
+    case "UPDATED": {
+      const index = current.findIndex((s) => s.id === shape.id);
+      if (index === -1) {
+        return [...current, shape];
+      }
+
+      const next = current.slice();
+      next[index] = { ...next[index], ...shape };
+      return next;
+    }
+
+    default:
+      return current;
   }
-  return [...current, updated];
 }
 
 export function toggleLockLocal(

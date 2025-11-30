@@ -53,6 +53,7 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
+		DeleteShape        func(childComplexity int, boardID string, shapeID string) int
 		MoveShapeTransient func(childComplexity int, boardID string, shape TransientShapeInput, clientID string) int
 		UpdateShape        func(childComplexity int, boardID string, shape ShapeInput, clientID string) int
 	}
@@ -79,7 +80,13 @@ type ComplexityRoot struct {
 		ZIndex      func(childComplexity int) int
 	}
 
+	ShapeEvent struct {
+		Shape func(childComplexity int) int
+		Type  func(childComplexity int) int
+	}
+
 	Subscription struct {
+		ShapeEvents  func(childComplexity int, boardID string) int
 		ShapeMoved   func(childComplexity int, boardID string) int
 		ShapeUpdated func(childComplexity int, boardID string) int
 	}
@@ -96,6 +103,7 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	UpdateShape(ctx context.Context, boardID string, shape ShapeInput, clientID string) (*Shape, error)
 	MoveShapeTransient(ctx context.Context, boardID string, shape TransientShapeInput, clientID string) (bool, error)
+	DeleteShape(ctx context.Context, boardID string, shapeID string) (bool, error)
 }
 type QueryResolver interface {
 	Board(ctx context.Context, id string) (*Board, error)
@@ -104,6 +112,7 @@ type QueryResolver interface {
 type SubscriptionResolver interface {
 	ShapeMoved(ctx context.Context, boardID string) (<-chan *TransientShape, error)
 	ShapeUpdated(ctx context.Context, boardID string) (<-chan *Shape, error)
+	ShapeEvents(ctx context.Context, boardID string) (<-chan *ShapeEvent, error)
 }
 
 type executableSchema struct {
@@ -144,6 +153,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Board.Title(childComplexity), true
 
+	case "Mutation.deleteShape":
+		if e.complexity.Mutation.DeleteShape == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteShape_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteShape(childComplexity, args["boardId"].(string), args["shapeId"].(string)), true
 	case "Mutation.moveShapeTransient":
 		if e.complexity.Mutation.MoveShapeTransient == nil {
 			break
@@ -270,6 +290,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Shape.ZIndex(childComplexity), true
 
+	case "ShapeEvent.shape":
+		if e.complexity.ShapeEvent.Shape == nil {
+			break
+		}
+
+		return e.complexity.ShapeEvent.Shape(childComplexity), true
+	case "ShapeEvent.type":
+		if e.complexity.ShapeEvent.Type == nil {
+			break
+		}
+
+		return e.complexity.ShapeEvent.Type(childComplexity), true
+
+	case "Subscription.shapeEvents":
+		if e.complexity.Subscription.ShapeEvents == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_shapeEvents_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.ShapeEvents(childComplexity, args["boardId"].(string)), true
 	case "Subscription.shapeMoved":
 		if e.complexity.Subscription.ShapeMoved == nil {
 			break
@@ -475,6 +519,8 @@ extend type Mutation {
     shape: TransientShapeInput!
     clientId: ID!
   ): Boolean!
+
+  deleteShape(boardId: ID!, shapeId: ID!): Boolean!
 }
 
 extend type Subscription {
@@ -483,6 +529,9 @@ extend type Subscription {
 
   # persisted update
   shapeUpdated(boardId: ID!): Shape!
+
+  # новый нормальный канал событий
+  shapeEvents(boardId: ID!): ShapeEvent!
 }
 `, BuiltIn: false},
 	{Name: "../graphql/shape.graphqls", Input: `enum ShapeType {
@@ -529,6 +578,17 @@ input ShapeInput {
   stroke: String
   strokeWidth: Float
 }
+
+enum ShapeEventType {
+  CREATED
+  UPDATED
+  DELETED
+}
+
+type ShapeEvent {
+  type: ShapeEventType!
+  shape: Shape!
+}
 `, BuiltIn: false},
 	{Name: "../graphql/transient.graphqls", Input: `type TransientShape {
   id: ID!
@@ -552,6 +612,22 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
+
+func (ec *executionContext) field_Mutation_deleteShape_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "boardId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["boardId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "shapeId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["shapeId"] = arg1
+	return args, nil
+}
 
 func (ec *executionContext) field_Mutation_moveShapeTransient_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -614,6 +690,17 @@ func (ec *executionContext) field_Query_board_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_shapeEvents_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "boardId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["boardId"] = arg0
 	return args, nil
 }
 
@@ -914,6 +1001,47 @@ func (ec *executionContext) fieldContext_Mutation_moveShapeTransient(ctx context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_moveShapeTransient_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteShape(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_deleteShape,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().DeleteShape(ctx, fc.Args["boardId"].(string), fc.Args["shapeId"].(string))
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deleteShape(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteShape_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1512,6 +1640,94 @@ func (ec *executionContext) fieldContext_Shape_strokeWidth(_ context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _ShapeEvent_type(ctx context.Context, field graphql.CollectedField, obj *ShapeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ShapeEvent_type,
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		ec.marshalNShapeEventType2serverᚋgraphᚐShapeEventType,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ShapeEvent_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ShapeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ShapeEventType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ShapeEvent_shape(ctx context.Context, field graphql.CollectedField, obj *ShapeEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ShapeEvent_shape,
+		func(ctx context.Context) (any, error) {
+			return obj.Shape, nil
+		},
+		nil,
+		ec.marshalNShape2ᚖserverᚋgraphᚐShape,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ShapeEvent_shape(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ShapeEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Shape_id(ctx, field)
+			case "boardId":
+				return ec.fieldContext_Shape_boardId(ctx, field)
+			case "type":
+				return ec.fieldContext_Shape_type(ctx, field)
+			case "x":
+				return ec.fieldContext_Shape_x(ctx, field)
+			case "y":
+				return ec.fieldContext_Shape_y(ctx, field)
+			case "width":
+				return ec.fieldContext_Shape_width(ctx, field)
+			case "height":
+				return ec.fieldContext_Shape_height(ctx, field)
+			case "text":
+				return ec.fieldContext_Shape_text(ctx, field)
+			case "rotation":
+				return ec.fieldContext_Shape_rotation(ctx, field)
+			case "zIndex":
+				return ec.fieldContext_Shape_zIndex(ctx, field)
+			case "locked":
+				return ec.fieldContext_Shape_locked(ctx, field)
+			case "fill":
+				return ec.fieldContext_Shape_fill(ctx, field)
+			case "stroke":
+				return ec.fieldContext_Shape_stroke(ctx, field)
+			case "strokeWidth":
+				return ec.fieldContext_Shape_strokeWidth(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Shape", field.Name)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Subscription_shapeMoved(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
 	return graphql.ResolveFieldStream(
 		ctx,
@@ -1630,6 +1846,53 @@ func (ec *executionContext) fieldContext_Subscription_shapeUpdated(ctx context.C
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Subscription_shapeUpdated_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_shapeEvents(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_shapeEvents,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Subscription().ShapeEvents(ctx, fc.Args["boardId"].(string))
+		},
+		nil,
+		ec.marshalNShapeEvent2ᚖserverᚋgraphᚐShapeEvent,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_shapeEvents(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "type":
+				return ec.fieldContext_ShapeEvent_type(ctx, field)
+			case "shape":
+				return ec.fieldContext_ShapeEvent_shape(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ShapeEvent", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_shapeEvents_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3483,6 +3746,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "deleteShape":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteShape(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3689,6 +3959,50 @@ func (ec *executionContext) _Shape(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
+var shapeEventImplementors = []string{"ShapeEvent"}
+
+func (ec *executionContext) _ShapeEvent(ctx context.Context, sel ast.SelectionSet, obj *ShapeEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, shapeEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ShapeEvent")
+		case "type":
+			out.Values[i] = ec._ShapeEvent_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "shape":
+			out.Values[i] = ec._ShapeEvent_shape(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var subscriptionImplementors = []string{"Subscription"}
 
 func (ec *executionContext) _Subscription(ctx context.Context, sel ast.SelectionSet) func(ctx context.Context) graphql.Marshaler {
@@ -3706,6 +4020,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_shapeMoved(ctx, fields[0])
 	case "shapeUpdated":
 		return ec._Subscription_shapeUpdated(ctx, fields[0])
+	case "shapeEvents":
+		return ec._Subscription_shapeEvents(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
@@ -4213,6 +4529,30 @@ func (ec *executionContext) marshalNShape2ᚖserverᚋgraphᚐShape(ctx context.
 		return graphql.Null
 	}
 	return ec._Shape(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNShapeEvent2serverᚋgraphᚐShapeEvent(ctx context.Context, sel ast.SelectionSet, v ShapeEvent) graphql.Marshaler {
+	return ec._ShapeEvent(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNShapeEvent2ᚖserverᚋgraphᚐShapeEvent(ctx context.Context, sel ast.SelectionSet, v *ShapeEvent) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ShapeEvent(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNShapeEventType2serverᚋgraphᚐShapeEventType(ctx context.Context, v any) (ShapeEventType, error) {
+	var res ShapeEventType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNShapeEventType2serverᚋgraphᚐShapeEventType(ctx context.Context, sel ast.SelectionSet, v ShapeEventType) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNShapeInput2serverᚋgraphᚐShapeInput(ctx context.Context, v any) (ShapeInput, error) {

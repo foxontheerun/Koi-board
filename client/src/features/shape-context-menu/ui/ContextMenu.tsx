@@ -9,6 +9,7 @@ interface ContextMenuProps {
   onSendToBack: () => void;
   onToggleLock: () => void;
   isLocked: boolean;
+  onDeleteClick: () => void;
 }
 
 export function ContextMenu({
@@ -18,6 +19,7 @@ export function ContextMenu({
   onBringToFront,
   onSendToBack,
   onToggleLock,
+  onDeleteClick,
   isLocked,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -35,7 +37,11 @@ export function ContextMenu({
 
   const menuItems = [
     { icon: <Copy className="w-4 h-4" />, label: "Copy" },
-    { icon: <Trash2 className="w-4 h-4" />, label: "Delete" },
+    {
+      icon: <Trash2 className="w-4 h-4" />,
+      label: "Delete",
+      onClick: onDeleteClick,
+    },
     { divider: true },
     {
       icon: <MoveUp className="w-4 h-4" />,
