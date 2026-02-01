@@ -28,7 +28,7 @@ export class StaticLayer {
     ctx.save();
 
     this.shapes.forEach((s) => {
-      CanvasPainter.drawidthStyledRect(ctx, s as Shape);
+      CanvasPainter.drawRectShape(ctx, s as Shape, camera);
     });
 
     ctx.restore();

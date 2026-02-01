@@ -10,7 +10,6 @@ const BASE_UNIT = 25;
 
 const MIN_VISIBLE_PX = 6;
 const MAX_VISIBLE_PX = 260;
-const IDEAL_GRID_PIXEL_SIZE = 100;
 
 // GRID_LEVELS описывает вложенные уровни сетки.
 // Каждая клетка уровня = baseSize * mult.
@@ -69,39 +68,3 @@ export const buildGridLayers = (zoom: number): GridLayerConfig[] => {
 
   return layers.sort((a, b) => b.size - a.size);
 };
-
-/**
- * Возвращает inline-стили для фоновой сетки доски.
- * Сетка состоит из нескольких слоёв (разных шагов), привязанных к zoomScale,
- * с отключением слишком мелких/слишком крупных уровней и мягкой подстройкой прозрачности.
- */
-// export const _useGridSystem = (zoomScale: number) => {
-//   return useMemo(() => {
-//     const layers = buildGridLayers(zoomScale);
-
-//     const backgrounds: string[] = [];
-//     const sizes: string[] = [];
-//     const positions: string[] = [];
-
-//     layers.forEach((layer) => {
-//       backgrounds.push(
-//         `linear-gradient(rgba(${BASE_GRID_COLOR}, ${layer.opacity}) ${layer.lineWidth}px, transparent ${layer.lineWidth}px)`,
-//         `linear-gradient(90deg, rgba(${BASE_GRID_COLOR}, ${layer.opacity}) ${layer.lineWidth}px, transparent ${layer.lineWidth}px)`
-//       );
-
-//       sizes.push(
-//         `${layer.size}px ${layer.size}px`,
-//         `${layer.size}px ${layer.size}px`
-//       );
-
-//       positions.push("0 0", "0 0");
-//     });
-
-//     return {
-//       backgroundImage: backgrounds.join(", "),
-//       backgroundSize: sizes.join(", "),
-//       backgroundPosition: positions.join(", "),
-//       backgroundColor: "#fafafa",
-//     } as const;
-//   }, [zoomScale]);
-// };

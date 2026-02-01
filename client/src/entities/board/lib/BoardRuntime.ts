@@ -5,46 +5,50 @@ import { StaticLayer } from "../layers/StaticLayer";
 export class BoardRuntime {
   camera = new CameraController();
 
-  private ctx: CanvasRenderingContext2D;
-  private rafId: number | null = null;
-  private canvas: HTMLCanvasElement;
+  private gridCtx: CanvasRenderingContext2D;
+  private mainCtx: CanvasRenderingContext2D;
+  private gridCanvas: HTMLCanvasElement;
+  private mainCanvas: HTMLCanvasElement;
 
   gridLayer = new GridLayer();
   staticLayer = new StaticLayer();
-  //   dragLayer = new DragLayer()
-  //   overlayLayer = new OverlayLayer()
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.camera.updateViewport(canvas);
-    this.canvas = canvas;
-    this.ctx = canvas.getContext("2d")!;
-    this.resize();
-    this.loop();
+  constructor(gridCanvas: HTMLCanvasElement, mainCanvas: HTMLCanvasElement) {
+    this.gridCanvas = gridCanvas;
+    this.mainCanvas = mainCanvas;
+    this.gridCtx = gridCanvas.getContext("2d")!;
+    this.mainCtx = mainCanvas.getContext("2d")!;
+
+    this.updateSize();
+
+    this.camera.subscribe(() => {
+      this.draw();
+    });
+
+    this.draw();
   }
 
-  loop = () => {
+  updateSize() {
+    const rect = this.mainCanvas.getBoundingClientRect();
+
+    [this.gridCanvas, this.mainCanvas].forEach((canvas) => {
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    });
+
+    this.camera.updateViewport(this.mainCanvas);
     this.draw();
-    this.rafId = requestAnimationFrame(this.loop);
-  };
+  }
 
   draw() {
-    const camera = this.camera.state;
-    const ctx = this.ctx;
+    const cameraState = this.camera.state;
 
-    ctx.clearRect(0, 0, camera.viewportWidth, camera.viewportHeight);
+    this.gridCtx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
+    this.gridLayer.draw(this.gridCtx, cameraState);
 
-    this.gridLayer.draw(ctx, camera);
-    this.staticLayer.draw(ctx, camera);
+    this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+    this.staticLayer.draw(this.mainCtx, cameraState);
   }
 
-  resize() {
-    const dpr = window.devicePixelRatio;
-    this.canvas.width = this.canvas.clientWidth * dpr;
-    this.canvas.height = this.canvas.clientHeight * dpr;
-    this.ctx.scale(dpr, dpr);
-  }
-
-  dispose() {
-    if (this.rafId) cancelAnimationFrame(this.rafId);
-  }
+  dispose() {}
 }

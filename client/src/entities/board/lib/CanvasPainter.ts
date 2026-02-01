@@ -1,41 +1,38 @@
 import type { Shape } from "../../block";
+import type { CameraState } from "../layers/GridLayer";
 
 export class CanvasPainter {
-  static drawidthStyledRect(ctx: CanvasRenderingContext2D, rect: Shape) {
+  public static drawRectShape(
+    ctx: CanvasRenderingContext2D,
+    rect: Shape,
+    camera: CameraState
+  ) {
     const { fill = "blue", stroke = "black" } = rect;
     const radius = 8;
 
+    const x = rect.x * camera.zoom + camera.offsetX;
+    const y = rect.y * camera.zoom + camera.offsetY;
+
+    const width = rect.width * camera.zoom;
+    const height = rect.height * camera.zoom;
+
     if (radius <= 0) {
       ctx.fillStyle = fill as string;
-      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+      ctx.fillRect(x, y, width, height);
       ctx.strokeStyle = stroke as string;
-      ctx.strokeRect(rect.x, rect.y, rect.width, rect.width);
+      ctx.strokeRect(x, y, width, height);
     } else {
+      const r = radius * camera.zoom;
       ctx.beginPath();
-      ctx.moveTo(rect.x + radius, rect.y);
-      ctx.lineTo(rect.x + rect.width - radius, rect.y);
-      ctx.quadraticCurveTo(
-        rect.x + rect.width,
-        rect.y,
-        rect.x + rect.width,
-        rect.y + radius
-      );
-      ctx.lineTo(rect.x + rect.width, rect.y + rect.height - radius);
-      ctx.quadraticCurveTo(
-        rect.x + rect.width,
-        rect.y + rect.height,
-        rect.x + rect.width - radius,
-        rect.y + rect.height
-      );
-      ctx.lineTo(rect.x + radius, rect.y + rect.height);
-      ctx.quadraticCurveTo(
-        rect.x,
-        rect.y + rect.height,
-        rect.x,
-        rect.y + rect.height - radius
-      );
-      ctx.lineTo(rect.x, rect.y + radius);
-      ctx.quadraticCurveTo(rect.x, rect.y, rect.x + radius, rect.y);
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + width - r, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+      ctx.lineTo(x + width, y + height - r);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+      ctx.lineTo(x + r, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
       ctx.closePath();
 
       ctx.fillStyle = fill as string;

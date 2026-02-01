@@ -1,20 +1,37 @@
 import { Undo2, Redo2, Share2, ZoomIn, ZoomOut } from "lucide-react";
-import { useBoardShapes } from "../../../entities/board/model/useBoardShapes";
+import { useEffect, useState } from "react";
+import { useCamera } from "../../../entities/board/model/CameraContext";
+import { MAX_ZOOM, MIN_ZOOM } from "../../../entities/board/ui/BoardCanvasNew";
 
-interface TopBarProps {
-  zoom: number;
-  boardId: string;
-  setZoom: (zoom: number) => void;
-}
+export function TopBar() {
+  const camera = useCamera();
 
-export function TopBar({ zoom, setZoom, boardId }: TopBarProps) {
-  // const { board } = useBoardShapes(boardId);
-  const handleZoomIn = () => setZoom(Math.min(zoom + 5, 400));
-  const handleZoomOut = () => setZoom(Math.max(zoom - 5, 1));
+  const [zoomPercent, setZoomPercent] = useState(Math.round(camera.zoom * 100));
+
+  useEffect(() => {
+    const unsubList = camera.subscribe(() => {
+      setZoomPercent(Math.round(camera.zoom * 100));
+    });
+
+    return () => {
+      if (Array.isArray(unsubList)) {
+        unsubList.forEach((u) => u());
+      } else if (typeof unsubList === "function") {
+        unsubList();
+      }
+    };
+  }, [camera]);
+
+  const handleZoomIn = () => {
+    camera.setZoom(Math.min(camera.zoom * 1.05, MAX_ZOOM / 100));
+  };
+
+  const handleZoomOut = () => {
+    camera.setZoom(Math.max(camera.zoom * 0.95, MIN_ZOOM / 100));
+  };
 
   return (
     <div className="h-14 bg-white border-b border-[#E5E5E5] flex items-center justify-between px-4 shadow-sm">
-      {/* Left section */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-[#4A65F6] flex items-center justify-center">
@@ -24,10 +41,7 @@ export function TopBar({ zoom, setZoom, boardId }: TopBarProps) {
               <rect x="2" y="9" width="5" height="5" rx="1" fill="white" />
             </svg>
           </div>
-          <span className="text-[#1A1A1A]">
-            {/* {board?.title || "Realtime Board"} */}
-            Realtime Board
-          </span>
+          <span className="text-[#1A1A1A]">Realtime Board</span>
         </div>
         <div className="h-6 w-px bg-[#E5E5E5]" />
         <input
@@ -37,7 +51,6 @@ export function TopBar({ zoom, setZoom, boardId }: TopBarProps) {
         />
       </div>
 
-      {/* Center section */}
       <div className="flex items-center gap-2">
         <button className="p-2 hover:bg-[#F5F5F5] rounded-lg transition-colors">
           <Undo2 className="w-4 h-4 text-[#666666]" />
@@ -53,7 +66,9 @@ export function TopBar({ zoom, setZoom, boardId }: TopBarProps) {
           >
             <ZoomOut className="w-3.5 h-3.5 text-[#666666]" />
           </button>
-          <span className="text-[#666666] min-w-12 text-center">{zoom}%</span>
+          <span className="text-[#666666] min-w-12 text-center">
+            {zoomPercent}%
+          </span>
           <button
             onClick={handleZoomIn}
             className="p-1 hover:bg-[#E5E5E5] rounded transition-colors"
@@ -63,7 +78,6 @@ export function TopBar({ zoom, setZoom, boardId }: TopBarProps) {
         </div>
       </div>
 
-      {/* Right section */}
       <div className="flex items-center gap-3">
         <button className="px-4 py-1.5 bg-[#4A65F6] text-white rounded-lg hover:bg-[#3B52CC] transition-colors flex items-center gap-2">
           <Share2 className="w-4 h-4" />
