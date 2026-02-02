@@ -1,3 +1,5 @@
+import type { ShapeType } from "../../block";
+
 // import type { Shape } from "../../block";
 export interface _Shape {
   id: string;
@@ -9,6 +11,7 @@ export interface _Shape {
   stroke: string;
   strokeWidth?: string;
   radius?: number;
+  type?: ShapeType;
   state: "static" | "dragging";
 }
 
@@ -24,6 +27,7 @@ export class EntityManager {
       stroke: "#9deb55ff",
       state: "static",
       radius: 8,
+      type: "RECT",
     },
     {
       id: "2",
@@ -35,6 +39,19 @@ export class EntityManager {
       stroke: "#ff00d4ff",
       state: "static",
       radius: 8,
+      type: "RECT",
+    },
+    {
+      id: "2",
+      x: 600,
+      y: 400,
+      width: 250,
+      height: 100,
+      fill: "#7cffee65",
+      stroke: "#78e4d5ff",
+      state: "static",
+      radius: 8,
+      type: "ELLIPSE",
     },
   ];
 

@@ -9,7 +9,14 @@ export class DragLayer {
 
     shapes.forEach((s) => {
       if (s.state != "dragging") return;
-      CanvasPainter.drawRectShape(ctx, s as unknown as Shape, camera);
+      switch (s.type) {
+        case "ELLIPSE":
+          CanvasPainter.drawEllipseShape(ctx, s as unknown as Shape, camera);
+          break;
+        case "RECT":
+        default:
+          CanvasPainter.drawRectShape(ctx, s as unknown as Shape, camera);
+      }
     });
 
     ctx.restore();

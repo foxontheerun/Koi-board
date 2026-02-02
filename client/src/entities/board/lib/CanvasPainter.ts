@@ -49,5 +49,50 @@ export class CanvasPainter {
     }
   }
 
-  public static drawBorder() {}
+  public static drawEllipseShape(
+    ctx: CanvasRenderingContext2D,
+    ellipse: Shape,
+    camera: CameraState
+  ) {
+    const {
+      fill = "blue",
+      stroke = "black",
+      strokeWidth = 2,
+      rotation = 0,
+    } = ellipse;
+
+    const x = ellipse.x * camera.zoom + camera.offsetX;
+    const y = ellipse.y * camera.zoom + camera.offsetY;
+    const width = ellipse.width * camera.zoom;
+    const height = ellipse.height * camera.zoom;
+
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    const radiusX = width / 2;
+    const radiusY = height / 2;
+
+    const lineWidth = strokeWidth || 1;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(rotation);
+
+    ctx.beginPath();
+
+    ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+
+    if (fill) {
+      ctx.fillStyle = fill as string;
+      ctx.fill();
+    }
+
+    if (stroke && lineWidth > 0) {
+      ctx.strokeStyle = stroke as string;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+    }
+
+    ctx.closePath();
+    ctx.restore();
+  }
 }

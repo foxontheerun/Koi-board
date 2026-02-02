@@ -4,6 +4,7 @@ import { StaticLayer } from "../layers/StaticLayer";
 import { DragLayer } from "../layers/DragLayer";
 import { EntityManager, type _Shape } from "../model/EntityManager";
 import { Overlay } from "../layers/Overlay";
+import { ImagePainter } from "./ImagePainter";
 
 export class BoardRuntime {
   camera = new CameraController();
@@ -74,6 +75,7 @@ export class BoardRuntime {
     this.drawStatic();
     this.drawDrag();
     this.drawOverlay();
+    this.drawImageWithCamera();
   }
 
   drawGrid() {
@@ -89,6 +91,7 @@ export class BoardRuntime {
       this.camera.state,
       this.entityManager.getShapes()
     );
+    this.drawImageWithCamera();
   }
 
   drawDrag() {
@@ -164,4 +167,17 @@ export class BoardRuntime {
   }
 
   dispose() {}
+
+  // test
+  async drawImageWithCamera() {
+    await ImagePainter.drawImage(
+      this.mainCtx,
+      "joker.jpg",
+      400,
+      400,
+      150,
+      150,
+      this.camera.state
+    );
+  }
 }
