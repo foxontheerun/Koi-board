@@ -1,0 +1,22 @@
+import type { ShapeType } from "../../block";
+
+export class ShapeModel {
+  private shape;
+  constructor(shape: _Shape) {
+    this.shape = shape;
+  }
+}
+
+export interface _Shape {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill: string;
+  stroke: string;
+  strokeWidth?: string;
+  radius?: number;
+  type?: ShapeType;
+  state: "static" | "dragging";
+}

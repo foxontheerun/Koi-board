@@ -1,4 +1,5 @@
 import type { Shape } from "../../block";
+import type { _Shape } from "../model/EntityManager";
 import { adjustHexBrightness } from "./colorUtils";
 
 export class CanvasPainter {
@@ -150,6 +151,67 @@ export class CanvasPainter {
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
+    ctx.restore();
+  }
+
+  static drawHeart(ctx: CanvasRenderingContext2D, shape: _Shape) {
+    const { x, y, width: w, height: h, fill, stroke, strokeWidth } = shape;
+
+    ctx.save();
+
+    const gradient = ctx.createLinearGradient(x, y, x, y + h);
+
+    gradient.addColorStop(0, adjustHexBrightness(fill, 5, "darken"));
+    gradient.addColorStop(1, adjustHexBrightness(fill, 15, "lighten"));
+
+    ctx.fillStyle = gradient;
+
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = strokeWidth ? parseFloat(strokeWidth) : 2;
+
+    ctx.beginPath();
+
+    ctx.moveTo(x + w / 2, y + h * 0.8);
+
+    ctx.bezierCurveTo(
+      x + w / 2,
+      y + h * 0.8,
+      x,
+      y + (2 / 6) * h,
+      x + w / 4,
+      y + h / 8
+    );
+
+    ctx.bezierCurveTo(
+      x + w / 2.8,
+      y + h * 0.05,
+      x + w / 1.9,
+      y + h * 0.05,
+      x + w / 2,
+      y + h / 4
+    );
+
+    ctx.bezierCurveTo(
+      x + w / 2.2,
+      y + h * 0.05,
+      x + (3 / 4.6) * w,
+      y + h * 0.05,
+      x + (3 / 4) * w,
+      y + h / 8
+    );
+
+    ctx.bezierCurveTo(
+      x + w,
+      y + (2 / 6) * h,
+      x + w / 2,
+      y + h * 0.8,
+      x + w / 2,
+      y + h * 0.8
+    );
+
+    ctx.closePath();
+    ctx.fill();
+
     ctx.restore();
   }
 }

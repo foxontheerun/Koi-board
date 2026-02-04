@@ -1,6 +1,5 @@
 import type { ShapeType } from "../../block";
 
-// import type { Shape } from "../../block";
 export interface _Shape {
   id: string;
   x: number;
@@ -14,7 +13,6 @@ export interface _Shape {
   type?: ShapeType;
   state: "static" | "dragging";
 }
-
 export class EntityManager {
   private shapes: _Shape[] = [
     {
@@ -31,10 +29,10 @@ export class EntityManager {
     },
     {
       id: "2",
-      x: 300,
-      y: 200,
-      width: 150,
-      height: 100,
+      x: 400,
+      y: 400,
+      width: 300,
+      height: 300,
       fill: "#ffa2efff",
       stroke: "#ff00d4ff",
       state: "static",
@@ -53,22 +51,21 @@ export class EntityManager {
       radius: 8,
       type: "RECT",
     },
-    // {
-    //   id: "2",
-    //   x: 600,
-    //   y: 400,
-    //   width: 250,
-    //   height: 100,
-    //   fill: "#7cffee65",
-    //   stroke: "#78e4d5ff",
-    //   state: "static",
-    //   radius: 8,
-    //   type: "ELLIPSE",
-    // },
   ];
 
   getShapes() {
     return this.shapes;
+  }
+
+  updateShapeList(newShape: _Shape) {
+    const shapes = [...this.shapes];
+    const currShapeInd = shapes.findIndex((shape) => shape.id === newShape.id);
+    if (currShapeInd === -1) {
+      shapes.push(newShape);
+      return;
+    }
+    shapes[currShapeInd] = newShape;
+    this.shapes = shapes;
   }
 
   findShapeAt(worldPoint: { x: number; y: number }): _Shape | null {

@@ -1,4 +1,5 @@
 import type { Shape } from "../../block/model/types";
+import type { _Shape } from "./EntityManager";
 
 export type UseBoardShapesResult = {
   shapes: Shape[];
@@ -84,3 +85,29 @@ export type CreateShapeInput = {
   fill?: string;
   stroke?: string;
 };
+
+export type ResizeHandle =
+  | "top"
+  | "bottom"
+  | "left"
+  | "right"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+export type InteractionMode =
+  | { type: "idle" }
+  | { type: "drag"; shape: _Shape }
+  | { type: "resize"; shape: _Shape; handle: ResizeHandle };
+
+export const ResizeHandles = {
+  Top: "top",
+  Bottom: "bottom",
+  Left: "left",
+  Right: "right",
+  TopLeft: "top-left",
+  TopRight: "top-right",
+  BottomLeft: "bottom-left",
+  BottomRight: "bottom-right",
+} as const;
