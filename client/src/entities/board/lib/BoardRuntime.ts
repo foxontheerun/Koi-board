@@ -140,7 +140,7 @@ export class BoardRuntime {
     this.overlayCtx.save();
     this.camera.applyTransform(this.overlayCtx);
 
-    this.overlay.drawBorder(this.overlayCtx, this.focusedShape);
+    this.overlay.drawBounds(this.overlayCtx, this.focusedShape);
 
     this.overlayCtx.restore();
   }
@@ -154,12 +154,16 @@ export class BoardRuntime {
 
     const shape = this.entityManager.findShapeAt(worldPoint);
 
-    if (!shape) return;
+    if (!shape) {
+      this.focusedShape = null;
+      this.drawStatic();
+      this.drawDrag();
+      this.drawOverlay();
+      return;
+    }
     this.interaction = { type: "drag", shape };
-
-    const handle = hitTestResizeHandle(shape, worldPoint);
-
-    console.log("handle", handle);
+    const bound = ResizeCalculator.getShapeManipulationBounds(shape);
+    const handle = hitTestResizeHandle(bound, worldPoint);
 
     if (handle) {
       this.interaction = { type: "resize", shape, handle };
@@ -198,6 +202,17 @@ export class BoardRuntime {
     this.drawOverlay();
   }
 
+  handleMouseUp() {
+    this.interaction = { type: "idle" };
+
+    if (this.focusedShape) {
+      // this.focusedShape.state = "static";
+      // this.focusedShape = null;
+      this.drawAll();
+      this.drawOverlay();
+    }
+  }
+
   applyDrag(worldPoint: { x: number; y: number }) {
     if (!this.focusedShape) return;
     this.focusedShape.x = worldPoint.x - this.dragStartOffset.x;
@@ -207,6 +222,10 @@ export class BoardRuntime {
   applyResize(handle: ResizeHandle, worldPoint: { x: number; y: number }) {
     if (!this.focusedShape) return;
 
+    // для ресайза нужно считать дельту!
+    // deltaX = worldPoint.x - startPoint.x;
+    // newWidth = startShape.width + deltaX;
+
     const shape = ResizeCalculator.resize(
       this.focusedShape,
       handle,
@@ -214,17 +233,6 @@ export class BoardRuntime {
     );
     this.focusedShape = shape;
     this.entityManager.updateShapeList(shape);
-  }
-
-  handleMouseUp() {
-    this.interaction = { type: "idle" };
-
-    if (this.focusedShape) {
-      this.focusedShape.state = "static";
-      this.focusedShape = null;
-      this.drawAll();
-      this.drawOverlay();
-    }
   }
 
   dispose() {}

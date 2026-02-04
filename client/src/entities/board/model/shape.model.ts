@@ -20,3 +20,10 @@ export interface _Shape {
   type?: ShapeType;
   state: "static" | "dragging";
 }
+
+export interface ManipulationBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}

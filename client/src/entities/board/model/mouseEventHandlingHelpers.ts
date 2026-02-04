@@ -1,8 +1,8 @@
-import type { _Shape } from "./shape.model";
+import type { _Shape, ManipulationBounds } from "./shape.model";
 import { ResizeHandles, type ResizeHandle } from "./types";
 
 export const hitTestResizeHandle = (
-  shape: _Shape,
+  manipulationBounds: ManipulationBounds,
   point: {
     x: number;
     y: number;
@@ -11,10 +11,12 @@ export const hitTestResizeHandle = (
   const delta = 15;
   const px = point.x;
   const py = point.y;
-  const w = shape.width;
-  const h = shape.height;
-  const x = shape.x;
-  const y = shape.y;
+  const w = manipulationBounds.w;
+  const h = manipulationBounds.h;
+  const x = manipulationBounds.x;
+  const y = manipulationBounds.y;
+
+  console.log("manipulationBounds", manipulationBounds);
 
   const inRect = (x: number, y: number, w: number, h: number): boolean => {
     return px >= x && px <= x + w && py >= y && py <= y + h;

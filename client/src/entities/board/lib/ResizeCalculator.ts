@@ -1,7 +1,22 @@
 import type { _Shape } from "../model/EntityManager";
+import type { ManipulationBounds } from "../model/shape.model";
 import { ResizeHandles, type ResizeHandle } from "../model/types";
 
 export class ResizeCalculator {
+  static getShapeManipulationBounds(
+    shape: _Shape,
+    padding = 30
+  ): ManipulationBounds {
+    const coef = padding / shape.x;
+
+    return {
+      x: shape.x - padding,
+      y: shape.y - (padding * coef + padding),
+      w: shape.width + padding * 2,
+      h: shape.height + (padding * coef + padding) * 2,
+    };
+  }
+
   static resize(
     shape: _Shape,
     handle: ResizeHandle,

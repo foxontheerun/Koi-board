@@ -1,4 +1,5 @@
 import type { ShapeType } from "../../block";
+import { ResizeCalculator } from "../lib/ResizeCalculator";
 
 export interface _Shape {
   id: string;
@@ -70,15 +71,15 @@ export class EntityManager {
 
   findShapeAt(worldPoint: { x: number; y: number }): _Shape | null {
     for (let i = this.shapes.length - 1; i >= 0; i--) {
-      const s = this.shapes[i];
+      const s = ResizeCalculator.getShapeManipulationBounds(this.shapes[i]);
 
       if (
         worldPoint.x >= s.x &&
-        worldPoint.x <= s.x + s.width &&
+        worldPoint.x <= s.x + s.w &&
         worldPoint.y >= s.y &&
-        worldPoint.y <= s.y + s.height
+        worldPoint.y <= s.y + s.h
       ) {
-        return s;
+        return this.shapes[i];
       }
     }
     return null;

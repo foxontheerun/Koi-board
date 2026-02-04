@@ -1,21 +1,28 @@
 import type { Shape } from "../../block";
 import { CanvasPainter } from "../lib/CanvasPainter";
+import { ResizeCalculator } from "../lib/ResizeCalculator";
 import type { _Shape } from "../model/EntityManager";
 
-const BORDER_COLOR = "#92c1ffff";
+const BOUNDS_PADDING = 30;
+
+const BORDER_COLOR = "#388effff";
 const STROKE_WIDTH = 3;
 export class Overlay {
-  drawBorder(ctx: CanvasRenderingContext2D, shape: _Shape) {
+  drawBounds(ctx: CanvasRenderingContext2D, shape: _Shape) {
+    const manipulationBounds = ResizeCalculator.getShapeManipulationBounds(
+      shape,
+      BOUNDS_PADDING
+    );
     const borderFigure = {
       ...shape,
       fill: null,
       strokeWidth: STROKE_WIDTH,
       stroke: BORDER_COLOR,
       radius: 0,
-      x: shape.x - 0.5,
-      y: shape.y - 0.5,
-      width: shape.width + 1,
-      height: shape.height + 1,
+      x: manipulationBounds.x,
+      y: manipulationBounds.y,
+      width: manipulationBounds.w,
+      height: manipulationBounds.h,
     };
 
     CanvasPainter.drawRectShape(ctx, borderFigure as unknown as Shape);
