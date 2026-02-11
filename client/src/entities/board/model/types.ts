@@ -99,7 +99,7 @@ export type ResizeHandle =
 export type InteractionMode =
   | { type: "idle" }
   | { type: "drag"; shape: _Shape }
-  | { type: "resize"; shape: _Shape; handle: ResizeHandle };
+  | { type: "resize" };
 
 export const ResizeHandles = {
   Top: "top",

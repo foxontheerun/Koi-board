@@ -4,16 +4,17 @@ import { StaticLayer } from "../layers/StaticLayer";
 import { DragLayer } from "../layers/DragLayer";
 import { EntityManager, type _Shape } from "../model/EntityManager";
 import { Overlay } from "../layers/Overlay";
+import { type InteractionMode } from "../model/types";
 import {
-  ResizeHandles,
-  type InteractionMode,
-  type ResizeHandle,
-} from "../model/types";
-import { hitTestResizeHandle } from "../model/mouseEventHandlingHelpers";
+  hitTestResizeHandle,
+  RESIZE_HANDLE_SIZE,
+} from "../model/mouseEventHandlingHelpers";
 import { ResizeCalculator } from "./ResizeCalculator";
+import { ResizeController } from "./ResizeController";
+import { DragController } from "./DragController";
 
 export class BoardRuntime {
-  camera = new CameraController();
+  public camera = new CameraController();
   private dragCtx: CanvasRenderingContext2D;
   private gridCtx: CanvasRenderingContext2D;
   private mainCtx: CanvasRenderingContext2D;
@@ -30,11 +31,10 @@ export class BoardRuntime {
   overlay = new Overlay();
 
   entityManager = new EntityManager();
+  resizeController = new ResizeController();
+  dragController = new DragController();
 
-  private focusedShape: _Shape | null = null;
   private interaction: InteractionMode = { type: "idle" };
-
-  private dragStartOffset = { x: 0, y: 0 };
 
   private rafId: number | null = null;
 
@@ -42,7 +42,7 @@ export class BoardRuntime {
     gridCanvas: HTMLCanvasElement,
     mainCanvas: HTMLCanvasElement,
     drag: HTMLCanvasElement,
-    overlay: HTMLCanvasElement
+    overlay: HTMLCanvasElement,
   ) {
     this.gridCanvas = gridCanvas;
     this.mainCanvas = mainCanvas;
@@ -61,16 +61,6 @@ export class BoardRuntime {
     });
 
     this.drawAll();
-  }
-
-  requestDraw() {
-    if (this.rafId !== null) return;
-
-    this.rafId = requestAnimationFrame(() => {
-      this.rafId = null;
-
-      this.requestDraw();
-    });
   }
 
   updateSize() {
@@ -120,8 +110,11 @@ export class BoardRuntime {
 
     this.dragCtx.save();
     this.camera.applyTransform(this.dragCtx);
+    const dragging = this.entityManager.getShapesOnDragLayer();
 
-    this.dragLayer.draw(this.dragCtx, this.entityManager.getShapes());
+    if (!dragging) return;
+
+    this.dragLayer.draw(this.dragCtx, dragging);
 
     this.dragCtx.restore();
   }
@@ -132,70 +125,64 @@ export class BoardRuntime {
       0,
       0,
       this.overlayCanvas.width,
-      this.overlayCanvas.height
+      this.overlayCanvas.height,
     );
-
-    if (!this.focusedShape) return;
 
     this.overlayCtx.save();
     this.camera.applyTransform(this.overlayCtx);
+    const dragging = this.entityManager.getDraggedShape();
+    if (!dragging) return;
 
-    this.overlay.drawBounds(this.overlayCtx, this.focusedShape);
+    this.overlay.drawBounds(this.overlayCtx, dragging, this.camera.zoom);
 
     this.overlayCtx.restore();
   }
 
   handleMouseDown(screenX: number, screenY: number) {
-    const rect = this.mainCanvas.getBoundingClientRect();
-    const localX = screenX - rect.left;
-    const localY = screenY - rect.top;
-
-    const worldPoint = this.camera.screenToWorld(localX, localY);
-
-    const shape = this.entityManager.findShapeAt(worldPoint);
+    const worldPoint = this.getWorldPoint(screenX, screenY);
+    const shape = this.entityManager.findShapeAt(
+      worldPoint,
+      RESIZE_HANDLE_SIZE,
+    );
 
     if (!shape) {
-      this.focusedShape = null;
+      this.entityManager.getShapes().forEach((s) => (s.state = "static"));
+      this.interaction = { type: "idle" };
       this.drawStatic();
       this.drawDrag();
       this.drawOverlay();
       return;
     }
-    this.interaction = { type: "drag", shape };
+
     const bound = ResizeCalculator.getShapeManipulationBounds(shape);
     const handle = hitTestResizeHandle(bound, worldPoint);
-
     if (handle) {
-      this.interaction = { type: "resize", shape, handle };
+      this.resizeController.begin(shape, handle, worldPoint);
+      this.interaction = { type: "resize" };
+      this.drawOverlay();
+      return;
     }
 
-    this.focusedShape = shape;
-
-    // убрать мутацию!
-    shape.state = "dragging";
-
-    this.dragStartOffset = {
-      x: worldPoint.x - shape.x,
-      y: worldPoint.y - shape.y,
-    };
-
+    this.dragController.begin(shape, worldPoint);
+    this.interaction = { type: "drag", shape };
     this.drawStatic();
     this.drawDrag();
     this.drawOverlay();
   }
 
   handleMouseMove(screenX: number, screenY: number) {
-    if (!this.focusedShape) return;
+    if (this.interaction.type === "idle") return;
 
-    const rect = this.mainCanvas.getBoundingClientRect();
-    const worldPoint = this.camera.screenToWorld(
-      screenX - rect.left,
-      screenY - rect.top
-    );
+    const worldPoint = this.getWorldPoint(screenX, screenY);
+
     if (this.interaction.type === "drag") {
       this.applyDrag(worldPoint);
     } else if (this.interaction.type === "resize") {
-      this.applyResize(this.interaction.handle, worldPoint);
+      const newShape = this.resizeController.update(worldPoint);
+
+      if (newShape) {
+        this.entityManager.updateShapeList(newShape);
+      }
     }
 
     this.drawDrag();
@@ -203,37 +190,34 @@ export class BoardRuntime {
   }
 
   handleMouseUp() {
+    if (this.interaction.type === "idle") return;
+
+    if (this.interaction.type === "resize") {
+      this.resizeController.end();
+    }
+
     this.interaction = { type: "idle" };
 
-    if (this.focusedShape) {
-      // this.focusedShape.state = "static";
-      // this.focusedShape = null;
-      this.drawAll();
-      this.drawOverlay();
-    }
+    this.drawOverlay();
+    this.drawDrag();
+    this.drawStatic();
   }
 
   applyDrag(worldPoint: { x: number; y: number }) {
-    if (!this.focusedShape) return;
-    this.focusedShape.x = worldPoint.x - this.dragStartOffset.x;
-    this.focusedShape.y = worldPoint.y - this.dragStartOffset.y;
-  }
+    const updatedShape = this.dragController.update(worldPoint);
 
-  applyResize(handle: ResizeHandle, worldPoint: { x: number; y: number }) {
-    if (!this.focusedShape) return;
-
-    // для ресайза нужно считать дельту!
-    // deltaX = worldPoint.x - startPoint.x;
-    // newWidth = startShape.width + deltaX;
-
-    const shape = ResizeCalculator.resize(
-      this.focusedShape,
-      handle,
-      worldPoint
-    );
-    this.focusedShape = shape;
-    this.entityManager.updateShapeList(shape);
+    if (updatedShape) {
+      this.entityManager.updateShapeList(updatedShape);
+    }
   }
 
   dispose() {}
+
+  private getWorldPoint(
+    screenX: number,
+    screenY: number,
+  ): { x: number; y: number } {
+    const rect = this.mainCanvas.getBoundingClientRect();
+    return this.camera.screenToWorld(screenX - rect.left, screenY - rect.top);
+  }
 }

@@ -1,45 +1,36 @@
 import type { _Shape, ManipulationBounds } from "./shape.model";
 import { ResizeHandles, type ResizeHandle } from "./types";
 
+export const RESIZE_HANDLE_SIZE = 6;
+
 export const hitTestResizeHandle = (
-  manipulationBounds: ManipulationBounds,
-  point: {
-    x: number;
-    y: number;
-  }
+  bounds: ManipulationBounds,
+  point: { x: number; y: number },
 ): ResizeHandle | null => {
-  const delta = 15;
-  const px = point.x;
-  const py = point.y;
-  const w = manipulationBounds.w;
-  const h = manipulationBounds.h;
-  const x = manipulationBounds.x;
-  const y = manipulationBounds.y;
+  const { x, y, w, h } = bounds;
+  const { x: px, y: py } = point;
+  const delta = RESIZE_HANDLE_SIZE;
 
-  console.log("manipulationBounds", manipulationBounds);
+  const regions: [ResizeHandle, number, number, number, number][] = [
+    [ResizeHandles.Top, x + delta, y - delta, w - delta * 2, delta * 2],
+    [ResizeHandles.Bottom, x + delta, y + h - delta, w - delta * 2, delta * 2],
+    [ResizeHandles.Left, x - delta, y + delta, delta * 2, h - delta * 2],
+    [ResizeHandles.Right, x + w - delta, y + delta, delta * 2, h - delta * 2],
+    [ResizeHandles.TopLeft, x - delta, y - delta, delta * 2, delta * 2],
+    [ResizeHandles.TopRight, x + w - delta, y - delta, delta * 2, delta * 2],
+    [ResizeHandles.BottomLeft, x - delta, y + h - delta, delta * 2, delta * 2],
+    [
+      ResizeHandles.BottomRight,
+      x + w - delta,
+      y + h - delta,
+      delta * 2,
+      delta * 2,
+    ],
+  ];
 
-  const inRect = (x: number, y: number, w: number, h: number): boolean => {
-    return px >= x && px <= x + w && py >= y && py <= y + h;
-  };
+  for (const [handle, rx, ry, rw, rh] of regions) {
+    if (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh) return handle;
+  }
 
-  if (inRect(x + delta, y - delta, w - delta * 2, delta * 2))
-    return ResizeHandles.Top;
-  if (inRect(x + delta, y + h - delta, w - delta * 2, delta * 2))
-    return ResizeHandles.Bottom;
-
-  if (inRect(x - delta, y - delta, delta * 2, h - 2 * delta))
-    return ResizeHandles.Left;
-  if (inRect(x - delta + w, y + delta, delta * 2, h - 2 * delta))
-    return ResizeHandles.Right;
-
-  if (inRect(x - delta, y - delta, delta * 2, delta * 2))
-    return ResizeHandles.TopLeft;
-  if (inRect(x + w - delta, y - delta, delta * 2, delta * 2))
-    return ResizeHandles.TopRight;
-
-  if (inRect(x - delta, y + h - delta, delta * 2, delta * 2))
-    return ResizeHandles.BottomLeft;
-  if (inRect(x + w - delta, y + h - delta, delta * 2, delta * 2))
-    return ResizeHandles.BottomRight;
   return null;
 };

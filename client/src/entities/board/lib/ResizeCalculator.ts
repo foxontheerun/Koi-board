@@ -5,8 +5,24 @@ import { ResizeHandles, type ResizeHandle } from "../model/types";
 export class ResizeCalculator {
   static getShapeManipulationBounds(
     shape: _Shape,
-    padding = 30
+    padding = 30,
   ): ManipulationBounds {
+    switch (shape?.type) {
+      default:
+        return this.getRectBounds(shape);
+    }
+  }
+
+  private static getRectBounds(shape: _Shape) {
+    return {
+      x: shape.x,
+      y: shape.y,
+      w: shape.width,
+      h: shape.height,
+    };
+  }
+
+  private static getFigureBounds(shape: _Shape, padding = 30) {
     const coef = padding / shape.x;
 
     return {
@@ -20,7 +36,7 @@ export class ResizeCalculator {
   static resize(
     shape: _Shape,
     handle: ResizeHandle,
-    worldPoint: { x: number; y: number }
+    worldPoint: { x: number; y: number },
   ): _Shape {
     switch (shape.type) {
       case "RECT":
@@ -32,95 +48,59 @@ export class ResizeCalculator {
   private static resizeSimpleShape(
     shape: _Shape,
     handle: ResizeHandle,
-    worldPoint: { x: number; y: number }
+    worldPoint: { x: number; y: number },
   ): _Shape {
     let newShape = { ...shape };
     switch (handle) {
       case ResizeHandles.Right: {
-        const newWidth = worldPoint.x - newShape.x;
-        const newHeight = (newWidth / newShape.width) * newShape.height;
-
-        newShape.width = Math.max(newWidth, 1);
-        newShape.height = Math.max(newHeight, 1);
-        break;
+        newShape.width = newShape.width + worldPoint.x;
+        return newShape;
       }
 
       case ResizeHandles.Left: {
-        const oldRight = newShape.x + newShape.width;
-        const newWidth = oldRight - worldPoint.x;
-        const newHeight = (newWidth / newShape.width) * newShape.height;
-
-        newShape.x = worldPoint.x;
-        newShape.width = Math.max(newWidth, 1);
-        newShape.height = Math.max(newHeight, 1);
-        break;
+        newShape.x = newShape.x + worldPoint.x;
+        newShape.width = newShape.width - worldPoint.x;
+        return newShape;
       }
 
       case ResizeHandles.Bottom: {
-        const newHeight = worldPoint.y - newShape.y;
-        const newWidth = (newHeight / newShape.height) * newShape.width;
-
-        newShape.height = Math.max(newHeight, 1);
-        newShape.width = Math.max(newWidth, 1);
-        break;
+        newShape.height = newShape.height + worldPoint.y;
+        return newShape;
       }
 
       case ResizeHandles.Top: {
-        const oldBottom = newShape.y + newShape.height;
-        const newHeight = oldBottom - worldPoint.y;
-        const newWidth = (newHeight / newShape.height) * newShape.width;
-
-        newShape.y = worldPoint.y;
-        newShape.height = Math.max(newHeight, 1);
-        newShape.width = Math.max(newWidth, 1);
-        break;
+        newShape.y = newShape.y + worldPoint.y;
+        newShape.height = newShape.height - worldPoint.y;
+        return newShape;
       }
 
       case ResizeHandles.TopLeft: {
-        const oldRight = newShape.x + newShape.width;
-        const oldBottom = newShape.y + newShape.height;
-        const newWidth = oldRight - worldPoint.x;
-        const newHeight = oldBottom - worldPoint.y;
-
-        newShape.x = worldPoint.x;
-        newShape.y = worldPoint.y;
-        newShape.width = Math.max(newWidth, 1);
-        newShape.height = Math.max(newHeight, 1);
-        break;
+        newShape.y = newShape.y + worldPoint.y;
+        newShape.height = newShape.height - worldPoint.y;
+        newShape.x = newShape.x + worldPoint.x;
+        newShape.width = newShape.width - worldPoint.x;
+        return newShape;
       }
 
       case ResizeHandles.TopRight: {
-        const newWidth = worldPoint.x - newShape.x;
-        const oldBottom = newShape.y + newShape.height;
-        const newHeight = oldBottom - worldPoint.y;
-
-        newShape.y = worldPoint.y;
-        newShape.width = Math.max(newWidth, 1);
-        newShape.height = Math.max(newHeight, 1);
-        break;
+        newShape.y = newShape.y + worldPoint.y;
+        newShape.height = newShape.height - worldPoint.y;
+        newShape.width = newShape.width + worldPoint.x;
+        return newShape;
       }
 
       case ResizeHandles.BottomLeft: {
-        const oldRight = newShape.x + newShape.width;
-        const newWidth = oldRight - worldPoint.x;
-        const newHeight = worldPoint.y - newShape.y;
-
-        newShape.x = worldPoint.x;
-        newShape.width = Math.max(newWidth, 1);
-        newShape.height = Math.max(newHeight, 1);
-        break;
+        newShape.height = newShape.height + worldPoint.y;
+        newShape.x = newShape.x + worldPoint.x;
+        newShape.width = newShape.width - worldPoint.x;
+        return newShape;
       }
 
       case ResizeHandles.BottomRight: {
-        const newWidth = worldPoint.x - newShape.x;
-        const newHeight = worldPoint.y - newShape.y;
-
-        newShape.width = Math.max(newWidth, 1);
-        newShape.height = Math.max(newHeight, 1);
-        break;
+        newShape.height = newShape.height + worldPoint.y;
+        newShape.width = newShape.width + worldPoint.x;
+        return newShape;
       }
     }
-
-    return newShape;
   }
 }
