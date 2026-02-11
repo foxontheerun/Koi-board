@@ -37,4 +37,30 @@ export class Overlay {
     );
     ctx.restore();
   }
+
+  drawSelectionRect(
+    ctx: CanvasRenderingContext2D,
+    startX: number,
+    startY: number,
+    currentX: number,
+    currentY: number,
+  ) {
+    const x = Math.min(startX, currentX);
+    const y = Math.min(startY, currentY);
+    const width = Math.abs(currentX - startX);
+    const height = Math.abs(currentY - startY);
+
+    const selectionShape = {
+      x,
+      y,
+      width,
+      height,
+      fill: "rgba(0, 120, 215, 0.2)", // полупрозрачная заливка
+      stroke: "rgba(0, 120, 215, 0.8)", // контур
+      strokeWidth: 1,
+      radius: 0,
+    };
+
+    CanvasPainter.drawRectShape(ctx, selectionShape as Shape);
+  }
 }

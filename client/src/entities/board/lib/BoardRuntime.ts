@@ -129,11 +129,34 @@ export class BoardRuntime {
     this.overlayCtx.save();
     this.camera.applyTransform(this.overlayCtx);
     const dragging = this.entityManager.getDraggedShape();
-    if (!dragging) return;
-
-    this.overlay.drawBounds(this.overlayCtx, dragging, this.camera.getScale());
+    if (dragging) {
+      this.overlay.drawBounds(
+        this.overlayCtx,
+        dragging,
+        this.camera.getScale(),
+      );
+    }
 
     this.overlayCtx.restore();
+
+    if (this.interaction.type === "select") {
+      const { startX, startY, currentX, currentY } = this.interaction;
+      this.overlay.drawSelectionRect(
+        this.overlayCtx,
+        startX,
+        startY,
+        currentX,
+        currentY,
+      );
+    }
+  }
+
+  private getCanvasCoordinates(screenX: number, screenY: number) {
+    const rect = this.overlayCanvas.getBoundingClientRect();
+    return {
+      x: (screenX - rect.left) * (this.overlayCanvas.width / rect.width),
+      y: (screenY - rect.top) * (this.overlayCanvas.height / rect.height),
+    };
   }
 
   handleMouseDown(screenX: number, screenY: number) {
@@ -144,11 +167,20 @@ export class BoardRuntime {
     );
 
     if (!shape) {
+      const pos = this.getCanvasCoordinates(screenX, screenY);
+
+      this.interaction = {
+        type: "select",
+        startX: pos.x,
+        startY: pos.y,
+        currentX: pos.x,
+        currentY: pos.y,
+      };
       this.entityManager.getShapes().forEach((s) => (s.state = "static"));
-      this.interaction = { type: "idle" };
+
+      this.drawOverlay();
       this.drawStatic();
       this.drawDrag();
-      this.drawOverlay();
       return;
     }
 
@@ -168,14 +200,16 @@ export class BoardRuntime {
     this.drawOverlay();
   }
 
-  handlePanStart(screenX: number, screenY: number) {
-    this.interaction = { type: "pan", startX: screenX, startY: screenY };
-    const container = this.overlayCanvas.parentElement;
-    if (container) container.classList.add("cursor-grabbing");
-  }
-
   handleMouseMove(screenX: number, screenY: number) {
     if (this.interaction.type === "idle") return;
+
+    if (this.interaction.type === "select") {
+      const pos = this.getCanvasCoordinates(screenX, screenY);
+      this.interaction.currentX = pos.x;
+      this.interaction.currentY = pos.y;
+      this.drawOverlay();
+      return;
+    }
 
     if (this.interaction.type === "pan") {
       const dx = screenX - this.interaction.startX;
@@ -226,6 +260,12 @@ export class BoardRuntime {
     this.drawOverlay();
     this.drawDrag();
     this.drawStatic();
+  }
+
+  handlePanStart(screenX: number, screenY: number) {
+    this.interaction = { type: "pan", startX: screenX, startY: screenY };
+    const container = this.overlayCanvas.parentElement;
+    if (container) container.classList.add("cursor-grabbing");
   }
 
   applyDrag(worldPoint: { x: number; y: number }) {
