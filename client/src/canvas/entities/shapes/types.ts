@@ -96,19 +96,6 @@ export type ResizeHandle =
   | "bottom-left"
   | "bottom-right";
 
-export type InteractionMode =
-  | { type: "idle" }
-  | { type: "drag"; shape: _Shape }
-  | { type: "resize" }
-  | { type: "pan"; startX: number; startY: number }
-  | {
-      type: "select";
-      startX: number;
-      startY: number;
-      currentX: number;
-      currentY: number;
-    };
-
 export const ResizeHandles = {
   Top: "top",
   Bottom: "bottom",

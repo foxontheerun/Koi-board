@@ -158,7 +158,7 @@ export class EntityManager {
     );
   }
 
-  clearDragging() {
+  clearSelection() {
     this.shapes.forEach((s) => (s.state = "static"));
   }
 
@@ -206,6 +206,16 @@ export class EntityManager {
     }
 
     Object.assign(existing, nextShape);
+  }
+
+  getById(id: string) {
+    return this.shapes.find((s) => s.id === id) ?? null;
+  }
+
+  updateById(id: string, patch: Partial<_Shape>) {
+    const s = this.getById(id);
+    if (!s) return;
+    Object.assign(s, patch);
   }
 
   findShapeAt(worldPoint: { x: number; y: number }, margin = 0): _Shape | null {
