@@ -158,60 +158,54 @@ export class EntityManager {
     );
   }
 
+  clearDragging() {
+    this.shapes.forEach((s) => (s.state = "static"));
+  }
+
   updateShapeList(newShape: _Shape) {
-    const shapes = [...this.shapes];
+    const shapes = this.shapes;
     const currShapeInd = shapes.findIndex((shape) => shape.id === newShape.id);
     if (currShapeInd === -1) {
       shapes.push(newShape);
       return;
     }
     shapes[currShapeInd] = newShape;
-    this.shapes = shapes;
   }
 
   replaceAll(shapes: RemoteShape[]) {
-    console.log("replaceAll");
-
     this.shapes = shapes.map((shape) => this.mapRemoteShapeToCanvas(shape));
   }
 
   applyTransientPatch(patch: TransientShapePatch) {
-    console.log("applyTransientPatch");
+    const shape = this.shapes.find((s) => s.id === patch.id);
+    if (!shape) return;
 
-    this.shapes = this.shapes.map((shape) =>
-      shape.id === patch.id
-        ? {
-            ...shape,
-            x: patch.x ?? shape.x,
-            y: patch.y ?? shape.y,
-            width: patch.width ?? shape.width,
-            height: patch.height ?? shape.height,
-          }
-        : shape,
-    );
+    if (patch.x !== undefined) shape.x = patch.x;
+    if (patch.y !== undefined) shape.y = patch.y;
+    if (patch.width !== undefined) shape.width = patch.width;
+    if (patch.height !== undefined) shape.height = patch.height;
   }
 
   applyShapeEvent(event: ShapeEventPayload) {
     const { shape, type } = event;
 
     if (type === "DELETED") {
-      this.shapes = this.shapes.filter((current) => current.id !== shape.id);
+      const index = this.shapes.findIndex((s) => s.id === shape.id);
+      if (index !== -1) {
+        this.shapes.splice(index, 1);
+      }
       return;
     }
 
     const nextShape = this.mapRemoteShapeToCanvas(shape);
-    const existingShape = this.shapes.find(
-      (current) => current.id === shape.id,
-    );
+    const existing = this.shapes.find((s) => s.id === shape.id);
 
-    if (!existingShape) {
-      this.shapes = [...this.shapes, nextShape];
+    if (!existing) {
+      this.shapes.push(nextShape);
       return;
     }
 
-    this.shapes = this.shapes.map((current) =>
-      current.id === shape.id ? { ...current, ...nextShape } : current,
-    );
+    Object.assign(existing, nextShape);
   }
 
   findShapeAt(worldPoint: { x: number; y: number }, margin = 0): _Shape | null {

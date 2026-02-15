@@ -6,6 +6,7 @@ export class DragController {
 
   begin(shape: _Shape, startPoint: { x: number; y: number }) {
     if (this.shape) this.shape.state = "static";
+
     this.shape = shape;
     this.offset = {
       x: startPoint.x - shape.x,
@@ -24,10 +25,7 @@ export class DragController {
   }
 
   end() {
-    const finalShape = this.shape;
-    if (this.shape) this.shape.state = "static";
-    this.shape = null;
-    return finalShape;
+    return this.shape;
   }
 
   isDragging() {

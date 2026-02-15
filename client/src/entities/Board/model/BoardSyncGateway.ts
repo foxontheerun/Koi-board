@@ -85,8 +85,13 @@ export class BoardSyncGateway {
       })
       .subscribe({
         next: ({ data }) => {
-          console.log("SHAPE_MOVED_SUBSCRIPTION", data);
+          console.log(
+            "SHAPE_MOVED_SUBSCRIPTION",
+            data?.shapeMoved?.clientID,
+            this.clientId,
+          );
 
+          if (this.clientId === data?.shapeMoved?.clientID) return;
           const moved = data?.shapeMoved;
           if (!moved || moved.clientID === this.clientId) return;
 
