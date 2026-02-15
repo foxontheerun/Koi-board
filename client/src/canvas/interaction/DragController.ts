@@ -24,8 +24,11 @@ export class DragController {
   }
 
   end() {
+    const finalShape = this.shape;
     if (this.shape) this.shape.state = "static";
     this.shape = null;
+
+    return finalShape;
   }
 
   isDragging() {

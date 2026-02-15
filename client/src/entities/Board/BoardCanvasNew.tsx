@@ -1,20 +1,32 @@
 import { useRef, useEffect } from "react";
 import { type CameraController, BoardRuntime } from "../../canvas";
+import type { StickyColorId, Tool } from "../Shape";
+import { BoardSyncGateway } from "./model/BoardSyncGateway";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
 
 interface BoardCanvasNewProps {
+  boardId: string;
+  activeTool: Tool;
+  activeStickyColorId: StickyColorId;
   setCamera: (camera: CameraController) => void;
 }
 
-export function BoardCanvasNew({ setCamera }: BoardCanvasNewProps) {
+export function BoardCanvasNew({
+  boardId,
+  activeTool,
+  activeStickyColorId,
+  setCamera,
+}: BoardCanvasNewProps) {
   const gridCanvasRef = useRef<HTMLCanvasElement>(null);
   const mainCanvasRef = useRef<HTMLCanvasElement>(null);
   const dragCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const runtimeRef = useRef<BoardRuntime | null>(null);
+  const gatewayRef = useRef<BoardSyncGateway | null>(null);
+  const clientIdRef = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
     if (
@@ -33,6 +45,27 @@ export function BoardCanvasNew({ setCamera }: BoardCanvasNewProps) {
     );
 
     setCamera(runtimeRef.current.camera);
+    runtimeRef.current.setActiveTool(activeTool);
+    runtimeRef.current.setActiveStickyColor(activeStickyColorId);
+
+    gatewayRef.current = new BoardSyncGateway(
+      boardId,
+      runtimeRef.current,
+      clientIdRef.current,
+    );
+
+    runtimeRef.current.setSyncCallbacks({
+      onLocalShapeTransient: (shape) => {
+        gatewayRef.current?.sendTransient(shape);
+      },
+      onLocalShapePersisted: (shape) => {
+        gatewayRef.current?.sendPersisted(shape);
+      },
+    });
+
+    gatewayRef.current.connect().catch((error) => {
+      console.error("Board sync init error", error);
+    });
 
     const observer = new ResizeObserver(() => {
       runtimeRef.current?.updateSize();
@@ -42,8 +75,20 @@ export function BoardCanvasNew({ setCamera }: BoardCanvasNewProps) {
 
     return () => {
       observer.disconnect();
+      gatewayRef.current?.dispose();
+      gatewayRef.current = null;
+      runtimeRef.current = null;
     };
-  }, [setCamera]);
+  }, [boardId, setCamera]);
+
+
+  useEffect(() => {
+    runtimeRef.current?.setActiveTool(activeTool);
+  }, [activeTool]);
+
+  useEffect(() => {
+    runtimeRef.current?.setActiveStickyColor(activeStickyColorId);
+  }, [activeStickyColorId]);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (!runtimeRef.current) return;
@@ -72,7 +117,7 @@ export function BoardCanvasNew({ setCamera }: BoardCanvasNewProps) {
       <canvas
         ref={dragCanvasRef}
         onMouseDown={(e) =>
-          runtimeRef.current?.handleMouseDown(e.clientX, e.clientY)
+          runtimeRef.current?.handleMouseDown(e.clientX, e.clientY, e.shiftKey)
         }
         onMouseMove={(e) =>
           runtimeRef.current?.handleMouseMove(e.clientX, e.clientY)

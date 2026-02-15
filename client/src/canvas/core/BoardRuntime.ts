@@ -1,5 +1,14 @@
 import { CameraController } from "../camera";
-import { EntityManager, type InteractionMode } from "../entities";
+import type { StickyColorId, Tool } from "../../entities/Shape";
+import { STICKY_PRESETS } from "../../entities/Shape";
+import { type InteractionMode } from "../entities";
+import {
+  EntityManager,
+  type RemoteShape,
+  type ShapeEventPayload,
+  type TransientShapePatch,
+  type _Shape,
+} from "../entities/EntityManager";
 import {
   ResizeController,
   DragController,
@@ -33,6 +42,75 @@ export class BoardRuntime {
   dragController = new DragController();
 
   private interaction: InteractionMode = { type: "idle" };
+  private selectedShapeIds = new Set<string>();
+  private activeTool: Tool = "pointer";
+  private activeStickyColor: StickyColorId = "yellow";
+
+  private onLocalShapeTransient?: (shape: _Shape) => void;
+  private onLocalShapePersisted?: (shape: _Shape) => void;
+
+  setActiveTool(tool: Tool) {
+    this.activeTool = tool;
+  }
+
+  setActiveStickyColor(color: StickyColorId) {
+    this.activeStickyColor = color;
+  }
+
+  private createShapeAt(worldPoint: { x: number; y: number }, type: "RECT" | "ELLIPSE") {
+    const preset = STICKY_PRESETS[this.activeStickyColor];
+
+    const newShape: _Shape = {
+      id: crypto.randomUUID(),
+      x: worldPoint.x - 80,
+      y: worldPoint.y - 60,
+      width: 160,
+      height: 120,
+      fill: preset.fill,
+      stroke: preset.stroke,
+      state: "static",
+      type,
+      radius: type === "RECT" ? 8 : 0,
+      zIndex: this.entityManager.getNextZIndex(),
+    };
+
+    this.entityManager.addShape(newShape);
+    this.selectedShapeIds = new Set([newShape.id]);
+    this.onLocalShapePersisted?.(newShape);
+    this.drawAll();
+  }
+
+  private getSelectedShapes() {
+    const selectedIds = this.selectedShapeIds;
+    return this.entityManager
+      .getShapes()
+      .filter((shape) => selectedIds.has(shape.id));
+  }
+
+  private isShapeInsideSelection(
+    shape: _Shape,
+    rect: { minX: number; minY: number; maxX: number; maxY: number },
+  ) {
+    const shapeMinX = shape.x;
+    const shapeMinY = shape.y;
+    const shapeMaxX = shape.x + shape.width;
+    const shapeMaxY = shape.y + shape.height;
+
+    return !(
+      shapeMaxX < rect.minX ||
+      shapeMinX > rect.maxX ||
+      shapeMaxY < rect.minY ||
+      shapeMinY > rect.maxY
+    );
+  }
+
+  setSyncCallbacks(callbacks: {
+    onLocalShapeTransient?: (shape: _Shape) => void;
+    onLocalShapePersisted?: (shape: _Shape) => void;
+  }) {
+    this.onLocalShapeTransient = callbacks.onLocalShapeTransient;
+    this.onLocalShapePersisted = callbacks.onLocalShapePersisted;
+  }
 
   constructor(
     gridCanvas: HTMLCanvasElement,
@@ -55,6 +133,35 @@ export class BoardRuntime {
     this.camera.subscribe(() => {
       this.drawAll();
     });
+
+    this.drawAll();
+  }
+
+
+  replaceAllShapes(shapes: RemoteShape[]) {
+    this.entityManager.replaceAll(shapes);
+
+    const existingIds = new Set(this.entityManager.getShapes().map((shape) => shape.id));
+    this.selectedShapeIds = new Set(
+      [...this.selectedShapeIds].filter((id) => existingIds.has(id)),
+    );
+
+    this.drawAll();
+  }
+
+  applyTransientPatch(patch: TransientShapePatch) {
+    this.entityManager.applyTransientPatch(patch);
+    this.drawDrag();
+    this.drawOverlay();
+    this.drawStatic();
+  }
+
+  applyShapeEvent(event: ShapeEventPayload) {
+    this.entityManager.applyShapeEvent(event);
+
+    if (event.type === "DELETED") {
+      this.selectedShapeIds.delete(event.shape.id);
+    }
 
     this.drawAll();
   }
@@ -127,52 +234,61 @@ export class BoardRuntime {
     this.overlayCtx.save();
     this.camera.applyTransform(this.overlayCtx);
     const dragging = this.entityManager.getDraggedShape();
+
     if (dragging) {
       this.overlay.drawBounds(
         this.overlayCtx,
         dragging,
         this.camera.getScale(),
       );
+    } else {
+      this.getSelectedShapes().forEach((shape) => {
+        this.overlay.drawBounds(this.overlayCtx, shape, this.camera.getScale());
+      });
+    }
+
+    if (this.interaction.type === "select") {
+      const { startX, startY, currentX, currentY } = this.interaction;
+      this.overlay.drawSelectionRect(
+        this.overlayCtx,
+        startX,
+        startY,
+        currentX,
+        currentY,
+      );
     }
 
     this.overlayCtx.restore();
-
-    // if (this.interaction.type === "select") {
-    //   const { startX, startY, currentX, currentY } = this.interaction;
-    //   this.overlay.drawSelectionRect(
-    //     this.overlayCtx,
-    //     startX,
-    //     startY,
-    //     currentX,
-    //     currentY,
-    //   );
-    // }
   }
 
-  private getCanvasCoordinates(screenX: number, screenY: number) {
-    const rect = this.overlayCanvas.getBoundingClientRect();
-    return {
-      x: (screenX - rect.left) * (this.overlayCanvas.width / rect.width),
-      y: (screenY - rect.top) * (this.overlayCanvas.height / rect.height),
-    };
-  }
 
-  handleMouseDown(screenX: number, screenY: number) {
+  handleMouseDown(screenX: number, screenY: number, shiftKey = false) {
     const worldPoint = this.getWorldPoint(screenX, screenY);
+
+    if (this.activeTool === "rectangle") {
+      this.createShapeAt(worldPoint, "RECT");
+      return;
+    }
+
+    if (this.activeTool === "ellipse") {
+      this.createShapeAt(worldPoint, "ELLIPSE");
+      return;
+    }
+
     const shape = this.entityManager.findShapeAt(
       worldPoint,
       RESIZE_HANDLE_SIZE,
     );
 
     if (!shape) {
-      const pos = this.getCanvasCoordinates(screenX, screenY);
+      this.selectedShapeIds.clear();
 
       this.interaction = {
         type: "select",
-        startX: pos.x,
-        startY: pos.y,
-        currentX: pos.x,
-        currentY: pos.y,
+        startX: worldPoint.x,
+        startY: worldPoint.y,
+        currentX: worldPoint.x,
+        currentY: worldPoint.y,
       };
       this.entityManager.getShapes().forEach((s) => (s.state = "static"));
 
@@ -180,6 +296,16 @@ export class BoardRuntime {
       this.drawStatic();
       this.drawDrag();
       return;
+    }
+
+    if (shiftKey) {
+      if (this.selectedShapeIds.has(shape.id)) {
+        this.selectedShapeIds.delete(shape.id);
+      } else {
+        this.selectedShapeIds.add(shape.id);
+      }
+    } else {
+      this.selectedShapeIds = new Set([shape.id]);
     }
 
     const bound = ResizeCalculator.getShapeManipulationBounds(shape);
@@ -202,9 +328,9 @@ export class BoardRuntime {
     if (this.interaction.type === "idle") return;
 
     if (this.interaction.type === "select") {
-      const pos = this.getCanvasCoordinates(screenX, screenY);
-      this.interaction.currentX = pos.x;
-      this.interaction.currentY = pos.y;
+      const worldPoint = this.getWorldPoint(screenX, screenY);
+      this.interaction.currentX = worldPoint.x;
+      this.interaction.currentY = worldPoint.y;
       this.drawOverlay();
       return;
     }
@@ -232,6 +358,7 @@ export class BoardRuntime {
 
       if (newShape) {
         this.entityManager.updateShapeList(newShape);
+        this.onLocalShapeTransient?.(newShape);
       }
     }
 
@@ -249,8 +376,37 @@ export class BoardRuntime {
       return;
     }
 
+    if (this.interaction.type === "select") {
+      const { startX, startY, currentX, currentY } = this.interaction;
+      const rect = {
+        minX: Math.min(startX, currentX),
+        minY: Math.min(startY, currentY),
+        maxX: Math.max(startX, currentX),
+        maxY: Math.max(startY, currentY),
+      };
+
+      const selectedIds = this.entityManager
+        .getShapes()
+        .filter((shape) => this.isShapeInsideSelection(shape, rect))
+        .map((shape) => shape.id);
+
+      this.selectedShapeIds = new Set(selectedIds);
+    }
+
     if (this.interaction.type === "resize") {
-      this.resizeController.end();
+      const finalShape = this.resizeController.end();
+      if (finalShape) {
+        this.entityManager.updateShapeList(finalShape);
+        this.onLocalShapePersisted?.(finalShape);
+      }
+    }
+
+    if (this.interaction.type === "drag") {
+      const finalShape = this.dragController.end();
+      if (finalShape) {
+        this.entityManager.updateShapeList(finalShape);
+        this.onLocalShapePersisted?.(finalShape);
+      }
     }
 
     this.interaction = { type: "idle" };
@@ -271,6 +427,7 @@ export class BoardRuntime {
 
     if (updatedShape) {
       this.entityManager.updateShapeList(updatedShape);
+      this.onLocalShapeTransient?.(updatedShape);
     }
   }
 

@@ -100,6 +100,7 @@ export const SHAPE_EVENTS_SUBSCRIPTION = gql`
   subscription ShapeEvents($boardId: ID!) {
     shapeEvents(boardId: $boardId) {
       type
+      clientID
       shape {
         id
         boardId

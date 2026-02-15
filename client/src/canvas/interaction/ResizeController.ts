@@ -43,6 +43,8 @@ export class ResizeController {
       { x: deltaX, y: deltaY },
     );
 
+    this.shape = { ...newShape };
+
     return { ...newShape };
   }
 

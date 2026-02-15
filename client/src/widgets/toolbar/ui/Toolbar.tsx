@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MousePointer2, Square, Type, Hand, Trash2 } from "lucide-react";
+import { MousePointer2, Square, Circle, Type, Hand, Trash2 } from "lucide-react";
 import type { Tool } from "../../../entities/block/model/types";
 import { type StickyColorId } from "../../../entities/Shape";
 import { ColorPicker } from "../../../features/color-picker/ui/ColorPicker";
@@ -30,6 +30,11 @@ export function Toolbar({
       icon: <Square className="w-5 h-5" />,
       label: "Rectangle",
     },
+    {
+      id: "ellipse",
+      icon: <Circle className="w-5 h-5" />,
+      label: "Ellipse",
+    },
     { id: "text", icon: <Type className="w-5 h-5" />, label: "Text" },
     { id: "hand", icon: <Hand className="w-5 h-5" />, label: "Hand" },
     { id: "delete", icon: <Trash2 className="w-5 h-5" />, label: "Delete" },
@@ -37,7 +42,7 @@ export function Toolbar({
 
   const handleToolClick = (toolId: Tool) => {
     setActiveTool(toolId);
-    if (toolId === "rectangle") {
+    if (toolId === "rectangle" || toolId === "ellipse") {
       setShowColorPicker(true);
     } else {
       setShowColorPicker(false);

@@ -96,8 +96,51 @@ export interface _Shape {
   zIndex?: number;
 }
 
+export interface RemoteShape {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill?: string | null;
+  stroke?: string | null;
+  strokeWidth?: number | null;
+  type?: ShapeType;
+  zIndex?: number | null;
+}
+
+export interface TransientShapePatch {
+  id: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface ShapeEventPayload {
+  type: "CREATED" | "UPDATED" | "DELETED";
+  shape: RemoteShape;
+}
+
 export class EntityManager {
   private shapes: _Shape[] = SHAPES;
+
+  private mapRemoteShapeToCanvas(shape: RemoteShape): _Shape {
+    return {
+      id: shape.id,
+      x: shape.x,
+      y: shape.y,
+      width: shape.width,
+      height: shape.height,
+      fill: shape.fill ?? "transparent",
+      stroke: shape.stroke ?? "transparent",
+      strokeWidth: shape.strokeWidth ? String(shape.strokeWidth) : undefined,
+      type: shape.type ?? "RECT",
+      state: "static",
+      radius: 8,
+      zIndex: shape.zIndex ?? 0,
+    };
+  }
 
   getShapes() {
     return [...this.shapes].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
@@ -115,6 +158,17 @@ export class EntityManager {
     );
   }
 
+
+
+  getNextZIndex() {
+    if (this.shapes.length === 0) return 0;
+    return Math.max(...this.shapes.map((shape) => shape.zIndex ?? 0)) + 1;
+  }
+
+  addShape(shape: _Shape) {
+    this.shapes = [...this.shapes, shape];
+  }
+
   updateShapeList(newShape: _Shape) {
     const shapes = [...this.shapes];
     const currShapeInd = shapes.findIndex((shape) => shape.id === newShape.id);
@@ -124,6 +178,45 @@ export class EntityManager {
     }
     shapes[currShapeInd] = newShape;
     this.shapes = shapes;
+  }
+
+  replaceAll(shapes: RemoteShape[]) {
+    this.shapes = shapes.map((shape) => this.mapRemoteShapeToCanvas(shape));
+  }
+
+  applyTransientPatch(patch: TransientShapePatch) {
+    this.shapes = this.shapes.map((shape) =>
+      shape.id === patch.id
+        ? {
+            ...shape,
+            x: patch.x ?? shape.x,
+            y: patch.y ?? shape.y,
+            width: patch.width ?? shape.width,
+            height: patch.height ?? shape.height,
+          }
+        : shape,
+    );
+  }
+
+  applyShapeEvent(event: ShapeEventPayload) {
+    const { shape, type } = event;
+
+    if (type === "DELETED") {
+      this.shapes = this.shapes.filter((current) => current.id !== shape.id);
+      return;
+    }
+
+    const nextShape = this.mapRemoteShapeToCanvas(shape);
+    const existingShape = this.shapes.find((current) => current.id === shape.id);
+
+    if (!existingShape) {
+      this.shapes = [...this.shapes, nextShape];
+      return;
+    }
+
+    this.shapes = this.shapes.map((current) =>
+      current.id === shape.id ? { ...current, ...nextShape } : current,
+    );
   }
 
   findShapeAt(worldPoint: { x: number; y: number }, margin = 0): _Shape | null {

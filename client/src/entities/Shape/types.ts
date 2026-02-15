@@ -1,4 +1,4 @@
-export type Tool = "pointer" | "rectangle" | "text" | "hand" | "delete";
+export type Tool = "pointer" | "rectangle" | "ellipse" | "text" | "hand" | "delete";
 
 export type ShapeType = "RECT" | "ELLIPSE" | "TEXT";
 
