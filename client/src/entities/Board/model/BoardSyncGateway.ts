@@ -38,35 +38,14 @@ export class BoardSyncGateway {
   private readonly boardId: string;
   private readonly runtime: BoardRuntime;
   private readonly clientId: string;
-  private readonly sendTransientThrottled: ReturnType<
-    typeof throttle<(shape: _Shape) => void>
-  >;
-
+  private readonly transientByShape = new Map<
+    string,
+    ReturnType<typeof throttle<(shape: _Shape) => void>>
+  >();
   constructor(boardId: string, runtime: BoardRuntime, clientId: string) {
     this.boardId = boardId;
     this.runtime = runtime;
     this.clientId = clientId;
-
-    this.sendTransientThrottled = throttle((shape: _Shape) => {
-      void apolloClient
-        .mutate<MutationResult>({
-          mutation: MOVE_SHAPE_TRANSIENT_MUTATION,
-          variables: {
-            boardId: this.boardId,
-            shape: {
-              id: shape.id,
-              x: shape.x,
-              y: shape.y,
-              width: shape.width,
-              height: shape.height,
-            },
-            clientID: this.clientId,
-          },
-        })
-        .catch((error) => {
-          console.error("moveShapeTransient mutation error", error);
-        });
-    }, 40);
   }
 
   async connect() {
@@ -110,7 +89,16 @@ export class BoardSyncGateway {
   }
 
   sendTransient(shape: _Shape) {
-    this.sendTransientThrottled(shape);
+    let throttled = this.transientByShape.get(shape.id);
+
+    if (!throttled) {
+      throttled = throttle((nextShape: _Shape) => {
+        this.sendTransientNow(nextShape);
+      }, 40);
+      this.transientByShape.set(shape.id, throttled);
+    }
+
+    throttled(shape);
   }
 
   sendPersisted(shape: _Shape) {
@@ -141,6 +129,28 @@ export class BoardSyncGateway {
   dispose() {
     this.subscriptions.forEach((subscription) => subscription.unsubscribe());
     this.subscriptions = [];
-    this.sendTransientThrottled.cancel();
+    this.transientByShape.forEach((throttled) => throttled.cancel());
+    this.transientByShape.clear();
+  }
+
+  private sendTransientNow(shape: _Shape) {
+    void apolloClient
+      .mutate<MutationResult>({
+        mutation: MOVE_SHAPE_TRANSIENT_MUTATION,
+        variables: {
+          boardId: this.boardId,
+          shape: {
+            id: shape.id,
+            x: shape.x,
+            y: shape.y,
+            width: shape.width,
+            height: shape.height,
+          },
+          clientID: this.clientId,
+        },
+      })
+      .catch((error) => {
+        console.error("moveShapeTransient mutation error", error);
+      });
   }
 }

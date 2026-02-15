@@ -131,11 +131,14 @@ export class EntityManager {
 
   addShape(shape: _Shape) {
     this.shapes.push(shape);
-    // this.notify();
   }
 
-  getMaxZIndex(): number {
-    return Math.max(0, ...this.shapes.map((s) => s.zIndex ?? 0));
+  getMaxZIndex(shapes = this.shapes): number {
+    return Math.max(0, ...shapes.map((s) => s.zIndex ?? 0));
+  }
+
+  getMinZIndex(shapes = this.shapes): number {
+    return Math.max(0, ...shapes.map((s) => s.zIndex ?? 0));
   }
 
   getShapes() {
@@ -147,7 +150,7 @@ export class EntityManager {
   }
 
   getShapesOnDragLayer(): _Shape[] {
-    const dragging = this.getDraggedShape();
+    const dragging = this.getShapes().find((s) => s.state === "dragging");
     if (!dragging) return [];
     return this.getShapes().filter(
       (s) => (s.zIndex ?? 0) >= (dragging.zIndex ?? 0),
@@ -238,5 +241,33 @@ export class EntityManager {
     }
 
     return null;
+  }
+
+  findShapesInRect(rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) {
+    const minX = Math.min(rect.x, rect.x + rect.width);
+    const maxX = Math.max(rect.x, rect.x + rect.width);
+    const minY = Math.min(rect.y, rect.y + rect.height);
+    const maxY = Math.max(rect.y, rect.y + rect.height);
+
+    return this.getShapes().filter((shape) => {
+      const bounds = ResizeCalculator.getShapeManipulationBounds(shape);
+
+      const shapeMinX = Math.min(bounds.x, bounds.x + bounds.w);
+      const shapeMaxX = Math.max(bounds.x, bounds.x + bounds.w);
+      const shapeMinY = Math.min(bounds.y, bounds.y + bounds.h);
+      const shapeMaxY = Math.max(bounds.y, bounds.y + bounds.h);
+
+      return !(
+        shapeMaxX < minX ||
+        shapeMinX > maxX ||
+        shapeMaxY < minY ||
+        shapeMinY > maxY
+      );
+    });
   }
 }

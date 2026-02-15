@@ -1,34 +1,52 @@
 import type { _Shape } from "../entities";
 
 export class DragController {
-  private shape: _Shape | null = null;
-  private offset = { x: 0, y: 0 };
+  private shapes: _Shape[] = [];
+  private offsets = new Map<string, { x: number; y: number }>();
 
-  begin(shape: _Shape, startPoint: { x: number; y: number }) {
-    if (this.shape) this.shape.state = "static";
+  begin(shapes: _Shape[], startPoint: { x: number; y: number }) {
+    this.shapes.forEach((shape) => {
+      shape.state = "static";
+    });
 
-    this.shape = shape;
-    this.offset = {
-      x: startPoint.x - shape.x,
-      y: startPoint.y - shape.y,
-    };
-    shape.state = "dragging";
+    this.shapes = shapes;
+    this.offsets.clear();
+
+    this.shapes.forEach((shape) => {
+      this.offsets.set(shape.id, {
+        x: startPoint.x - shape.x,
+        y: startPoint.y - shape.y,
+      });
+      shape.state = "dragging";
+    });
   }
 
   update(point: { x: number; y: number }) {
-    if (!this.shape) return null;
+    if (this.shapes.length === 0) return [];
 
-    this.shape.x = point.x - this.offset.x;
-    this.shape.y = point.y - this.offset.y;
+    this.shapes.forEach((shape) => {
+      shape.state = "dragging";
 
-    return this.shape;
+      const offset = this.offsets.get(shape.id);
+      if (!offset) return;
+      shape.x = point.x - offset.x;
+      shape.y = point.y - offset.y;
+    });
+
+    return this.shapes;
   }
 
   end() {
-    return this.shape;
+    const finalShapes = [...this.shapes];
+    finalShapes.forEach((shape) => {
+      shape.state = "static";
+    });
+    this.shapes = [];
+    this.offsets.clear();
+    return finalShapes;
   }
 
   isDragging() {
-    return this.shape !== null;
+    return this.shapes.length > 0;
   }
 }

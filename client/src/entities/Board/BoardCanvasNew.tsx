@@ -66,8 +66,6 @@ export function BoardCanvasNew({
         gatewayRef.current?.sendTransient(shape);
       },
       onLocalShapePersisted: (shape) => {
-        console.log("onLocalShapePersisted", shape);
-
         gatewayRef.current?.sendPersisted(shape);
         onToolComplete?.();
       },

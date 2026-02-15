@@ -10,7 +10,7 @@ import type { InteractionMode, Point } from "../types";
 import type { _Shape } from "../entities";
 
 export class InteractionManager {
-  private interaction: InteractionMode = { type: "idle", selectedId: null };
+  private interaction: InteractionMode = { type: "idle", selectedIds: [] };
   private containerElement: HTMLElement | null = null;
 
   private onTransientUpdateCallback?: (shape: _Shape) => void;
@@ -38,8 +38,8 @@ export class InteractionManager {
     return this.interaction;
   }
 
-  getSelectedId(): string | null {
-    return this.interaction.selectedId;
+  getSelectedIds(): string[] {
+    return this.interaction.selectedIds;
   }
 
   handleMouseDown(worldPoint: Point, canvasPoint: Point) {
@@ -55,13 +55,21 @@ export class InteractionManager {
         startY: canvasPoint.y,
         currentX: canvasPoint.x,
         currentY: canvasPoint.y,
-        selectedId: null,
+        startWorldX: worldPoint.x,
+        startWorldY: worldPoint.y,
+        currentWorldX: worldPoint.x,
+        currentWorldY: worldPoint.y,
+        selectedIds: [],
       };
       this.entityManager.clearSelection();
       return;
     }
 
-    this.selectShape(shape);
+    const selectedIds = this.getSelectedIds();
+    const isSelected = selectedIds.includes(shape.id);
+    if (!isSelected) {
+      this.selectShapes([shape]);
+    }
 
     const bound = ResizeCalculator.getShapeManipulationBounds(shape);
     const handle = hitTestResizeHandle(bound, worldPoint);
@@ -70,16 +78,22 @@ export class InteractionManager {
       this.resizeController.begin(shape, handle, worldPoint);
       this.interaction = {
         type: "resize",
-        selectedId: shape.id,
+        selectedIds: [shape.id],
         activeId: shape.id,
       };
       return;
     }
 
-    this.dragController.begin(shape, worldPoint);
+    const dragShapes = isSelected
+      ? this.entityManager
+          .getShapes()
+          .filter((candidate) => selectedIds.includes(candidate.id))
+      : [shape];
+
+    this.dragController.begin(dragShapes, worldPoint);
     this.interaction = {
       type: "drag",
-      selectedId: shape.id,
+      selectedIds: dragShapes.map((s) => s.id),
       activeId: shape.id,
     };
   }
@@ -92,6 +106,8 @@ export class InteractionManager {
     if (this.interaction.type === "select") {
       this.interaction.currentX = canvasPoint.x;
       this.interaction.currentY = canvasPoint.y;
+      this.interaction.currentWorldX = worldPoint.x;
+      this.interaction.currentWorldY = worldPoint.y;
       return;
     }
 
@@ -100,11 +116,11 @@ export class InteractionManager {
     }
 
     if (this.interaction.type === "drag") {
-      const updatedShape = this.dragController.update(worldPoint);
-      if (updatedShape) {
-        this.entityManager.updateShapeList(updatedShape);
-        this.onTransientUpdateCallback?.(updatedShape);
-      }
+      const updatedShapes = this.dragController.update(worldPoint);
+      updatedShapes.forEach((shape) => {
+        this.entityManager.updateShapeList(shape);
+        this.onTransientUpdateCallback?.(shape);
+      });
       return;
     }
 
@@ -123,20 +139,35 @@ export class InteractionManager {
       return;
     }
 
-    const selectedId = this.interaction.selectedId;
+    const selectedIds = this.interaction.selectedIds;
 
     if (this.interaction.type === "pan") {
-      this.interaction = { type: "idle", selectedId };
+      this.interaction = { type: "idle", selectedIds };
       this.removeCursorClass("cursor-grabbing");
       return;
     }
 
+    if (this.interaction.type === "select") {
+      const shapes = this.entityManager.findShapesInRect({
+        x: this.interaction.startWorldX,
+        y: this.interaction.startWorldY,
+        width: this.interaction.currentWorldX - this.interaction.startWorldX,
+        height: this.interaction.currentWorldY - this.interaction.startWorldY,
+      });
+      this.selectShapes(shapes);
+      this.interaction = {
+        type: "idle",
+        selectedIds: shapes.map((shape) => shape.id),
+      };
+      return;
+    }
+
     if (this.interaction.type === "drag") {
-      const finalShape = this.dragController.end();
-      if (finalShape) {
-        this.entityManager.updateShapeList(finalShape);
-        this.onFinalUpdateCallback?.(finalShape);
-      }
+      const finalShapes = this.dragController.end();
+      finalShapes.forEach((shape) => {
+        this.entityManager.updateShapeList(shape);
+        this.onFinalUpdateCallback?.(shape);
+      });
     }
 
     if (this.interaction.type === "resize") {
@@ -147,16 +178,16 @@ export class InteractionManager {
       }
     }
 
-    this.interaction = { type: "idle", selectedId };
+    this.interaction = { type: "idle", selectedIds };
   }
 
   handlePanStart(screenX: number, screenY: number) {
-    const selectedId = this.interaction.selectedId;
+    const selectedIds = this.interaction.selectedIds;
     this.interaction = {
       type: "pan",
       startX: screenX,
       startY: screenY,
-      selectedId,
+      selectedIds,
     };
     this.addCursorClass("cursor-grabbing");
   }
@@ -176,9 +207,11 @@ export class InteractionManager {
     return true;
   }
 
-  private selectShape(shape: _Shape) {
+  private selectShapes(shapes: _Shape[]) {
     this.entityManager.clearSelection();
-    shape.state = "dragging";
+    shapes.forEach((shape) => {
+      shape.state = "dragging";
+    });
   }
 
   private addCursorClass(className: string) {

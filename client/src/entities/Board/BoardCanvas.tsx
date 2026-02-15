@@ -152,8 +152,13 @@ export function BoardCanvas({
 
     if (activeTool === "rectangle" || activeTool === "text") {
       const preset = STICKY_PRESETS[stickyColorId];
-
+      const makeId = () =>
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `shape_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
       createShape({
+        id: makeId(),
+
         type: activeTool === "rectangle" ? "RECT" : "TEXT",
         x,
         y,

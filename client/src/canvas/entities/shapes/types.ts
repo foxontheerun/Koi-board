@@ -1,5 +1,4 @@
 import type { Shape } from "../../../entities/Shape";
-import type { _Shape } from "../EntityManager";
 
 export type UseBoardShapesResult = {
   shapes: Shape[];
@@ -76,6 +75,7 @@ export interface TransientShapeInput {
 }
 
 export type CreateShapeInput = {
+  id: string;
   type: Shape["type"];
   x: number;
   y: number;

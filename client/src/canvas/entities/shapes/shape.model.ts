@@ -18,7 +18,7 @@ export interface _Shape {
   strokeWidth?: string;
   radius?: number;
   type?: ShapeType;
-  state: "static" | "dragging";
+  state: "static" | "dragging" | "selected";
   zIndex?: number;
 }
 export interface ManipulationBounds {
