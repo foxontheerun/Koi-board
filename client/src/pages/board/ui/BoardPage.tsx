@@ -32,7 +32,7 @@ export function BoardPage() {
           setActiveStickyColorId={setActiveStickyColorId}
         />
 
-        <BoardCanvasNew setCamera={setCamera} />
+        <BoardCanvasNew boardId={id} setCamera={setCamera} />
       </div>
     </div>
   );

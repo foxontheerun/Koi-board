@@ -161,7 +161,7 @@ export function BoardCanvas({
         width,
         height,
         text: activeTool === "text" ? "New text" : undefined,
-        fill: activeTool === "rectangle" ? preset.fill : "transparent",
+        fill: activeTool === "rectangle" ? preset.fill : "#c5ff5b",
         stroke: activeTool === "rectangle" ? preset.stroke : "none",
       });
     }

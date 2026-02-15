@@ -1,20 +1,24 @@
 import { useRef, useEffect } from "react";
 import { type CameraController, BoardRuntime } from "../../canvas";
+import { BoardSyncGateway } from "./model/BoardSyncGateway";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
 
 interface BoardCanvasNewProps {
+  boardId: string;
   setCamera: (camera: CameraController) => void;
 }
 
-export function BoardCanvasNew({ setCamera }: BoardCanvasNewProps) {
+export function BoardCanvasNew({ boardId, setCamera }: BoardCanvasNewProps) {
   const gridCanvasRef = useRef<HTMLCanvasElement>(null);
   const mainCanvasRef = useRef<HTMLCanvasElement>(null);
   const dragCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const runtimeRef = useRef<BoardRuntime | null>(null);
+  const gatewayRef = useRef<BoardSyncGateway | null>(null);
+  const clientIdRef = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
     if (
@@ -33,6 +37,24 @@ export function BoardCanvasNew({ setCamera }: BoardCanvasNewProps) {
     );
 
     setCamera(runtimeRef.current.camera);
+    gatewayRef.current = new BoardSyncGateway(
+      boardId,
+      runtimeRef.current,
+      clientIdRef.current,
+    );
+
+    runtimeRef.current.setSyncCallbacks({
+      onLocalShapeTransient: (shape) => {
+        gatewayRef.current?.sendTransient(shape);
+      },
+      onLocalShapePersisted: (shape) => {
+        gatewayRef.current?.sendPersisted(shape);
+      },
+    });
+
+    gatewayRef.current.connect().catch((error) => {
+      console.error("Board sync init error", error);
+    });
 
     const observer = new ResizeObserver(() => {
       runtimeRef.current?.updateSize();
@@ -42,8 +64,11 @@ export function BoardCanvasNew({ setCamera }: BoardCanvasNewProps) {
 
     return () => {
       observer.disconnect();
+      gatewayRef.current?.dispose();
+      gatewayRef.current = null;
+      runtimeRef.current = null;
     };
-  }, [setCamera]);
+  }, [boardId, setCamera]);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (!runtimeRef.current) return;

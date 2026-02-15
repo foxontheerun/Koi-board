@@ -1,5 +1,11 @@
 import { CameraController } from "../camera";
-import { EntityManager, type InteractionMode } from "../entities";
+import { EntityManager, type _Shape, type InteractionMode } from "../entities";
+import type {
+  RemoteShape,
+  ShapeEventPayload,
+  TransientShapePatch,
+} from "../entities/EntityManager";
+
 import {
   ResizeController,
   DragController,
@@ -33,7 +39,16 @@ export class BoardRuntime {
   dragController = new DragController();
 
   private interaction: InteractionMode = { type: "idle" };
+  private onLocalShapeTransient?: (shape: _Shape) => void;
+  private onLocalShapePersisted?: (shape: _Shape) => void;
 
+  setSyncCallbacks(callbacks: {
+    onLocalShapeTransient?: (shape: _Shape) => void;
+    onLocalShapePersisted?: (shape: _Shape) => void;
+  }) {
+    this.onLocalShapeTransient = callbacks.onLocalShapeTransient;
+    this.onLocalShapePersisted = callbacks.onLocalShapePersisted;
+  }
   constructor(
     gridCanvas: HTMLCanvasElement,
     mainCanvas: HTMLCanvasElement,
@@ -56,6 +71,23 @@ export class BoardRuntime {
       this.drawAll();
     });
 
+    this.drawAll();
+  }
+
+  replaceAllShapes(shapes: RemoteShape[]) {
+    this.entityManager.replaceAll(shapes);
+    this.drawAll();
+  }
+
+  applyTransientPatch(patch: TransientShapePatch) {
+    this.entityManager.applyTransientPatch(patch);
+    this.drawDrag();
+    this.drawOverlay();
+    this.drawStatic();
+  }
+
+  applyShapeEvent(event: ShapeEventPayload) {
+    this.entityManager.applyShapeEvent(event);
     this.drawAll();
   }
 
@@ -107,7 +139,6 @@ export class BoardRuntime {
     this.dragCtx.save();
     this.camera.applyTransform(this.dragCtx);
     const dragging = this.entityManager.getShapesOnDragLayer();
-
     if (!dragging) return;
 
     this.dragLayer.draw(this.dragCtx, dragging);
@@ -232,6 +263,7 @@ export class BoardRuntime {
 
       if (newShape) {
         this.entityManager.updateShapeList(newShape);
+        this.onLocalShapeTransient?.(newShape);
       }
     }
 
@@ -250,7 +282,19 @@ export class BoardRuntime {
     }
 
     if (this.interaction.type === "resize") {
-      this.resizeController.end();
+      const finalShape = this.resizeController.end();
+      if (finalShape) {
+        this.entityManager.updateShapeList(finalShape);
+        this.onLocalShapePersisted?.(finalShape);
+      }
+    }
+
+    if (this.interaction.type === "drag") {
+      const finalShape = this.dragController.end();
+      if (finalShape) {
+        this.entityManager.updateShapeList(finalShape);
+        this.onLocalShapePersisted?.(finalShape);
+      }
     }
 
     this.interaction = { type: "idle" };
@@ -271,6 +315,7 @@ export class BoardRuntime {
 
     if (updatedShape) {
       this.entityManager.updateShapeList(updatedShape);
+      this.onLocalShapeTransient?.(updatedShape);
     }
   }
 

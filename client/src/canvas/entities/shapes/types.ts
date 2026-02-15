@@ -1,5 +1,5 @@
-import type { Shape } from "../../block/model/types";
-import type { _Shape } from "./EntityManager";
+import type { Shape } from "../../../entities/Shape";
+import type { _Shape } from "../EntityManager";
 
 export type UseBoardShapesResult = {
   shapes: Shape[];

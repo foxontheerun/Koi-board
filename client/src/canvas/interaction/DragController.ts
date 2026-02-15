@@ -1,4 +1,4 @@
-import type { _Shape } from "../model/shape.model";
+import type { _Shape } from "../entities";
 
 export class DragController {
   private shape: _Shape | null = null;
@@ -6,6 +6,7 @@ export class DragController {
 
   begin(shape: _Shape, startPoint: { x: number; y: number }) {
     if (this.shape) this.shape.state = "static";
+
     this.shape = shape;
     this.offset = {
       x: startPoint.x - shape.x,
@@ -24,8 +25,7 @@ export class DragController {
   }
 
   end() {
-    if (this.shape) this.shape.state = "static";
-    this.shape = null;
+    return this.shape;
   }
 
   isDragging() {

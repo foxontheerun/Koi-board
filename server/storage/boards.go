@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"sync"
 	"server/graph"
+	"sync"
 )
 
 var (
@@ -43,31 +43,15 @@ func defaultBoard1() *graph.Board {
 				ZIndex:     0,
 				Locked:     false,
 				Text:       nil,
-				Fill:       strPtr("#dff2ffff"),
-				Stroke:      strPtr("#8eadc2ff"),
+				Fill:       strPtr("#f19742"),
+				Stroke:      strPtr("#f3870b"),
 				StrokeWidth: nil,
-			},
-			{
-				ID:         "2",
-				BoardID:    "1",
-				Type:       graph.ShapeTypeText,
-				X:          450,
-				Y:          180,
-				Width:      220,
-				Height:     80,
-				Rotation:   0,
-				ZIndex:     1,
-				Locked:     false,
-				Text:       strPtr("Привет с бэкенда 👋"),
-				Fill:       strPtr("transparent"),
-				Stroke:     strPtr("none"),
-				StrokeWidth: f64Ptr(0),
 			},
 			{
 				ID:         "10",
 				BoardID:    "2",
-				Type:       graph.ShapeTypeEllipse,
-				X:          300,
+				Type:       graph.ShapeTypeRect,
+				X:          500,
 				Y:          200,
 				Width:      150,
 				Height:     150,
@@ -91,7 +75,7 @@ func defaultBoard2() *graph.Board {
 			{
 				ID:         "10",
 				BoardID:    "2",
-				Type:       graph.ShapeTypeEllipse,
+				Type:       graph.ShapeTypeRect,
 				X:          300,
 				Y:          200,
 				Width:      150,
