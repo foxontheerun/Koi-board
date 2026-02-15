@@ -4,6 +4,7 @@ import { DragLayer } from "./layers/DragLayer";
 import { Overlay } from "./layers/Overlay";
 import type { EntityManager } from "../entities/EntityManager";
 import type { CameraController } from "../camera/CameraController";
+import type { _Shape } from "../entities";
 
 export class RenderManager {
   private gridCtx: CanvasRenderingContext2D;
@@ -107,6 +108,7 @@ export class RenderManager {
       currentX: number;
       currentY: number;
     },
+    previewShape?: _Shape,
   ) {
     this.overlayCtx.setTransform(1, 0, 0, 1, 0, 0);
     this.overlayCtx.clearRect(
@@ -126,6 +128,10 @@ export class RenderManager {
       }
     }
 
+    if (previewShape) {
+      this.drawPreviewShape(this.overlayCtx, previewShape);
+    }
+
     this.overlayCtx.restore();
 
     if (selectionBox) {
@@ -138,5 +144,55 @@ export class RenderManager {
         currentY,
       );
     }
+  }
+
+  private drawPreviewShape(ctx: CanvasRenderingContext2D, shape: _Shape) {
+    ctx.save();
+
+    ctx.fillStyle = shape.fill + "80";
+    ctx.strokeStyle = shape.stroke;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+
+    if (shape.type === "RECT") {
+      if (shape.radius) {
+        this.drawRoundedRect(
+          ctx,
+          shape.x,
+          shape.y,
+          shape.width,
+          shape.height,
+          shape.radius,
+        );
+      } else {
+        ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+        ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  private drawRoundedRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+  ) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.arcTo(x + width, y, x + width, y + radius, radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+    ctx.lineTo(x + radius, y + height);
+    ctx.arcTo(x, y + height, x, y + height - radius, radius);
+    ctx.lineTo(x, y + radius);
+    ctx.arcTo(x, y, x + radius, y, radius);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
 }

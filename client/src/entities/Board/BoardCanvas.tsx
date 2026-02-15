@@ -4,7 +4,6 @@ import { calculateZoomTransform } from "../../shared/lib/zoom";
 import {
   STICKY_PRESETS,
   type Shape,
-  ShapeItem,
   type StickyColorId,
   type Tool,
 } from "../Shape";

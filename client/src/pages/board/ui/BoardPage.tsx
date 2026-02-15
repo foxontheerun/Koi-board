@@ -32,7 +32,13 @@ export function BoardPage() {
           setActiveStickyColorId={setActiveStickyColorId}
         />
 
-        <BoardCanvasNew boardId={id} setCamera={setCamera} />
+        <BoardCanvasNew
+          boardId={id}
+          setCamera={setCamera}
+          activeTool={activeTool}
+          activeStickyColor={activeStickyColorId}
+          onToolComplete={() => setActiveTool("pointer")}
+        />
       </div>
     </div>
   );

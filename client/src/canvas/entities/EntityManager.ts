@@ -1,5 +1,6 @@
 import type { ShapeType } from "../../entities/Shape";
 import { ResizeCalculator } from "../interaction";
+import type { _Shape } from "./shapes";
 
 const SHAPES: _Shape[] = [
   {
@@ -81,20 +82,6 @@ const SHAPES: _Shape[] = [
     zIndex: 5,
   },
 ];
-export interface _Shape {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fill: string;
-  stroke: string;
-  strokeWidth?: string;
-  radius?: number;
-  type?: ShapeType;
-  state: "static" | "dragging";
-  zIndex?: number;
-}
 
 export interface RemoteShape {
   id: string;
@@ -140,6 +127,15 @@ export class EntityManager {
       radius: 8,
       zIndex: shape.zIndex ?? 0,
     };
+  }
+
+  addShape(shape: _Shape) {
+    this.shapes.push(shape);
+    // this.notify();
+  }
+
+  getMaxZIndex(): number {
+    return Math.max(0, ...this.shapes.map((s) => s.zIndex ?? 0));
   }
 
   getShapes() {

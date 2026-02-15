@@ -7,13 +7,13 @@ import {
   UPDATE_SHAPE_MUTATION,
 } from "../api/board.gql";
 import type {
-  _Shape,
   RemoteShape,
   ShapeEventPayload,
   TransientShapePatch,
 } from "../../../canvas/entities/EntityManager";
 import type { BoardRuntime } from "../../../canvas";
 import { throttle } from "lodash";
+import type { _Shape } from "../../../canvas/entities";
 
 type BoardQueryResponse = {
   board?: {

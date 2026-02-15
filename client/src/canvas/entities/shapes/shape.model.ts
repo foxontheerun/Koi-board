@@ -19,8 +19,8 @@ export interface _Shape {
   radius?: number;
   type?: ShapeType;
   state: "static" | "dragging";
+  zIndex?: number;
 }
-
 export interface ManipulationBounds {
   x: number;
   y: number;

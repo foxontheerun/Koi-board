@@ -1,4 +1,4 @@
-import type { _Shape, EntityManager } from "../entities/EntityManager";
+import type { EntityManager } from "../entities/EntityManager";
 import type { DragController } from "./DragController";
 import type { ResizeController } from "./ResizeController";
 import { ResizeCalculator } from "./ResizeCalculator";
@@ -6,25 +6,8 @@ import {
   hitTestResizeHandle,
   RESIZE_HANDLE_SIZE,
 } from "../rendering/layers/mouseEventHandlingHelpers";
-
-export type InteractionMode =
-  | { type: "idle"; selectedId: string | null }
-  | { type: "drag"; selectedId: string; activeId: string }
-  | { type: "resize"; selectedId: string; activeId: string }
-  | {
-      type: "select";
-      startX: number;
-      startY: number;
-      currentX: number;
-      currentY: number;
-      selectedId: null;
-    }
-  | { type: "pan"; startX: number; startY: number; selectedId: string | null };
-
-interface Point {
-  x: number;
-  y: number;
-}
+import type { InteractionMode, Point } from "../types";
+import type { _Shape } from "../entities";
 
 export class InteractionManager {
   private interaction: InteractionMode = { type: "idle", selectedId: null };

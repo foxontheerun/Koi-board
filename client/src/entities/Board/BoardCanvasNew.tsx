@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
 import { type CameraController, BoardRuntime } from "../../canvas";
 import { BoardSyncGateway } from "./model/BoardSyncGateway";
+import type { StickyColorId, Tool } from "../Shape";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
@@ -8,9 +9,18 @@ export const MAX_ZOOM = 400;
 interface BoardCanvasNewProps {
   boardId: string;
   setCamera: (camera: CameraController) => void;
+  activeTool: Tool;
+  activeStickyColor: StickyColorId;
+  onToolComplete: () => void;
 }
 
-export function BoardCanvasNew({ boardId, setCamera }: BoardCanvasNewProps) {
+export function BoardCanvasNew({
+  boardId,
+  setCamera,
+  activeTool,
+  activeStickyColor,
+  onToolComplete,
+}: BoardCanvasNewProps) {
   const gridCanvasRef = useRef<HTMLCanvasElement>(null);
   const mainCanvasRef = useRef<HTMLCanvasElement>(null);
   const dragCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -19,6 +29,14 @@ export function BoardCanvasNew({ boardId, setCamera }: BoardCanvasNewProps) {
   const runtimeRef = useRef<BoardRuntime | null>(null);
   const gatewayRef = useRef<BoardSyncGateway | null>(null);
   const clientIdRef = useRef<string>(crypto.randomUUID());
+
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime) return;
+
+    runtime.setActiveStickyColor(activeStickyColor);
+    runtime.setCreationTool(activeTool === "rectangle" ? "RECT" : null);
+  }, [activeStickyColor, activeTool]);
 
   useEffect(() => {
     if (
@@ -48,7 +66,10 @@ export function BoardCanvasNew({ boardId, setCamera }: BoardCanvasNewProps) {
         gatewayRef.current?.sendTransient(shape);
       },
       onLocalShapePersisted: (shape) => {
+        console.log("onLocalShapePersisted", shape);
+
         gatewayRef.current?.sendPersisted(shape);
+        onToolComplete?.();
       },
     });
 
@@ -96,15 +117,22 @@ export function BoardCanvasNew({ boardId, setCamera }: BoardCanvasNewProps) {
       />
       <canvas
         ref={dragCanvasRef}
-        onMouseDown={(e) =>
-          runtimeRef.current?.handleMouseDown(e.clientX, e.clientY)
-        }
-        onMouseMove={(e) =>
-          runtimeRef.current?.handleMouseMove(e.clientX, e.clientY)
-        }
         onMouseUp={() => runtimeRef.current?.handleMouseUp()}
         className="absolute inset-0 touch-none w-full h-full  "
         onWheel={handleWheel}
+        onMouseDown={(e) => {
+          if (e.button === 2) {
+            runtimeRef.current?.handlePanStart(e.clientX, e.clientY);
+            return;
+          }
+          if (e.button === 0) {
+            runtimeRef.current?.handleMouseDown(e.clientX, e.clientY);
+          }
+        }}
+        onMouseMove={(e) =>
+          runtimeRef.current?.handleMouseMove(e.clientX, e.clientY)
+        }
+        onContextMenu={(e) => e.preventDefault()}
       />
       <canvas
         ref={overlayCanvasRef}

@@ -1,3 +1,8 @@
+import {
+  STICKY_PRESETS,
+  type ShapeType,
+  type StickyColorId,
+} from "../../entities/Shape";
 import { CameraController } from "../camera";
 import { EntityManager, type _Shape } from "../entities";
 import type {
@@ -23,6 +28,7 @@ export class BoardRuntime {
   private resizeController: ResizeController;
 
   private unsubscribeCamera?: () => void;
+  private activeStickyColor: StickyColorId = "yellow";
 
   constructor(
     gridCanvas: HTMLCanvasElement,
@@ -67,29 +73,43 @@ export class BoardRuntime {
     this.redrawAll();
   }
 
+  setCreationTool(type: ShapeType | null) {
+    this.creationTool.type = type;
+    this.creationTool.startPoint = null;
+    this.creationTool.previewShape = null;
+  }
+
+  setActiveStickyColor(colorId: StickyColorId) {
+    this.activeStickyColor = colorId;
+  }
+
+  private syncCallbacks: {
+    onLocalShapeTransient?: (shape: _Shape) => void;
+    onLocalShapePersisted?: (shape: _Shape) => void;
+  } = {};
+
   setSyncCallbacks(callbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
   }) {
+    this.syncCallbacks = callbacks;
+
     this.interactionManager.setCallbacks({
       onTransientUpdate: callbacks.onLocalShapeTransient,
       onFinalUpdate: callbacks.onLocalShapePersisted,
     });
   }
 
-  // ✅ Apollo → Canvas: Replace all shapes (initial load)
   replaceAllShapes(shapes: RemoteShape[]) {
     this.entityManager.replaceAll(shapes);
     this.redrawAll();
   }
 
-  // ✅ Apollo → Canvas: Apply transient patch (other users dragging)
   applyTransientPatch(patch: TransientShapePatch) {
     this.entityManager.applyTransientPatch(patch);
     this.redrawInteractionLayers();
   }
 
-  // ✅ Apollo → Canvas: Apply shape event (other users saved)
   applyShapeEvent(event: ShapeEventPayload) {
     this.entityManager.applyShapeEvent(event);
     this.redrawAll();
@@ -112,16 +132,30 @@ export class BoardRuntime {
       screenY,
     );
 
+    if (this.creationTool.type) {
+      this.startCreatingShape(worldPoint);
+      return;
+    }
+
     this.interactionManager.handleMouseDown(worldPoint, canvasPoint);
     this.redrawInteractionLayers();
   }
 
   handleMouseMove(screenX: number, screenY: number) {
+    if (this.creationTool.startPoint) {
+      const worldPoint = this.coordinateTransformer.screenToWorld(
+        screenX,
+        screenY,
+      );
+      this.updateShapePreview(worldPoint);
+      return;
+    }
     const isPanning = this.interactionManager.handlePanMove(
       screenX,
       screenY,
       this.camera,
     );
+
     if (isPanning) return;
 
     const worldPoint = this.coordinateTransformer.screenToWorld(
@@ -138,12 +172,61 @@ export class BoardRuntime {
   }
 
   handleMouseUp() {
+    if (this.creationTool.startPoint && this.creationTool.previewShape) {
+      this.finishCreatingShape();
+      return;
+    }
     this.interactionManager.handleMouseUp();
     this.redrawInteractionLayers();
   }
 
   handlePanStart(screenX: number, screenY: number) {
     this.interactionManager.handlePanStart(screenX, screenY);
+  }
+
+  private updateShapePreview(worldPoint: { x: number; y: number }) {
+    if (!this.creationTool.startPoint || !this.creationTool.previewShape)
+      return;
+
+    const start = this.creationTool.startPoint;
+    const width = worldPoint.x - start.x;
+    const height = worldPoint.y - start.y;
+
+    this.creationTool.previewShape = {
+      ...this.creationTool.previewShape,
+      width: Math.abs(width),
+      height: Math.abs(height),
+      x: width < 0 ? worldPoint.x : start.x,
+      y: height < 0 ? worldPoint.y : start.y,
+    };
+
+    this.renderManager.drawOverlay(
+      this.camera,
+      this.entityManager,
+      null,
+      undefined,
+      this.creationTool.previewShape,
+    );
+  }
+
+  private finishCreatingShape() {
+    if (!this.creationTool.previewShape) return;
+
+    const shape = this.creationTool.previewShape;
+
+    if (shape.width < 10 || shape.height < 10) {
+      shape.width = Math.max(shape.width, 100);
+      shape.height = Math.max(shape.height, 100);
+    }
+
+    this.entityManager.addShape(shape);
+    this.syncCallbacks.onLocalShapePersisted?.(shape);
+
+    this.creationTool.startPoint = null;
+    this.creationTool.previewShape = null;
+    this.creationTool.type = null;
+
+    this.redrawAll();
   }
 
   private redrawAll() {
@@ -155,6 +238,8 @@ export class BoardRuntime {
     const interaction = this.interactionManager.getInteraction();
     const selectedId = this.interactionManager.getSelectedId();
 
+    if (interaction.type === "pan") return;
+
     const selectionBox =
       interaction.type === "select"
         ? {
@@ -165,44 +250,44 @@ export class BoardRuntime {
           }
         : undefined;
 
-    switch (interaction.type) {
-      case "idle":
-        this.renderManager.drawStatic(this.camera, this.entityManager);
-        this.renderManager.drawDrag(this.camera, this.entityManager);
-        this.renderManager.drawOverlay(
-          this.camera,
-          this.entityManager,
-          selectedId,
-          selectionBox,
-        );
-        break;
+    this.renderManager.drawStatic(this.camera, this.entityManager);
+    this.renderManager.drawDrag(this.camera, this.entityManager);
+    this.renderManager.drawOverlay(
+      this.camera,
+      this.entityManager,
+      selectedId,
+      selectionBox,
+    );
+  }
 
-      case "select":
-        this.renderManager.drawStatic(this.camera, this.entityManager);
-        this.renderManager.drawDrag(this.camera, this.entityManager);
-        this.renderManager.drawOverlay(
-          this.camera,
-          this.entityManager,
-          selectedId,
-          selectionBox,
-        );
-        break;
+  private creationTool: {
+    type: ShapeType | null;
+    startPoint: { x: number; y: number } | null;
+    previewShape: _Shape | null;
+  } = {
+    type: null,
+    startPoint: null,
+    previewShape: null,
+  };
 
-      case "drag":
-      case "resize":
-        this.renderManager.drawStatic(this.camera, this.entityManager);
-        this.renderManager.drawDrag(this.camera, this.entityManager);
-        this.renderManager.drawOverlay(
-          this.camera,
-          this.entityManager,
-          selectedId,
-          selectionBox,
-        );
-        break;
+  private startCreatingShape(worldPoint: { x: number; y: number }) {
+    this.creationTool.startPoint = worldPoint;
 
-      case "pan":
-        break;
-    }
+    const colorPreset = STICKY_PRESETS[this.activeStickyColor];
+
+    this.creationTool.previewShape = {
+      id: crypto.randomUUID(),
+      type: this.creationTool.type!,
+      x: worldPoint.x,
+      y: worldPoint.y,
+      width: 0,
+      height: 0,
+      fill: colorPreset.fill,
+      stroke: colorPreset.stroke,
+      state: "static",
+      radius: 8,
+      zIndex: this.entityManager.getMaxZIndex() + 1,
+    };
   }
 
   destroy() {

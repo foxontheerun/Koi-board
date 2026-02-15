@@ -1,34 +1,78 @@
-import type { Shape } from "../../block";
-import type { _Shape } from "../model/EntityManager";
+import type { Shape } from "../../entities/Shape";
+import type { _Shape } from "../entities";
 import { adjustHexBrightness } from "./colorUtils";
 
 export class CanvasPainter {
-  public static drawRectShape(ctx: CanvasRenderingContext2D, rect: Shape) {
-    const { x, y, width, height, radius = 8 } = rect;
+  public static drawRectShape(ctx: CanvasRenderingContext2D, shape: Shape) {
+    const { fill, stroke, strokeWidth } = shape;
 
-    if (radius <= 0) {
-      this.drawShapeWithFillAndStroke(
-        ctx,
-        rect,
-        () => ctx.fillRect(x, y, width, height),
-        () => ctx.strokeRect(x, y, width, height),
+    // ✅ Нормализуем фигуру (обрабатываем отрицательные width/height)
+    const normalized = this.normalizeShape(shape);
+    const { x, y, width, height, radius = 8 } = normalized;
+
+    // ✅ Безопасный радиус (не больше половины меньшей стороны)
+    const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+
+    ctx.save();
+
+    // Рисуем путь
+    ctx.beginPath();
+
+    if (safeRadius > 0) {
+      ctx.moveTo(x + safeRadius, y);
+      ctx.lineTo(x + width - safeRadius, y);
+      ctx.arcTo(x + width, y, x + width, y + safeRadius, safeRadius);
+      ctx.lineTo(x + width, y + height - safeRadius);
+      ctx.arcTo(
+        x + width,
+        y + height,
+        x + width - safeRadius,
+        y + height,
+        safeRadius,
       );
+      ctx.lineTo(x + safeRadius, y + height);
+      ctx.arcTo(x, y + height, x, y + height - safeRadius, safeRadius);
+      ctx.lineTo(x, y + safeRadius);
+      ctx.arcTo(x, y, x + safeRadius, y, safeRadius);
+      ctx.closePath();
     } else {
-      const r = radius;
-      this.drawShapeWithFillAndStroke(ctx, rect, () => {
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + width - r, y);
-        ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-        ctx.lineTo(x + width, y + height - r);
-        ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-        ctx.lineTo(x + r, y + height);
-        ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
-      });
+      ctx.rect(x, y, width, height);
     }
+
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = strokeWidth ?? 2;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  private static normalizeShape(shape: Shape): Shape {
+    let { x, y, width, height } = shape;
+
+    if (width < 0) {
+      x = x + width;
+      width = Math.abs(width);
+    }
+
+    if (height < 0) {
+      y = y + height;
+      height = Math.abs(height);
+    }
+
+    return {
+      ...shape,
+      x,
+      y,
+      width,
+      height,
+    };
   }
 
   public static drawEllipseShape(

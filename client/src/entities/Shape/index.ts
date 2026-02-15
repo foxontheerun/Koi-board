@@ -1,7 +1,4 @@
-export { ShapeBlock } from './ShapeBlock';
-export { TextBlock } from './TextBlock';
-export { EllipseBlock } from './EllipseBlock';
-export { ResizableDraggableShape } from './ResizableDraggableShape';
-export { ShapeItem } from './ShapeItem';
-export * from './types';
-export * from './stickyPresets';
+export { TextBlock } from "./TextBlock";
+export { ResizableDraggableShape } from "./ResizableDraggableShape";
+export * from "./types";
+export * from "./stickyPresets";

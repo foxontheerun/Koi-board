@@ -10,6 +10,8 @@ export class DragLayer {
           CanvasPainter.drawEllipseShape(ctx, s as unknown as Shape);
           break;
         case "RECT":
+          CanvasPainter.drawRectShape(ctx, s as unknown as Shape);
+          break;
         default:
           CanvasPainter.drawSticker(ctx, s as unknown as Shape, {
             showShadow: s.state === "dragging",
