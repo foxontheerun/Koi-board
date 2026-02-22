@@ -14,3 +14,28 @@ input TransientShapeInput {
   width: Float
   height: Float
 }
+
+input TransientShapePatchInput {
+  id: ID!
+  x: Float
+  y: Float
+  width: Float
+  height: Float
+}
+
+type TransientShapePatch {
+  id: ID!
+  x: Float
+  y: Float
+  width: Float
+  height: Float
+}
+
+type TransientBatchEvent {
+  boardId: ID!
+  clientID: ID!
+  dragSessionID: ID!
+  seq: Int!
+  sentAt: String!
+  shapes: [TransientShapePatch!]!
+}
