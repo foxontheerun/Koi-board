@@ -53,9 +53,10 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		DeleteShape        func(childComplexity int, boardID string, shapeID string) int
-		MoveShapeTransient func(childComplexity int, boardID string, shape TransientShapeInput, clientID string) int
-		UpdateShape        func(childComplexity int, boardID string, shape ShapeInput, clientID string) int
+		DeleteShape         func(childComplexity int, boardID string, shapeID string) int
+		MoveShapeTransient  func(childComplexity int, boardID string, shape TransientShapeInput, clientID string) int
+		MoveShapesTransient func(childComplexity int, boardID string, shapes []*TransientShapeInput, clientID string) int
+		UpdateShape         func(childComplexity int, boardID string, shape ShapeInput, clientID string) int
 	}
 
 	Query struct {
@@ -87,9 +88,9 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		ShapeEvents  func(childComplexity int, boardID string) int
-		ShapeMoved   func(childComplexity int, boardID string) int
-		ShapeUpdated func(childComplexity int, boardID string) int
+		ShapeEvents func(childComplexity int, boardID string) int
+		ShapeMoved  func(childComplexity int, boardID string) int
+		ShapesMoved func(childComplexity int, boardID string) int
 	}
 
 	TransientShape struct {
@@ -100,11 +101,17 @@ type ComplexityRoot struct {
 		X        func(childComplexity int) int
 		Y        func(childComplexity int) int
 	}
+
+	TransientShapesBatch struct {
+		ClientID func(childComplexity int) int
+		Shapes   func(childComplexity int) int
+	}
 }
 
 type MutationResolver interface {
 	UpdateShape(ctx context.Context, boardID string, shape ShapeInput, clientID string) (*Shape, error)
 	MoveShapeTransient(ctx context.Context, boardID string, shape TransientShapeInput, clientID string) (bool, error)
+	MoveShapesTransient(ctx context.Context, boardID string, shapes []*TransientShapeInput, clientID string) (bool, error)
 	DeleteShape(ctx context.Context, boardID string, shapeID string) (bool, error)
 }
 type QueryResolver interface {
@@ -113,7 +120,7 @@ type QueryResolver interface {
 }
 type SubscriptionResolver interface {
 	ShapeMoved(ctx context.Context, boardID string) (<-chan *TransientShape, error)
-	ShapeUpdated(ctx context.Context, boardID string) (<-chan *Shape, error)
+	ShapesMoved(ctx context.Context, boardID string) (<-chan *TransientShapesBatch, error)
 	ShapeEvents(ctx context.Context, boardID string) (<-chan *ShapeEvent, error)
 }
 
@@ -177,6 +184,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.MoveShapeTransient(childComplexity, args["boardId"].(string), args["shape"].(TransientShapeInput), args["clientID"].(string)), true
+	case "Mutation.moveShapesTransient":
+		if e.complexity.Mutation.MoveShapesTransient == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_moveShapesTransient_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.MoveShapesTransient(childComplexity, args["boardId"].(string), args["shapes"].([]*TransientShapeInput), args["clientID"].(string)), true
 	case "Mutation.updateShape":
 		if e.complexity.Mutation.UpdateShape == nil {
 			break
@@ -333,17 +351,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Subscription.ShapeMoved(childComplexity, args["boardId"].(string)), true
-	case "Subscription.shapeUpdated":
-		if e.complexity.Subscription.ShapeUpdated == nil {
+	case "Subscription.shapesMoved":
+		if e.complexity.Subscription.ShapesMoved == nil {
 			break
 		}
 
-		args, err := ec.field_Subscription_shapeUpdated_args(ctx, rawArgs)
+		args, err := ec.field_Subscription_shapesMoved_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Subscription.ShapeUpdated(childComplexity, args["boardId"].(string)), true
+		return e.complexity.Subscription.ShapesMoved(childComplexity, args["boardId"].(string)), true
 
 	case "TransientShape.clientID":
 		if e.complexity.TransientShape.ClientID == nil {
@@ -381,6 +399,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.TransientShape.Y(childComplexity), true
+
+	case "TransientShapesBatch.clientID":
+		if e.complexity.TransientShapesBatch.ClientID == nil {
+			break
+		}
+
+		return e.complexity.TransientShapesBatch.ClientID(childComplexity), true
+	case "TransientShapesBatch.shapes":
+		if e.complexity.TransientShapesBatch.Shapes == nil {
+			break
+		}
+
+		return e.complexity.TransientShapesBatch.Shapes(childComplexity), true
 
 	}
 	return 0, false
@@ -524,27 +555,23 @@ type Query {
 }
 
 extend type Mutation {
-  # persisted update
   updateShape(boardId: ID!, shape: ShapeInput!, clientID: ID!): Shape!
-
-  # realtime transient move
   moveShapeTransient(
     boardId: ID!
     shape: TransientShapeInput!
     clientID: ID!
   ): Boolean!
-
+  moveShapesTransient(
+    boardId: ID!
+    shapes: [TransientShapeInput!]!
+    clientID: ID!
+  ): Boolean!
   deleteShape(boardId: ID!, shapeId: ID!): Boolean!
 }
 
 extend type Subscription {
-  # realtime move
   shapeMoved(boardId: ID!): TransientShape!
-
-  # persisted update
-  shapeUpdated(boardId: ID!): Shape!
-
-  # новый нормальный канал событий
+  shapesMoved(boardId: ID!): TransientShapesBatch!
   shapeEvents(boardId: ID!): ShapeEvent!
 }
 `, BuiltIn: false},
@@ -621,6 +648,11 @@ input TransientShapeInput {
   width: Float
   height: Float
 }
+
+type TransientShapesBatch {
+  shapes: [TransientShape!]!
+  clientID: ID!
+}
 `, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -658,6 +690,27 @@ func (ec *executionContext) field_Mutation_moveShapeTransient_args(ctx context.C
 		return nil, err
 	}
 	args["shape"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "clientID", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["clientID"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_moveShapesTransient_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "boardId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["boardId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "shapes", ec.unmarshalNTransientShapeInput2ᚕᚖserverᚋgraphᚐTransientShapeInputᚄ)
+	if err != nil {
+		return nil, err
+	}
+	args["shapes"] = arg1
 	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "clientID", ec.unmarshalNID2string)
 	if err != nil {
 		return nil, err
@@ -731,7 +784,7 @@ func (ec *executionContext) field_Subscription_shapeMoved_args(ctx context.Conte
 	return args, nil
 }
 
-func (ec *executionContext) field_Subscription_shapeUpdated_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Subscription_shapesMoved_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "boardId", ec.unmarshalNID2string)
@@ -1017,6 +1070,47 @@ func (ec *executionContext) fieldContext_Mutation_moveShapeTransient(ctx context
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_moveShapeTransient_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_moveShapesTransient(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_moveShapesTransient,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().MoveShapesTransient(ctx, fc.Args["boardId"].(string), fc.Args["shapes"].([]*TransientShapeInput), fc.Args["clientID"].(string))
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_moveShapesTransient(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_moveShapesTransient_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1828,24 +1922,24 @@ func (ec *executionContext) fieldContext_Subscription_shapeMoved(ctx context.Con
 	return fc, nil
 }
 
-func (ec *executionContext) _Subscription_shapeUpdated(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+func (ec *executionContext) _Subscription_shapesMoved(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
 	return graphql.ResolveFieldStream(
 		ctx,
 		ec.OperationContext,
 		field,
-		ec.fieldContext_Subscription_shapeUpdated,
+		ec.fieldContext_Subscription_shapesMoved,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Subscription().ShapeUpdated(ctx, fc.Args["boardId"].(string))
+			return ec.resolvers.Subscription().ShapesMoved(ctx, fc.Args["boardId"].(string))
 		},
 		nil,
-		ec.marshalNShape2ᚖserverᚋgraphᚐShape,
+		ec.marshalNTransientShapesBatch2ᚖserverᚋgraphᚐTransientShapesBatch,
 		true,
 		true,
 	)
 }
 
-func (ec *executionContext) fieldContext_Subscription_shapeUpdated(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Subscription_shapesMoved(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Subscription",
 		Field:      field,
@@ -1853,36 +1947,12 @@ func (ec *executionContext) fieldContext_Subscription_shapeUpdated(ctx context.C
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "id":
-				return ec.fieldContext_Shape_id(ctx, field)
-			case "boardId":
-				return ec.fieldContext_Shape_boardId(ctx, field)
-			case "type":
-				return ec.fieldContext_Shape_type(ctx, field)
-			case "x":
-				return ec.fieldContext_Shape_x(ctx, field)
-			case "y":
-				return ec.fieldContext_Shape_y(ctx, field)
-			case "width":
-				return ec.fieldContext_Shape_width(ctx, field)
-			case "height":
-				return ec.fieldContext_Shape_height(ctx, field)
-			case "text":
-				return ec.fieldContext_Shape_text(ctx, field)
-			case "rotation":
-				return ec.fieldContext_Shape_rotation(ctx, field)
-			case "zIndex":
-				return ec.fieldContext_Shape_zIndex(ctx, field)
-			case "locked":
-				return ec.fieldContext_Shape_locked(ctx, field)
-			case "fill":
-				return ec.fieldContext_Shape_fill(ctx, field)
-			case "stroke":
-				return ec.fieldContext_Shape_stroke(ctx, field)
-			case "strokeWidth":
-				return ec.fieldContext_Shape_strokeWidth(ctx, field)
+			case "shapes":
+				return ec.fieldContext_TransientShapesBatch_shapes(ctx, field)
+			case "clientID":
+				return ec.fieldContext_TransientShapesBatch_clientID(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Shape", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type TransientShapesBatch", field.Name)
 		},
 	}
 	defer func() {
@@ -1892,7 +1962,7 @@ func (ec *executionContext) fieldContext_Subscription_shapeUpdated(ctx context.C
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Subscription_shapeUpdated_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Subscription_shapesMoved_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2112,6 +2182,78 @@ func (ec *executionContext) _TransientShape_clientID(ctx context.Context, field 
 func (ec *executionContext) fieldContext_TransientShape_clientID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "TransientShape",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransientShapesBatch_shapes(ctx context.Context, field graphql.CollectedField, obj *TransientShapesBatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransientShapesBatch_shapes,
+		func(ctx context.Context) (any, error) {
+			return obj.Shapes, nil
+		},
+		nil,
+		ec.marshalNTransientShape2ᚕᚖserverᚋgraphᚐTransientShapeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransientShapesBatch_shapes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransientShapesBatch",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_TransientShape_id(ctx, field)
+			case "x":
+				return ec.fieldContext_TransientShape_x(ctx, field)
+			case "y":
+				return ec.fieldContext_TransientShape_y(ctx, field)
+			case "width":
+				return ec.fieldContext_TransientShape_width(ctx, field)
+			case "height":
+				return ec.fieldContext_TransientShape_height(ctx, field)
+			case "clientID":
+				return ec.fieldContext_TransientShape_clientID(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TransientShape", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TransientShapesBatch_clientID(ctx context.Context, field graphql.CollectedField, obj *TransientShapesBatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_TransientShapesBatch_clientID,
+		func(ctx context.Context) (any, error) {
+			return obj.ClientID, nil
+		},
+		nil,
+		ec.marshalNID2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_TransientShapesBatch_clientID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TransientShapesBatch",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -3824,6 +3966,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "moveShapesTransient":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_moveShapesTransient(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "deleteShape":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteShape(ctx, field)
@@ -4101,8 +4250,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	switch fields[0].Name {
 	case "shapeMoved":
 		return ec._Subscription_shapeMoved(ctx, fields[0])
-	case "shapeUpdated":
-		return ec._Subscription_shapeUpdated(ctx, fields[0])
+	case "shapesMoved":
+		return ec._Subscription_shapesMoved(ctx, fields[0])
 	case "shapeEvents":
 		return ec._Subscription_shapeEvents(ctx, fields[0])
 	default:
@@ -4136,6 +4285,50 @@ func (ec *executionContext) _TransientShape(ctx context.Context, sel ast.Selecti
 			out.Values[i] = ec._TransientShape_height(ctx, field, obj)
 		case "clientID":
 			out.Values[i] = ec._TransientShape_clientID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var transientShapesBatchImplementors = []string{"TransientShapesBatch"}
+
+func (ec *executionContext) _TransientShapesBatch(ctx context.Context, sel ast.SelectionSet, obj *TransientShapesBatch) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, transientShapesBatchImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TransientShapesBatch")
+		case "shapes":
+			out.Values[i] = ec._TransientShapesBatch_shapes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "clientID":
+			out.Values[i] = ec._TransientShapesBatch_clientID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4678,6 +4871,50 @@ func (ec *executionContext) marshalNTransientShape2serverᚋgraphᚐTransientSha
 	return ec._TransientShape(ctx, sel, &v)
 }
 
+func (ec *executionContext) marshalNTransientShape2ᚕᚖserverᚋgraphᚐTransientShapeᚄ(ctx context.Context, sel ast.SelectionSet, v []*TransientShape) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTransientShape2ᚖserverᚋgraphᚐTransientShape(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNTransientShape2ᚖserverᚋgraphᚐTransientShape(ctx context.Context, sel ast.SelectionSet, v *TransientShape) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -4691,6 +4928,40 @@ func (ec *executionContext) marshalNTransientShape2ᚖserverᚋgraphᚐTransient
 func (ec *executionContext) unmarshalNTransientShapeInput2serverᚋgraphᚐTransientShapeInput(ctx context.Context, v any) (TransientShapeInput, error) {
 	res, err := ec.unmarshalInputTransientShapeInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNTransientShapeInput2ᚕᚖserverᚋgraphᚐTransientShapeInputᚄ(ctx context.Context, v any) ([]*TransientShapeInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*TransientShapeInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNTransientShapeInput2ᚖserverᚋgraphᚐTransientShapeInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNTransientShapeInput2ᚖserverᚋgraphᚐTransientShapeInput(ctx context.Context, v any) (*TransientShapeInput, error) {
+	res, err := ec.unmarshalInputTransientShapeInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTransientShapesBatch2serverᚋgraphᚐTransientShapesBatch(ctx context.Context, sel ast.SelectionSet, v TransientShapesBatch) graphql.Marshaler {
+	return ec._TransientShapesBatch(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTransientShapesBatch2ᚖserverᚋgraphᚐTransientShapesBatch(ctx context.Context, sel ast.SelectionSet, v *TransientShapesBatch) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TransientShapesBatch(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {

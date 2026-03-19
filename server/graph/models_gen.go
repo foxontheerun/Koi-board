@@ -80,6 +80,11 @@ type TransientShapeInput struct {
 	Height *float64 `json:"height,omitempty"`
 }
 
+type TransientShapesBatch struct {
+	Shapes   []*TransientShape `json:"shapes"`
+	ClientID string            `json:"clientID"`
+}
+
 type ShapeEventType string
 
 const (

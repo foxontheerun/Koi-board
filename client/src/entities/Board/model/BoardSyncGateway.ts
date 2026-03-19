@@ -1,9 +1,9 @@
 import { apolloClient } from "../../../app/apolloClient";
 import {
   BOARD_QUERY,
-  MOVE_SHAPE_TRANSIENT_MUTATION,
+  MOVE_SHAPES_TRANSIENT_MUTATION,
   SHAPE_EVENTS_SUBSCRIPTION,
-  SHAPE_MOVED_SUBSCRIPTION,
+  SHAPES_MOVED_SUBSCRIPTION,
   UPDATE_SHAPE_MUTATION,
 } from "../api/board.gql";
 import type {
@@ -21,16 +21,15 @@ type BoardQueryResponse = {
   } | null;
 };
 
-type ShapeMovedResponse = {
-  shapeMoved?: (TransientShapePatch & { clientID?: string }) | null;
+type ShapesMovedResponse = {
+  shapesMoved?: {
+    clientID?: string;
+    shapes: TransientShapePatch[];
+  } | null;
 };
 
 type ShapeEventsResponse = {
   shapeEvents?: (ShapeEventPayload & { clientID?: string }) | null;
-};
-
-type MutationResult = {
-  moveShapeTransient?: boolean;
 };
 
 export class BoardSyncGateway {
@@ -38,14 +37,23 @@ export class BoardSyncGateway {
   private readonly boardId: string;
   private readonly runtime: BoardRuntime;
   private readonly clientId: string;
-  private readonly transientByShape = new Map<
-    string,
-    ReturnType<typeof throttle<(shape: _Shape) => void>>
-  >();
+
+  // Accumulates the latest position of each shape between flush calls.
+  // Map key is shape id — later updates overwrite earlier ones.
+  private pendingTransient = new Map<string, _Shape>();
+  private readonly flushTransient: ReturnType<typeof throttle>;
+
   constructor(boardId: string, runtime: BoardRuntime, clientId: string) {
     this.boardId = boardId;
     this.runtime = runtime;
     this.clientId = clientId;
+
+    this.flushTransient = throttle(() => {
+      const shapes = Array.from(this.pendingTransient.values());
+      if (shapes.length === 0) return;
+      this.pendingTransient.clear();
+      this.sendTransientNow(shapes);
+    }, 40);
   }
 
   async connect() {
@@ -58,16 +66,18 @@ export class BoardSyncGateway {
     this.runtime.replaceAllShapes(queryResult.data?.board?.shapes ?? []);
 
     const movedSub = apolloClient
-      .subscribe<ShapeMovedResponse>({
-        query: SHAPE_MOVED_SUBSCRIPTION,
+      .subscribe<ShapesMovedResponse>({
+        query: SHAPES_MOVED_SUBSCRIPTION,
         variables: { boardId: this.boardId },
       })
       .subscribe({
         next: ({ data }) => {
-          const moved = data?.shapeMoved;
+          const moved = data?.shapesMoved;
           if (!moved || moved.clientID === this.clientId) return;
 
-          this.runtime.applyTransientPatch(moved);
+          moved.shapes.forEach((patch) => {
+            this.runtime.applyTransientPatch(patch);
+          });
         },
       });
 
@@ -89,16 +99,9 @@ export class BoardSyncGateway {
   }
 
   sendTransient(shape: _Shape) {
-    let throttled = this.transientByShape.get(shape.id);
-
-    if (!throttled) {
-      throttled = throttle((nextShape: _Shape) => {
-        this.sendTransientNow(nextShape);
-      }, 40);
-      this.transientByShape.set(shape.id, throttled);
-    }
-
-    throttled(shape);
+    // Overwrite — only the latest position matters.
+    this.pendingTransient.set(shape.id, shape);
+    this.flushTransient();
   }
 
   sendPersisted(shape: _Shape) {
@@ -127,30 +130,30 @@ export class BoardSyncGateway {
   }
 
   dispose() {
-    this.subscriptions.forEach((subscription) => subscription.unsubscribe());
+    this.flushTransient.cancel();
+    this.pendingTransient.clear();
+    this.subscriptions.forEach((s) => s.unsubscribe());
     this.subscriptions = [];
-    this.transientByShape.forEach((throttled) => throttled.cancel());
-    this.transientByShape.clear();
   }
 
-  private sendTransientNow(shape: _Shape) {
+  private sendTransientNow(shapes: _Shape[]) {
     void apolloClient
-      .mutate<MutationResult>({
-        mutation: MOVE_SHAPE_TRANSIENT_MUTATION,
+      .mutate({
+        mutation: MOVE_SHAPES_TRANSIENT_MUTATION,
         variables: {
           boardId: this.boardId,
-          shape: {
-            id: shape.id,
-            x: shape.x,
-            y: shape.y,
-            width: shape.width,
-            height: shape.height,
-          },
+          shapes: shapes.map((s) => ({
+            id: s.id,
+            x: s.x,
+            y: s.y,
+            width: s.width,
+            height: s.height,
+          })),
           clientID: this.clientId,
         },
       })
       .catch((error) => {
-        console.error("moveShapeTransient mutation error", error);
+        console.error("moveShapesTransient mutation error", error);
       });
   }
 }

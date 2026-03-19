@@ -73,29 +73,6 @@ export const SHAPE_MOVED_SUBSCRIPTION = gql`
   }
 `;
 
-export const SHAPE_UPDATED_SUBSCRIPTION = gql`
-  subscription ShapeUpdated($boardId: ID!) {
-    shapeUpdated(boardId: $boardId) {
-      id
-      boardId
-      type
-
-      x
-      y
-      width
-      height
-
-      text
-      rotation
-      zIndex
-      locked
-      fill
-      stroke
-      strokeWidth
-    }
-  }
-`;
-
 export const SHAPE_EVENTS_SUBSCRIPTION = gql`
   subscription ShapeEvents($boardId: ID!) {
     shapeEvents(boardId: $boardId) {
@@ -126,5 +103,30 @@ export const SHAPE_EVENTS_SUBSCRIPTION = gql`
 export const DELETE_SHAPE_MUTATION = gql`
   mutation DeleteShape($boardId: ID!, $shapeId: ID!) {
     deleteShape(boardId: $boardId, shapeId: $shapeId)
+  }
+`;
+
+export const MOVE_SHAPES_TRANSIENT_MUTATION = gql`
+  mutation MoveShapesTransient(
+    $boardId: ID!
+    $shapes: [TransientShapeInput!]!
+    $clientID: ID!
+  ) {
+    moveShapesTransient(boardId: $boardId, shapes: $shapes, clientID: $clientID)
+  }
+`;
+
+export const SHAPES_MOVED_SUBSCRIPTION = gql`
+  subscription ShapesMoved($boardId: ID!) {
+    shapesMoved(boardId: $boardId) {
+      clientID
+      shapes {
+        id
+        x
+        y
+        width
+        height
+      }
+    }
   }
 `;

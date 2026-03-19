@@ -80,6 +80,29 @@ func (r *mutationResolver) MoveShapeTransient(ctx context.Context, boardID strin
 	return true, nil
 }
 
+// MoveShapesTransient is the resolver for the moveShapesTransient field.
+func (r *mutationResolver) MoveShapesTransient(ctx context.Context, boardID string, shapes []*graph.TransientShapeInput, clientID string) (bool, error) {
+	batch := &graph.TransientShapesBatch{
+		ClientID: clientID,
+		Shapes:   make([]*graph.TransientShape, 0, len(shapes)),
+	}
+
+	for _, s := range shapes {
+		batch.Shapes = append(batch.Shapes, &graph.TransientShape{
+			ID:       s.ID,
+			X:        s.X,
+			Y:        s.Y,
+			Width:    s.Width,
+			Height:   s.Height,
+			ClientID: clientID,
+		})
+	}
+
+	transient.PublishBatch(boardID, batch)
+
+	return true, nil
+}
+
 // DeleteShape is the resolver for the deleteShape field.
 func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shapeID string) (bool, error) {
 	storage.BoardsMu.Lock()
@@ -150,9 +173,53 @@ func (r *subscriptionResolver) ShapeMoved(ctx context.Context, boardID string) (
 	return ch, nil
 }
 
-// ShapeUpdated is the resolver for the shapeUpdated field.
-// Старый канал, теперь обёрнут над shapeEvents: пробрасываем только CREATED/UPDATED.
-func (r *subscriptionResolver) ShapeUpdated(ctx context.Context, boardID string) (<-chan *graph.Shape, error) {
+// ShapesMoved is the resolver for the shapesMoved field.
+func (r *subscriptionResolver) ShapesMoved(ctx context.Context, boardID string) (<-chan *graph.TransientShapesBatch, error) {
+	ch := make(chan *graph.TransientShapesBatch, 1)
+	transient.SubscribeBatch(boardID, ch)
+
+	go func() {
+		<-ctx.Done()
+		transient.UnsubscribeBatch(boardID, ch)
+	}()
+
+	return ch, nil
+}
+
+// ShapeEvents is the resolver for the shapeEvents field.
+func (r *subscriptionResolver) ShapeEvents(ctx context.Context, boardID string) (<-chan *graph.ShapeEvent, error) {
+	ch := make(chan *graph.ShapeEvent, 1)
+	subscriptions.Subscribe(boardID, ch)
+
+	go func() {
+		<-ctx.Done()
+		subscriptions.Unsubscribe(boardID, ch)
+	}()
+
+	return ch, nil
+}
+
+// Mutation returns graph.MutationResolver implementation.
+func (r *Resolver) Mutation() graph.MutationResolver { return &mutationResolver{r} }
+
+// Query returns graph.QueryResolver implementation.
+func (r *Resolver) Query() graph.QueryResolver { return &queryResolver{r} }
+
+// Subscription returns graph.SubscriptionResolver implementation.
+func (r *Resolver) Subscription() graph.SubscriptionResolver { return &subscriptionResolver{r} }
+
+type mutationResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *subscriptionResolver) ShapeUpdated(ctx context.Context, boardID string) (<-chan *graph.Shape, error) {
 	out := make(chan *graph.Shape, 1)       // то, что вернём наружу
 	evCh := make(chan *graph.ShapeEvent, 1) // внутренняя подписка
 
@@ -187,29 +254,4 @@ func (r *subscriptionResolver) ShapeUpdated(ctx context.Context, boardID string)
 
 	return out, nil
 }
-
-// ShapeEvents is the resolver for the shapeEvents field.
-func (r *subscriptionResolver) ShapeEvents(ctx context.Context, boardID string) (<-chan *graph.ShapeEvent, error) {
-	ch := make(chan *graph.ShapeEvent, 1)
-	subscriptions.Subscribe(boardID, ch)
-
-	go func() {
-		<-ctx.Done()
-		subscriptions.Unsubscribe(boardID, ch)
-	}()
-
-	return ch, nil
-}
-
-// Mutation returns graph.MutationResolver implementation.
-func (r *Resolver) Mutation() graph.MutationResolver { return &mutationResolver{r} }
-
-// Query returns graph.QueryResolver implementation.
-func (r *Resolver) Query() graph.QueryResolver { return &queryResolver{r} }
-
-// Subscription returns graph.SubscriptionResolver implementation.
-func (r *Resolver) Subscription() graph.SubscriptionResolver { return &subscriptionResolver{r} }
-
-type mutationResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }
+*/

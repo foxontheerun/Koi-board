@@ -14,3 +14,8 @@ input TransientShapeInput {
   width: Float
   height: Float
 }
+
+type TransientShapesBatch {
+  shapes: [TransientShape!]!
+  clientID: ID!
+}

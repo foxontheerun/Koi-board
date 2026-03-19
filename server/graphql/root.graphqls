@@ -10,26 +10,22 @@ type Query {
 }
 
 extend type Mutation {
-  # persisted update
   updateShape(boardId: ID!, shape: ShapeInput!, clientID: ID!): Shape!
-
-  # realtime transient move
   moveShapeTransient(
     boardId: ID!
     shape: TransientShapeInput!
     clientID: ID!
   ): Boolean!
-
+  moveShapesTransient(
+    boardId: ID!
+    shapes: [TransientShapeInput!]!
+    clientID: ID!
+  ): Boolean!
   deleteShape(boardId: ID!, shapeId: ID!): Boolean!
 }
 
 extend type Subscription {
-  # realtime move
   shapeMoved(boardId: ID!): TransientShape!
-
-  # persisted update
-  shapeUpdated(boardId: ID!): Shape!
-
-  # новый нормальный канал событий
+  shapesMoved(boardId: ID!): TransientShapesBatch!
   shapeEvents(boardId: ID!): ShapeEvent!
 }
