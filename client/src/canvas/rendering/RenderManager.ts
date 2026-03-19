@@ -5,6 +5,13 @@ import { Overlay } from "./layers/Overlay";
 import type { EntityManager } from "../entities/EntityManager";
 import type { CameraController } from "../camera/CameraController";
 import type { _Shape } from "../entities";
+import {
+  type Rect,
+  clearDirtyRect,
+  computeShapesBoundingRect,
+  selectionBoxToRect,
+  unionRects,
+} from "../utils/dirtyRect";
 
 export class RenderManager {
   private gridCtx: CanvasRenderingContext2D;
@@ -21,6 +28,16 @@ export class RenderManager {
   private staticLayer = new StaticLayer();
   private dragLayer = new DragLayer();
   private overlay = new Overlay();
+
+  // Предыдущий dirty rect — нужен чтобы затирать область где фигура была
+  // на прошлом кадре, а не весь canvas.
+  private prevDragRect: Rect | null = null;
+  private prevOverlayRect: Rect | null = null;
+
+  // Позиции движущихся фигур на прошлом кадре.
+  // Нужны чтобы строить union(prevRect, nextRect) — иначе при быстром
+  // движении между кадрами остаются незатёртые артефакты.
+  private prevMovingShapeRects = new Map<string, Rect>();
 
   constructor(
     gridCanvas: HTMLCanvasElement,
@@ -49,6 +66,21 @@ export class RenderManager {
       canvas.width = rect.width;
       canvas.height = rect.height;
     });
+
+    this.invalidateDirtyRects();
+  }
+
+  /**
+   * Сбрасывает все prev-rect'ы — следующий draw сделает полный clearRect.
+   * Вызывать при любом изменении камеры (zoom/pan), иначе старые rect'ы
+   * в старых screen-координатах приведут к артефактам.
+   */
+  invalidateDirtyRects() {
+    console.trace("invalidateDirtyRects");
+
+    this.prevDragRect = null;
+    this.prevOverlayRect = null;
+    this.prevMovingShapeRects.clear();
   }
 
   getMainCanvas(): HTMLCanvasElement {
@@ -86,14 +118,42 @@ export class RenderManager {
   }
 
   drawDrag(camera: CameraController, entityManager: EntityManager) {
-    this.dragCtx.setTransform(1, 0, 0, 1, 0, 0);
-    this.dragCtx.clearRect(0, 0, this.dragCanvas.width, this.dragCanvas.height);
-
     const dragging = entityManager.getShapesOnDragLayer();
+    const movingShapes = dragging.filter((s) => s.state === "dragging");
 
-    if (!dragging || dragging.length === 0) return;
+    let dirtyRect: Rect | null = null;
+
+    for (const s of movingShapes) {
+      const nextRect = computeShapesBoundingRect(camera, [s]);
+      const prevRect = this.prevMovingShapeRects.get(s.id) ?? nextRect;
+      const united = unionRects(prevRect, nextRect);
+      dirtyRect = dirtyRect ? unionRects(dirtyRect, united) : united;
+      this.prevMovingShapeRects.set(s.id, nextRect);
+    }
+
+    for (const id of this.prevMovingShapeRects.keys()) {
+      if (!movingShapes.find((s) => s.id === id)) {
+        this.prevMovingShapeRects.delete(id);
+      }
+    }
+
+    clearDirtyRect(this.dragCtx, this.dragCanvas, this.prevDragRect);
+
+    if (dragging.length === 0) {
+      this.prevDragRect = null;
+      return;
+    }
+
+    this.prevDragRect = dirtyRect;
 
     this.dragCtx.save();
+
+    if (dirtyRect) {
+      this.dragCtx.beginPath();
+      this.dragCtx.rect(dirtyRect.x, dirtyRect.y, dirtyRect.w, dirtyRect.h);
+      this.dragCtx.clip();
+    }
+
     camera.applyTransform(this.dragCtx);
     this.dragLayer.draw(this.dragCtx, dragging);
     this.dragCtx.restore();
@@ -111,15 +171,41 @@ export class RenderManager {
     },
     previewShape?: _Shape,
   ) {
-    this.overlayCtx.setTransform(1, 0, 0, 1, 0, 0);
-    this.overlayCtx.clearRect(
-      0,
-      0,
-      this.overlayCanvas.width,
-      this.overlayCanvas.height,
-    );
+    clearDirtyRect(this.overlayCtx, this.overlayCanvas, this.prevOverlayRect);
+
+    const selectedShapes = (selectedIds ?? [])
+      .map((id) => entityManager.getById(id))
+      .filter((s): s is _Shape => s !== null);
+
+    if (selectedShapes.length === 0 && !selectionBox && !previewShape) {
+      this.prevOverlayRect = null;
+      return;
+    }
+
+    const allShapesForRect: _Shape[] = [...selectedShapes];
+    if (previewShape) allShapesForRect.push(previewShape);
+
+    let dirtyRect: Rect | null = null;
+
+    if (allShapesForRect.length > 0) {
+      dirtyRect = computeShapesBoundingRect(camera, allShapesForRect);
+    }
+
+    if (selectionBox) {
+      const sbRect = selectionBoxToRect(selectionBox);
+      dirtyRect = dirtyRect ? unionRects(dirtyRect, sbRect) : sbRect;
+    }
+
+    this.prevOverlayRect = dirtyRect;
 
     this.overlayCtx.save();
+
+    if (dirtyRect) {
+      this.overlayCtx.beginPath();
+      this.overlayCtx.rect(dirtyRect.x, dirtyRect.y, dirtyRect.w, dirtyRect.h);
+      this.overlayCtx.clip();
+    }
+
     camera.applyTransform(this.overlayCtx);
 
     selectedIds?.forEach((selectedId) => {

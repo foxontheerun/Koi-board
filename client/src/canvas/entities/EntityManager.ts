@@ -151,10 +151,20 @@ export class EntityManager {
 
   getShapesOnDragLayer(): _Shape[] {
     const dragging = this.getShapes().find((s) => s.state === "dragging");
-    if (!dragging) return [];
-    return this.getShapes().filter(
+
+    const remoteDragging = this.shapes.filter(
+      (s) => s.state === "remote-dragging",
+    );
+
+    if (!dragging) return remoteDragging;
+
+    const localDragLayer = this.getShapes().filter(
       (s) => (s.zIndex ?? 0) >= (dragging.zIndex ?? 0),
     );
+
+    // Объединяем локальный drag layer и remote-dragging фигуры без дублей
+    const ids = new Set(localDragLayer.map((s) => s.id));
+    return [...localDragLayer, ...remoteDragging.filter((s) => !ids.has(s.id))];
   }
 
   clearSelection() {
@@ -175,14 +185,20 @@ export class EntityManager {
     this.shapes = shapes.map((shape) => this.mapRemoteShapeToCanvas(shape));
   }
 
-  applyTransientPatch(patch: TransientShapePatch) {
+  applyTransientPatch(patch: TransientShapePatch): { becameRemote: boolean } {
     const shape = this.shapes.find((s) => s.id === patch.id);
-    if (!shape) return;
+    if (!shape) return { becameRemote: false };
+
+    const wasRemote = shape.state === "remote-dragging";
 
     if (patch.x !== undefined) shape.x = patch.x;
     if (patch.y !== undefined) shape.y = patch.y;
     if (patch.width !== undefined) shape.width = patch.width;
     if (patch.height !== undefined) shape.height = patch.height;
+
+    shape.state = "remote-dragging";
+
+    return { becameRemote: !wasRemote };
   }
 
   applyShapeEvent(event: ShapeEventPayload) {
@@ -190,13 +206,11 @@ export class EntityManager {
 
     if (type === "DELETED") {
       const index = this.shapes.findIndex((s) => s.id === shape.id);
-      if (index !== -1) {
-        this.shapes.splice(index, 1);
-      }
+      if (index !== -1) this.shapes.splice(index, 1);
       return;
     }
 
-    const nextShape = this.mapRemoteShapeToCanvas(shape);
+    const nextShape = this.mapRemoteShapeToCanvas(shape); // state будет "static"
     const existing = this.shapes.find((s) => s.id === shape.id);
 
     if (!existing) {
@@ -204,7 +218,7 @@ export class EntityManager {
       return;
     }
 
-    Object.assign(existing, nextShape);
+    Object.assign(existing, nextShape); // сбросит remote-dragging → static
   }
 
   getById(id: string) {

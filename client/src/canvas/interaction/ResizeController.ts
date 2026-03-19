@@ -8,6 +8,10 @@ export class ResizeController {
   private handle: ResizeHandle | null = null;
   private last: _Shape | null = null;
 
+  // Ссылка на живой объект фигуры — нужна чтобы вернуть state
+  // обратно в "static" при end(), даже если last уже пересоздан.
+  private liveShape: _Shape | null = null;
+
   begin(
     shape: _Shape,
     handle: ResizeHandle,
@@ -18,6 +22,11 @@ export class ResizeController {
     this.startPointer = { ...pointer };
     this.startShape = { ...shape };
     this.last = { ...shape };
+    this.liveShape = shape;
+
+    // Переводим фигуру в dragging — она уйдёт на dragCanvas
+    // и будет перерисовываться каждый кадр как при drag.
+    shape.state = "dragging";
   }
 
   update(pointer: { x: number; y: number }): _Shape | null {
@@ -32,17 +41,31 @@ export class ResizeController {
       y: dy,
     });
 
-    this.last = { ...next, id: this.shapeId };
+    this.last = { ...next, id: this.shapeId, state: "dragging" };
+
+    // Обновляем живой объект чтобы dragCanvas видел актуальную геометрию.
+    if (this.liveShape) {
+      Object.assign(this.liveShape, this.last);
+    }
+
     return this.last;
   }
 
   end(): _Shape | null {
-    const out = this.last;
+    // Возвращаем фигуру в static перед тем как вернуть финальное состояние.
+    if (this.liveShape) {
+      this.liveShape.state = "static";
+    }
+
+    const out = this.last ? { ...this.last, state: "static" as const } : null;
+
     this.shapeId = null;
     this.startPointer = null;
     this.startShape = null;
     this.handle = null;
     this.last = null;
+    this.liveShape = null;
+
     return out;
   }
 }

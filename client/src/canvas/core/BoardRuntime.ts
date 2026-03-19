@@ -39,6 +39,8 @@ export class BoardRuntime {
     previewShape: null,
   };
 
+  private isInteracting = false;
+
   constructor(
     gridCanvas: HTMLCanvasElement,
     mainCanvas: HTMLCanvasElement,
@@ -75,6 +77,7 @@ export class BoardRuntime {
     }
 
     this.unsubscribeCamera = this.camera.subscribe(() => {
+      this.renderManager.invalidateDirtyRects();
       this.redrawAll();
     });
 
@@ -115,8 +118,19 @@ export class BoardRuntime {
   }
 
   applyTransientPatch(patch: TransientShapePatch) {
-    this.entityManager.applyTransientPatch(patch);
-    this.redrawInteractionLayers();
+    const { becameRemote } = this.entityManager.applyTransientPatch(patch);
+
+    if (becameRemote) {
+      // First patch — redraw static layer to remove the shape from mainCanvas.
+      this.renderManager.drawStatic(this.camera, this.entityManager);
+    }
+
+    this.renderManager.drawDrag(this.camera, this.entityManager);
+    this.renderManager.drawOverlay(
+      this.camera,
+      this.entityManager,
+      this.interactionManager.getSelectedIds(),
+    );
   }
 
   applyShapeEvent(event: ShapeEventPayload) {
@@ -147,7 +161,25 @@ export class BoardRuntime {
     }
 
     this.interactionManager.handleMouseDown(worldPoint, canvasPoint);
-    this.redrawInteractionLayers();
+
+    const interaction = this.interactionManager.getInteraction();
+
+    if (interaction.type === "drag" || interaction.type === "resize") {
+      this.isInteracting = true;
+      this.renderManager.drawStatic(this.camera, this.entityManager);
+      this.renderManager.drawDrag(this.camera, this.entityManager);
+      this.renderManager.drawOverlay(
+        this.camera,
+        this.entityManager,
+        this.interactionManager.getSelectedIds(),
+      );
+    } else {
+      this.renderManager.drawOverlay(
+        this.camera,
+        this.entityManager,
+        this.interactionManager.getSelectedIds(),
+      );
+    }
   }
 
   handleMouseMove(screenX: number, screenY: number) {
@@ -159,6 +191,7 @@ export class BoardRuntime {
       this.updateShapePreview(worldPoint);
       return;
     }
+
     const isPanning = this.interactionManager.handlePanMove(
       screenX,
       screenY,
@@ -177,10 +210,37 @@ export class BoardRuntime {
     );
 
     this.interactionManager.handleMouseMove(worldPoint, canvasPoint);
+
     const interaction = this.interactionManager.getInteraction();
 
     if (interaction.type === "pan" || interaction.type === "idle") return;
-    this.redrawInteractionLayers();
+
+    if (interaction.type === "drag" || interaction.type === "resize") {
+      this.renderManager.drawDrag(this.camera, this.entityManager);
+      this.renderManager.drawOverlay(
+        this.camera,
+        this.entityManager,
+        this.interactionManager.getSelectedIds(),
+      );
+      return;
+    }
+
+    const selectionBox =
+      interaction.type === "select"
+        ? {
+            startX: interaction.startX,
+            startY: interaction.startY,
+            currentX: interaction.currentX,
+            currentY: interaction.currentY,
+          }
+        : undefined;
+
+    this.renderManager.drawOverlay(
+      this.camera,
+      this.entityManager,
+      this.interactionManager.getSelectedIds(),
+      selectionBox,
+    );
   }
 
   handleMouseUp() {
@@ -188,8 +248,32 @@ export class BoardRuntime {
       this.finishCreatingShape();
       return;
     }
+
+    const interactionBefore = this.interactionManager.getInteraction();
+    const wasDragOrResize =
+      interactionBefore.type === "drag" || interactionBefore.type === "resize";
+
     this.interactionManager.handleMouseUp();
-    this.redrawInteractionLayers();
+    this.isInteracting = false;
+
+    if (wasDragOrResize) {
+      // Конец взаимодействия: фигуры вернулись в state "static",
+      // перерисовываем статик слой с их финальными позициями,
+      // и очищаем drag слой.
+      this.renderManager.drawStatic(this.camera, this.entityManager);
+      this.renderManager.drawDrag(this.camera, this.entityManager);
+      this.renderManager.drawOverlay(
+        this.camera,
+        this.entityManager,
+        this.interactionManager.getSelectedIds(),
+      );
+    } else {
+      this.renderManager.drawOverlay(
+        this.camera,
+        this.entityManager,
+        this.interactionManager.getSelectedIds(),
+      );
+    }
   }
 
   handlePanStart(screenX: number, screenY: number) {
@@ -241,37 +325,6 @@ export class BoardRuntime {
     this.redrawAll();
   }
 
-  private redrawAll() {
-    const selectedIds = this.interactionManager.getSelectedIds();
-    this.renderManager.drawAll(this.camera, this.entityManager, selectedIds);
-  }
-
-  private redrawInteractionLayers() {
-    const interaction = this.interactionManager.getInteraction();
-    const selectedIds = this.interactionManager.getSelectedIds();
-
-    if (interaction.type === "pan") return;
-
-    const selectionBox =
-      interaction.type === "select"
-        ? {
-            startX: interaction.startX,
-            startY: interaction.startY,
-            currentX: interaction.currentX,
-            currentY: interaction.currentY,
-          }
-        : undefined;
-
-    this.renderManager.drawStatic(this.camera, this.entityManager);
-    this.renderManager.drawDrag(this.camera, this.entityManager);
-    this.renderManager.drawOverlay(
-      this.camera,
-      this.entityManager,
-      selectedIds,
-      selectionBox,
-    );
-  }
-
   private startCreatingShape(worldPoint: { x: number; y: number }) {
     this.creationTool.startPoint = worldPoint;
 
@@ -290,6 +343,13 @@ export class BoardRuntime {
       radius: 8,
       zIndex: this.entityManager.getMaxZIndex() + 1,
     };
+  }
+
+  private redrawAll() {
+    console.log("redrawAll ");
+
+    const selectedIds = this.interactionManager.getSelectedIds();
+    this.renderManager.drawAll(this.camera, this.entityManager, selectedIds);
   }
 
   destroy() {
