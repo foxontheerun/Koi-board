@@ -148,17 +148,19 @@ const (
 	ShapeTypeRect    ShapeType = "RECT"
 	ShapeTypeEllipse ShapeType = "ELLIPSE"
 	ShapeTypeText    ShapeType = "TEXT"
+	ShapeTypeSticker ShapeType = "STICKER"
 )
 
 var AllShapeType = []ShapeType{
 	ShapeTypeRect,
 	ShapeTypeEllipse,
 	ShapeTypeText,
+	ShapeTypeSticker,
 }
 
 func (e ShapeType) IsValid() bool {
 	switch e {
-	case ShapeTypeRect, ShapeTypeEllipse, ShapeTypeText:
+	case ShapeTypeRect, ShapeTypeEllipse, ShapeTypeText, ShapeTypeSticker:
 		return true
 	}
 	return false

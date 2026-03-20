@@ -46,7 +46,7 @@ export function TopBar() {
         <div className="h-6 w-px bg-[#E5E5E5]" />
         <input
           type="text"
-          defaultValue="Мой проект"
+          defaultValue="Новый проект!"
           className="bg-transparent border-none outline-none text-[#1A1A1A] w-40"
         />
       </div>

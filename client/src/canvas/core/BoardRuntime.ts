@@ -30,6 +30,7 @@ export class BoardRuntime {
   private unsubscribeCamera?: () => void;
   private activeStickyColor: StickyColorId = "yellow";
 
+  // Color used for non-sticky shapes (RECT, ELLIPSE).
   private activeShapeColor: { fill: string; stroke: string } = {
     fill: "#DBEAFE",
     stroke: "#93C5FD",
@@ -45,8 +46,7 @@ export class BoardRuntime {
     previewShape: null,
   };
 
-  // Флаг: идёт ли сейчас drag или resize.
-  // Пока true — статик слой не трогаем.
+  // Flag: drag or resize in progress — static layer is not redrawn.
   private isInteracting = false;
 
   constructor(
@@ -85,8 +85,6 @@ export class BoardRuntime {
     }
 
     this.unsubscribeCamera = this.camera.subscribe(() => {
-      // Камера изменилась (zoom/pan) — prev-rect'ы в старых screen-координатах,
-      // сбрасываем их чтобы следующий draw сделал полный clearRect.
       this.renderManager.invalidateDirtyRects();
       this.redrawAll();
     });
@@ -158,6 +156,47 @@ export class BoardRuntime {
     this.redrawAll();
   }
 
+  // Returns the shape at the given screen coordinates.
+  findShapeAtScreen(screenX: number, screenY: number): _Shape | null {
+    const worldPoint = this.coordinateTransformer.screenToWorld(
+      screenX,
+      screenY,
+    );
+    return this.entityManager.findShapeAt(worldPoint);
+  }
+
+  // Returns the shape bounding rect in screen coordinates.
+  getShapeScreenRect(
+    shape: _Shape,
+  ): { x: number; y: number; w: number; h: number } | null {
+    const topLeft = this.camera.worldToScreen(shape.x, shape.y);
+    const bottomRight = this.camera.worldToScreen(
+      shape.x + shape.width,
+      shape.y + shape.height,
+    );
+
+    const canvasRect = this.renderManager
+      .getMainCanvas()
+      .getBoundingClientRect();
+
+    return {
+      x: topLeft.x + canvasRect.left,
+      y: topLeft.y + canvasRect.top,
+      w: bottomRight.x - topLeft.x,
+      h: bottomRight.y - topLeft.y,
+    };
+  }
+
+  // Updates shape text locally and persists it.
+  updateShapeText(id: string, text: string) {
+    const shape = this.entityManager.getById(id);
+    if (!shape) return;
+
+    shape.text = text;
+    this.renderManager.drawStatic(this.camera, this.entityManager);
+    this.syncCallbacks.onLocalShapePersisted?.(shape);
+  }
+
   handleMouseDown(screenX: number, screenY: number) {
     const worldPoint = this.coordinateTransformer.screenToWorld(
       screenX,
@@ -178,8 +217,6 @@ export class BoardRuntime {
     const interaction = this.interactionManager.getInteraction();
 
     if (interaction.type === "drag" || interaction.type === "resize") {
-      // Начало взаимодействия: один раз перерисовываем статик слой,
-      // чтобы стереть с него фигуры, которые уйдут на drag слой.
       this.isInteracting = true;
       this.renderManager.drawStatic(this.camera, this.entityManager);
       this.renderManager.drawDrag(this.camera, this.entityManager);
@@ -189,7 +226,6 @@ export class BoardRuntime {
         this.interactionManager.getSelectedIds(),
       );
     } else {
-      // select или idle — просто обновляем overlay (handles выделения)
       this.renderManager.drawOverlay(
         this.camera,
         this.entityManager,
@@ -232,7 +268,6 @@ export class BoardRuntime {
     if (interaction.type === "pan" || interaction.type === "idle") return;
 
     if (interaction.type === "drag" || interaction.type === "resize") {
-      // Во время взаимодействия — только drag и overlay, статик не трогаем.
       this.renderManager.drawDrag(this.camera, this.entityManager);
       this.renderManager.drawOverlay(
         this.camera,
@@ -242,7 +277,6 @@ export class BoardRuntime {
       return;
     }
 
-    // select — обновляем overlay с selection rect
     const selectionBox =
       interaction.type === "select"
         ? {
@@ -275,9 +309,6 @@ export class BoardRuntime {
     this.isInteracting = false;
 
     if (wasDragOrResize) {
-      // Конец взаимодействия: фигуры вернулись в state "static",
-      // перерисовываем статик слой с их финальными позициями,
-      // и очищаем drag слой.
       this.renderManager.drawStatic(this.camera, this.entityManager);
       this.renderManager.drawDrag(this.camera, this.entityManager);
       this.renderManager.drawOverlay(
@@ -327,7 +358,6 @@ export class BoardRuntime {
     if (!this.creationTool.previewShape) return;
 
     const shape = this.creationTool.previewShape;
-    console.log("finishCreatingShape", shape);
 
     if (shape.width < 10 || shape.height < 10) {
       shape.width = Math.max(shape.width, 100);
@@ -345,12 +375,9 @@ export class BoardRuntime {
   }
 
   private startCreatingShape(worldPoint: { x: number; y: number }) {
-    console.log("startCreatingShape", this.creationTool.type);
-
     this.creationTool.startPoint = worldPoint;
 
-    const isSticky =
-      this.creationTool.type === "TEXT" || this.creationTool.type === null;
+    const isSticky = this.creationTool.type === "STICKER";
     const color = isSticky
       ? STICKY_PRESETS[this.activeStickyColor]
       : this.activeShapeColor;

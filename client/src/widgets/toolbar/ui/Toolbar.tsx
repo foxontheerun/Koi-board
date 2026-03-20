@@ -1,30 +1,24 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   MousePointer2,
   Square,
   Circle,
+  StickyNote,
   Type,
   Hand,
   Trash2,
 } from "lucide-react";
-import type { Tool } from "../../../entities/block/model/types";
-import { type StickyColorId } from "../../../entities/Shape";
-import { ColorPicker } from "../../../features/color-picker/ui/ColorPicker";
-
-const SHAPE_COLORS: { fill: string; stroke: string; label: string }[] = [
-  { fill: "#DBEAFE", stroke: "#3B82F6", label: "Blue" },
-  { fill: "#DCFCE7", stroke: "#22C55E", label: "Green" },
-  { fill: "#FCE7F3", stroke: "#EC4899", label: "Pink" },
-  { fill: "#F3E8FF", stroke: "#A855F7", label: "Purple" },
-  { fill: "#FFE4C7", stroke: "#FB923C", label: "Orange" },
-  { fill: "#FEF9C3", stroke: "#FACC15", label: "Yellow" },
-  { fill: "#CCFBF1", stroke: "#14B8A6", label: "Teal" },
-  { fill: "#F1F5F9", stroke: "#64748B", label: "Gray" },
-  { fill: "#292929", stroke: "#111111", label: "Black" },
-];
-
-const STICKY_TOOLS: Tool[] = ["rectangle"]; // tools that use sticky presets
-const SHAPE_TOOLS: Tool[] = ["ellipse"]; // tools that use shape colors
+import {
+  SHAPE_COLORS,
+  STICKY_COLORS,
+  STICKY_PRESETS,
+  type StickyColorId,
+  type Tool,
+} from "../../../entities/Shape";
+import {
+  ColorPicker,
+  type ColorPickerOption,
+} from "../../../features/color-picker/ui/ColorPicker";
 
 interface ToolbarProps {
   activeTool: Tool;
@@ -43,7 +37,9 @@ export function Toolbar({
 }: ToolbarProps) {
   const [showStickyColorPicker, setShowStickyColorPicker] = useState(false);
   const [showShapeColorPicker, setShowShapeColorPicker] = useState(false);
-  const [activeShapeColor, setActiveShapeColor] = useState(SHAPE_COLORS[0]);
+  const [activeShapeColorId, setActiveShapeColorId] = useState<string>(
+    SHAPE_COLORS[0].id,
+  );
 
   const tools: { id: Tool; icon: React.ReactNode; label: string }[] = [
     {
@@ -52,9 +48,14 @@ export function Toolbar({
       label: "Pointer",
     },
     {
+      id: "sticker",
+      icon: <StickyNote className="w-5 h-5" />,
+      label: "Sticky note",
+    },
+    {
       id: "rectangle",
       icon: <Square className="w-5 h-5" />,
-      label: "Sticky note",
+      label: "Rectangle",
     },
     {
       id: "ellipse",
@@ -66,10 +67,21 @@ export function Toolbar({
     { id: "delete", icon: <Trash2 className="w-5 h-5" />, label: "Delete" },
   ];
 
+  const stickyOptions = useMemo(
+    () =>
+      STICKY_COLORS.map((color) => ({
+        id: color,
+        fill: STICKY_PRESETS[color].fill,
+        stroke: STICKY_PRESETS[color].stroke,
+        label: color,
+      })),
+    [],
+  );
+
   const handleToolClick = (toolId: Tool) => {
     setActiveTool(toolId);
-    setShowStickyColorPicker(STICKY_TOOLS.includes(toolId));
-    setShowShapeColorPicker(SHAPE_TOOLS.includes(toolId));
+    setShowStickyColorPicker(toolId === "sticker");
+    setShowShapeColorPicker(toolId === "rectangle" || toolId === "ellipse");
   };
 
   const handleStickyColorChange = (id: StickyColorId) => {
@@ -77,9 +89,13 @@ export function Toolbar({
     setShowStickyColorPicker(false);
   };
 
-  const handleShapeColorChange = (color: (typeof SHAPE_COLORS)[0]) => {
-    setActiveShapeColor(color);
-    onShapeColorChange?.(color.fill, color.stroke);
+  const handleShapeColorChange = (id: string) => {
+    setActiveShapeColorId(id);
+
+    const color = SHAPE_COLORS.find((item) => item.id === id);
+    if (!color) return;
+
+    onShapeColorChange?.(color.fill, color.stroke ?? color.fill);
     setShowShapeColorPicker(false);
   };
 
@@ -103,35 +119,25 @@ export function Toolbar({
       </div>
 
       {showStickyColorPicker && (
-        <ColorPicker
-          activeStickyColorId={activeStickyColorId}
-          setActiveStickyColorId={handleStickyColorChange}
+        <ColorPicker<StickyColorId>
+          title="Sticker color"
+          options={stickyOptions}
+          activeId={activeStickyColorId}
+          onSelect={handleStickyColorChange}
           onClose={() => setShowStickyColorPicker(false)}
+          columns={2}
         />
       )}
 
       {showShapeColorPicker && (
-        <div className="bg-white rounded-xl shadow-lg p-3 flex flex-col gap-2">
-          <span className="text-xs text-gray-500 font-medium">Fill color</span>
-          <div className="grid grid-cols-3 gap-2">
-            {SHAPE_COLORS.map((color) => (
-              <button
-                key={color.label}
-                onClick={() => handleShapeColorChange(color)}
-                className={`w-8 h-8 rounded-lg border transition-all ${
-                  activeShapeColor.label === color.label
-                    ? "scale-110"
-                    : "hover:scale-105"
-                }`}
-                style={{
-                  backgroundColor: color.fill,
-                  borderColor: color.stroke,
-                }}
-                title={color.label}
-              />
-            ))}
-          </div>
-        </div>
+        <ColorPicker<string>
+          title="Fill color"
+          options={SHAPE_COLORS as ColorPickerOption<string>[]}
+          activeId={activeShapeColorId}
+          onSelect={handleShapeColorChange}
+          onClose={() => setShowShapeColorPicker(false)}
+          columns={2}
+        />
       )}
     </div>
   );

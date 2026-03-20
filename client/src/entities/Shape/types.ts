@@ -1,13 +1,13 @@
 export type Tool =
   | "pointer"
+  | "sticker"
   | "rectangle"
   | "ellipse"
-  | "heart"
   | "text"
   | "hand"
   | "delete";
 
-export type ShapeType = "RECT" | "ELLIPSE" | "TEXT";
+export type ShapeType = "RECT" | "ELLIPSE" | "TEXT" | "STICKER";
 
 export interface Shape {
   id: string;

@@ -29,14 +29,9 @@ export class RenderManager {
   private dragLayer = new DragLayer();
   private overlay = new Overlay();
 
-  // Предыдущий dirty rect — нужен чтобы затирать область где фигура была
-  // на прошлом кадре, а не весь canvas.
   private prevDragRect: Rect | null = null;
   private prevOverlayRect: Rect | null = null;
 
-  // Позиции движущихся фигур на прошлом кадре.
-  // Нужны чтобы строить union(prevRect, nextRect) — иначе при быстром
-  // движении между кадрами остаются незатёртые артефакты.
   private prevMovingShapeRects = new Map<string, Rect>();
 
   constructor(
@@ -232,7 +227,7 @@ export class RenderManager {
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
 
-    if (shape.type === "RECT") {
+    if (shape.type === "RECT" || shape.type === "STICKER") {
       if (shape.radius) {
         this.drawRoundedRect(
           ctx,

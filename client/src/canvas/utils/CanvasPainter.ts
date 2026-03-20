@@ -124,6 +124,11 @@ export class CanvasPainter {
       options || {};
     ctx.save();
     this.drawStickerWithShadow(ctx, shape, shadowColor, showShadow);
+    if (shape.text) {
+      ctx.fillStyle = "#333";
+      ctx.font = "14px sans-serif";
+      ctx.fillText(shape.text, shape.x + 8, shape.y + 20);
+    }
     ctx.restore();
   }
 
@@ -134,19 +139,21 @@ export class CanvasPainter {
     showShadow: boolean,
   ) {
     if (!shape) return;
+
     const { x, y, width, height } = shape;
     const fillColor = shape.fill || "#ccf9ffff";
 
-    this.applyShadow(ctx, shadowColor, showShadow, 20, 0, 10);
+    this.applyShadow(ctx, shadowColor, showShadow, 8, 0, 4);
 
     const gradient = ctx.createLinearGradient(x, y, x, y + height);
-    gradient.addColorStop(0, fillColor);
-    gradient.addColorStop(1, adjustHexBrightness(fillColor, 15, "lighten"));
+    gradient.addColorStop(0, adjustHexBrightness(fillColor, 3, "lighten"));
+    gradient.addColorStop(1, adjustHexBrightness(fillColor, 10, "darken"));
 
     ctx.beginPath();
     ctx.rect(x, y, width, height);
     ctx.fillStyle = gradient;
     ctx.fill();
+
     this.resetShadow(ctx);
   }
 

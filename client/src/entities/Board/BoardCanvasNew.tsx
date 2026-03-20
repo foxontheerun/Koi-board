@@ -2,17 +2,20 @@ import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { type CameraController, BoardRuntime } from "../../canvas";
 import { BoardSyncGateway } from "./model/BoardSyncGateway";
 import type { ShapeType, StickyColorId, Tool } from "../Shape";
+import type { EditingContextValue } from "./EditingContext";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
 
 const toolToShapeType: Partial<Record<Tool, ShapeType>> = {
+  sticker: "STICKER",
   rectangle: "RECT",
   ellipse: "ELLIPSE",
 };
 
 export interface BoardCanvasHandle {
   setShapeColor: (fill: string, stroke: string) => void;
+  commitText: (shapeId: string, text: string) => void;
 }
 
 interface BoardCanvasNewProps {
@@ -21,13 +24,21 @@ interface BoardCanvasNewProps {
   activeTool: Tool;
   activeStickyColor: StickyColorId;
   onToolComplete: () => void;
+  editingContextRef: React.MutableRefObject<EditingContextValue>;
 }
 
 export const BoardCanvasNew = forwardRef<
   BoardCanvasHandle,
   BoardCanvasNewProps
 >(function BoardCanvasNew(
-  { boardId, setCamera, activeTool, activeStickyColor, onToolComplete },
+  {
+    boardId,
+    setCamera,
+    activeTool,
+    activeStickyColor,
+    onToolComplete,
+    editingContextRef,
+  },
   ref,
 ) {
   const gridCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -42,6 +53,9 @@ export const BoardCanvasNew = forwardRef<
   useImperativeHandle(ref, () => ({
     setShapeColor: (fill: string, stroke: string) => {
       runtimeRef.current?.setActiveShapeColor(fill, stroke);
+    },
+    commitText: (shapeId: string, text: string) => {
+      runtimeRef.current?.updateShapeText(shapeId, text);
     },
   }));
 
@@ -118,6 +132,27 @@ export const BoardCanvasNew = forwardRef<
     runtimeRef.current.camera.setZoom(clampedZoom, mouse);
   };
 
+  const handleDblClick = (e: React.MouseEvent) => {
+    const runtime = runtimeRef.current;
+    if (!runtime) return;
+
+    const shape = runtime.findShapeAtScreen(e.clientX, e.clientY);
+    if (!shape) return;
+
+    const rect = runtime.getShapeScreenRect(shape);
+    if (!rect) return;
+
+    // Write to editing context via stable ref — does not cause re-render of this component.
+    editingContextRef.current.startEditing({
+      id: shape.id,
+      screenX: rect.x,
+      screenY: rect.y,
+      screenW: rect.w,
+      screenH: rect.h,
+      text: shape.text ?? "",
+    });
+  };
+
   return (
     <div className="relative w-full h-full overflow-hidden bg-slate-50">
       <canvas
@@ -133,6 +168,7 @@ export const BoardCanvasNew = forwardRef<
         onMouseUp={() => runtimeRef.current?.handleMouseUp()}
         className="absolute inset-0 touch-none w-full h-full"
         onWheel={handleWheel}
+        onDoubleClick={handleDblClick}
         onMouseDown={(e) => {
           if (e.button === 2) {
             runtimeRef.current?.handlePanStart(e.clientX, e.clientY);

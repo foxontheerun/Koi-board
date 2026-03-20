@@ -20,6 +20,7 @@ export interface _Shape {
   type?: ShapeType;
   state: "static" | "dragging" | "selected" | "remote-dragging";
   zIndex?: number;
+  text?: string;
 }
 export interface ManipulationBounds {
   x: number;
