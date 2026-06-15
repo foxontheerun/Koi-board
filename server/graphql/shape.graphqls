@@ -2,6 +2,7 @@ enum ShapeType {
   RECT
   ELLIPSE
   TEXT
+  STICKER
 }
 
 type Shape {

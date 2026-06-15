@@ -579,6 +579,7 @@ extend type Subscription {
   RECT
   ELLIPSE
   TEXT
+  STICKER
 }
 
 type Shape {
