@@ -134,11 +134,13 @@ export class EntityManager {
   }
 
   getMaxZIndex(shapes = this.shapes): number {
-    return Math.max(0, ...shapes.map((s) => s.zIndex ?? 0));
+    if (shapes.length === 0) return 0;
+    return Math.max(...shapes.map((s) => s.zIndex ?? 0));
   }
 
   getMinZIndex(shapes = this.shapes): number {
-    return Math.max(0, ...shapes.map((s) => s.zIndex ?? 0));
+    if (shapes.length === 0) return 0;
+    return Math.min(...shapes.map((s) => s.zIndex ?? 0));
   }
 
   getShapes() {
