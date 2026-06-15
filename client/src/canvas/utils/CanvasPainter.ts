@@ -11,7 +11,10 @@ export class CanvasPainter {
     const { x, y, width, height, radius = 8 } = normalized;
 
     // ✅ Безопасный радиус (не больше половины меньшей стороны)
-    const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+    const safeRadius = Math.max(
+      0,
+      Math.min(radius, Math.ceil(width / 2), Math.ceil(height / 2)),
+    );
 
     ctx.save();
 
@@ -89,10 +92,10 @@ export class CanvasPainter {
       stroke,
       strokeWidth,
     } = ellipse;
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    const radiusX = Math.abs(width / 2);
-    const radiusY = Math.abs(height / 2);
+    const centerX = Math.ceil(x + width / 2);
+    const centerY = Math.ceil(y + height / 2);
+    const radiusX = Math.ceil(Math.abs(width / 2));
+    const radiusY = Math.ceil(Math.abs(height / 2));
 
     ctx.save();
     ctx.translate(centerX, centerY);
@@ -170,10 +173,17 @@ export class CanvasPainter {
     ctx.lineWidth = strokeWidth ? parseFloat(strokeWidth) : 2;
 
     ctx.beginPath();
-    ctx.moveTo(x + w / 2, y + h * 0.8);
+    ctx.moveTo(x + Math.ceil(w / 2), y + Math.ceil(h * 0.8));
 
     const curves = [
-      [x + w / 2, y + h * 0.8, x, y + (2 / 6) * h, x + w / 4, y + h / 8],
+      [
+        x + Math.ceil(w / 2),
+        y + Math.ceil(h * 0.8),
+        x,
+        y + Math.ceil((2 / 6) * h),
+        Math.ceil(x + w / 4),
+        Math.ceil(y + h / 8),
+      ],
       [
         x + w / 2.8,
         y + h * 0.05,

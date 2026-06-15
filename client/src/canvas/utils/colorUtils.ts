@@ -11,7 +11,9 @@ export function adjustHexBrightness(
     return color;
   }
 
-  const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const { r, g, b, a } = rgb; // ← берём альфу
+
+  const { h, s, l } = rgbToHsl(r, g, b);
 
   const clampedPercent = Math.min(100, Math.max(0, percent));
   const delta = clampedPercent / 100;
@@ -19,49 +21,82 @@ export function adjustHexBrightness(
   let nextL: number;
 
   if (operation === "lighten") {
-    // двигаем lightness вверх мягко, без выбеливания
     nextL = l + (1 - l) * delta;
   } else {
-    // двигаем lightness вниз, сохраняя hue/saturation
     nextL = l * (1 - delta);
   }
 
-  const { r, g, b } = hslToRgb(h, s, nextL);
-  return rgbToHex(r, g, b);
+  const { r: nr, g: ng, b: nb } = hslToRgb(h, s, nextL);
+
+  const isHex = color.trim().startsWith("#");
+
+  // --- ВОТ ГЛАВНОЕ ---
+  if (isHex) {
+    // если есть прозрачность → возвращаем hex с альфой
+    if (a < 1) {
+      const alpha = Math.round(a * 255)
+        .toString(16)
+        .padStart(2, "0");
+
+      return rgbToHex(nr, ng, nb) + alpha;
+    }
+
+    return rgbToHex(nr, ng, nb);
+  }
+
+  // rgb / rgba
+  if (a < 1) {
+    return `rgba(${nr}, ${ng}, ${nb}, ${a})`;
+  }
+
+  return `rgb(${nr}, ${ng}, ${nb})`;
 }
 
 function parseColorToRgb(
   color: string,
-): { r: number; g: number; b: number } | null {
+): { r: number; g: number; b: number; a: number } | null {
   let value = color.trim();
 
+  // --- HEX ---
   if (value.startsWith("#")) {
     value = value.slice(1);
 
-    // #rrggbbaa -> #rrggbb
-    if (value.length === 8) {
-      value = value.slice(0, 6);
+    // #rgba
+    if (value.length === 4) {
+      const r = value[0] + value[0];
+      const g = value[1] + value[1];
+      const b = value[2] + value[2];
+      const a = value[3] + value[3];
+      value = r + g + b + a;
     }
 
-    // #rgb -> #rrggbb
+    // #rgb
     if (value.length === 3) {
-      value = value
-        .split("")
-        .map((char) => char + char)
-        .join("");
+      value =
+        value
+          .split("")
+          .map((c) => c + c)
+          .join("") + "ff"; // альфа = 1
     }
 
-    if (value.length !== 6) return null;
+    // #rrggbb
+    if (value.length === 6) {
+      value = value + "ff"; // альфа = 1
+    }
+
+    if (value.length !== 8) return null;
 
     const r = parseInt(value.slice(0, 2), 16);
     const g = parseInt(value.slice(2, 4), 16);
     const b = parseInt(value.slice(4, 6), 16);
+    const a = parseInt(value.slice(6, 8), 16) / 255;
 
-    if ([r, g, b].some(Number.isNaN)) return null;
+    if ([r, g, b, a].some(Number.isNaN)) return null;
 
-    return { r, g, b };
+    return { r, g, b, a };
   }
 
+  // --- RGB / RGBA ---
   if (value.startsWith("rgb")) {
     const match = value.match(/\d+(\.\d+)?/g);
     if (!match || match.length < 3) return null;
@@ -69,10 +104,11 @@ function parseColorToRgb(
     const r = Math.round(Number(match[0]));
     const g = Math.round(Number(match[1]));
     const b = Math.round(Number(match[2]));
+    const a = match[3] !== undefined ? Number(match[3]) : 1;
 
-    if ([r, g, b].some(Number.isNaN)) return null;
+    if ([r, g, b, a].some(Number.isNaN)) return null;
 
-    return { r, g, b };
+    return { r, g, b, a };
   }
 
   return null;

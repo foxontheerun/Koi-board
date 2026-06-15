@@ -1,6 +1,6 @@
 # Realtime Whiteboard — Client
 
-Frontend application for an interactive realtime whiteboard.  
+Frontend application for an interactive realtime whiteboard.
 Supports live collaboration, shape creation, resizing, movement, z-index control, zooming, and GraphQL-based synchronization.
 
 ## 🚀 Tech Stack
@@ -9,7 +9,6 @@ Supports live collaboration, shape creation, resizing, movement, z-index control
 - **TypeScript**
 - **Vite**
 - **TailwindCSS**
-- **react-rnd** — drag & resize
 - **Apollo Client 4** — GraphQL + WebSocket transport
 - **GraphQL Subscriptions** — realtime updates
 
@@ -22,11 +21,12 @@ Backend: `Go + gqlgen` with WebSocket streaming.
 ### Implemented
 
 - Rendering the board and grid
-- Adding and displaying shapes (`RECT`, `TEXT`)
+- Adding and displaying shapes (`RECT`, `ELLIPSE`, `TEXT`)
 - Dragging and moving shapes
 - Resizing shapes (with realtime updates to other clients)
 - Zooming and viewport offset calculation
 - Shape selection and context menu
+- Multi-selection
 - Layer (z-index) controls:
   - Bring to front
   - Send to back
@@ -38,9 +38,8 @@ Backend: `Go + gqlgen` with WebSocket streaming.
 
 ### Planned / TODO
 
-- More shape types (`ELLIPSE`, image, line, arrow)
+- More shape types (image, line, arrow)
 - Undo/Redo history
-- Multi-selection
 - Keyboard shortcuts
 - Pan/Hand tool for moving the entire board
 

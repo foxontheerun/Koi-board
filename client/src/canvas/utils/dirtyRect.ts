@@ -42,10 +42,10 @@ export function computeShapesBoundingRect(
   const padding = computePadding(camera.getScale());
 
   return {
-    x: minX - padding,
-    y: minY - padding,
-    w: maxX - minX + padding * 2,
-    h: maxY - minY + padding * 2,
+    x: Math.ceil(minX - padding),
+    y: Math.ceil(minY - padding),
+    w: Math.ceil(maxX - minX + padding * 2),
+    h: Math.ceil(maxY - minY + padding * 2),
   };
 }
 
@@ -64,10 +64,10 @@ export function clearDirtyRect(
 }
 
 export function unionRects(a: Rect, b: Rect): Rect {
-  const x = Math.min(a.x, b.x);
-  const y = Math.min(a.y, b.y);
-  const maxX = Math.max(a.x + a.w, b.x + b.w);
-  const maxY = Math.max(a.y + a.h, b.y + b.h);
+  const x = Math.ceil(Math.min(a.x, b.x));
+  const y = Math.ceil(Math.min(a.y, b.y));
+  const maxX = Math.ceil(Math.max(a.x + a.w, b.x + b.w));
+  const maxY = Math.ceil(Math.max(a.y + a.h, b.y + b.h));
   return { x, y, w: maxX - x, h: maxY - y };
 }
 
@@ -79,10 +79,10 @@ export function selectionBoxToRect(selectionBox: {
   currentY: number;
 }): Rect {
   const SELECTION_PADDING = 4;
-  const x = Math.min(selectionBox.startX, selectionBox.currentX);
-  const y = Math.min(selectionBox.startY, selectionBox.currentY);
-  const w = Math.abs(selectionBox.currentX - selectionBox.startX);
-  const h = Math.abs(selectionBox.currentY - selectionBox.startY);
+  const x = Math.ceil(Math.min(selectionBox.startX, selectionBox.currentX));
+  const y = Math.ceil(Math.min(selectionBox.startY, selectionBox.currentY));
+  const w = Math.ceil(Math.abs(selectionBox.currentX - selectionBox.startX));
+  const h = Math.ceil(Math.abs(selectionBox.currentY - selectionBox.startY));
   return {
     x: x - SELECTION_PADDING,
     y: y - SELECTION_PADDING,

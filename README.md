@@ -1,6 +1,6 @@
 # Realtime Board
 
-An online board for real-time collaboration.  
+An online board for real-time collaboration.
 Frontend on React + Vite, backend on Go + GraphQL (gqlgen) with subscriptions.
 
 > ⚠️ Project under active development. API and structure may change.
@@ -12,9 +12,12 @@ Frontend on React + Vite, backend on Go + GraphQL (gqlgen) with subscriptions.
 - Creating a board (`Board`) with a set of shapes (`Shape`)
 - Shapes:
   - rectangles / blocks
+  - ellipses
   - text blocks
 - Moving and resizing shapes
 - Editing text
+- Multi-selection
+- Layer (z-index) controls
 - Synchronizing changes between clients via GraphQL:
   - `query` for getting a board
   - `mutation` for updating a shape
@@ -52,7 +55,7 @@ realtime-board/
   server/    # backend (Go + gqlgen)
 ```
 
-## How to run localy
+## How to run locally
 
-- Front: check README.md in client path
+- Front: check README.md in `client/`
 - Back: `go run ./cmd/api`

@@ -144,6 +144,24 @@ export class RenderManager {
 
     camera.applyTransform(this.dragCtx);
     this.dragLayer.draw(this.dragCtx, dragging);
+
+    // --- debug: рамка dirtyRect ---
+    // if (dirtyRect) {
+    //   this.dragCtx.save();
+    //   this.dragCtx.setTransform(1, 0, 0, 1, 0, 0); // сброс camera transform
+    //   this.dragCtx.strokeStyle = "rgba(221, 0, 11, 0.89)";
+    //   this.dragCtx.lineWidth = 1;
+    //   this.dragCtx.setLineDash([4, 3]);
+    //   this.dragCtx.strokeRect(
+    //     dirtyRect.x,
+    //     dirtyRect.y,
+    //     dirtyRect.w,
+    //     dirtyRect.h,
+    //   );
+    //   this.dragCtx.restore();
+    // }
+    // --- end debug ---
+
     this.dragCtx.restore();
   }
 
