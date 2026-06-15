@@ -1,22 +1,30 @@
 import { Check } from "lucide-react";
-import {
-  STICKY_COLORS,
-  STICKY_PRESETS,
-  type StickyColorId,
-} from "../../../entities/Shape";
 import { useEffect, useRef } from "react";
 
-interface ColorPickerProps {
-  activeStickyColorId: string;
-  setActiveStickyColorId: (color: StickyColorId) => void;
-  onClose: () => void;
+export interface ColorPickerOption<TValue extends string = string> {
+  id: TValue;
+  fill: string;
+  stroke?: string;
+  label: string;
 }
 
-export function ColorPicker({
-  activeStickyColorId,
-  setActiveStickyColorId,
+interface ColorPickerProps<TValue extends string = string> {
+  options: ColorPickerOption<TValue>[];
+  activeId: TValue;
+  onSelect: (id: TValue) => void;
+  onClose: () => void;
+  title?: string;
+  columns?: number;
+}
+
+export function ColorPicker<TValue extends string = string>({
+  options,
+  activeId,
+  onSelect,
   onClose,
-}: ColorPickerProps) {
+  title,
+  columns = 2,
+}: ColorPickerProps<TValue>) {
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -29,23 +37,34 @@ export function ColorPicker({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
+
   return (
     <div
-      className="bg-white rounded-xl shadow-lg p-3 flex flex-col gap-2"
       ref={pickerRef}
+      className="bg-white rounded-xl shadow-lg p-3 flex flex-col gap-2"
     >
-      <div className="grid grid-cols-2 gap-2">
-        {STICKY_COLORS.map((color) => (
+      {title && (
+        <span className="text-xs text-gray-500 font-medium">{title}</span>
+      )}
+
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      >
+        {options.map((color) => (
           <button
-            key={color}
-            onClick={() => setActiveStickyColorId(color)}
-            className="w-8 h-8 rounded-lg transition-all hover:scale-110 relative group"
+            key={color.id}
+            onClick={() => onSelect(color.id)}
+            className={`w-8 h-8 rounded-lg transition-all relative group ${
+              activeId === color.id ? "scale-110" : "hover:scale-105"
+            }`}
             style={{
-              backgroundColor: STICKY_PRESETS[color].fill,
-              border: `1px solid ${STICKY_PRESETS[color].stroke}`,
+              backgroundColor: color.fill,
+              border: `1px solid ${color.stroke ?? "transparent"}`,
             }}
+            title={color.label}
           >
-            {activeStickyColorId === color && (
+            {activeId === color.id && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Check className="w-4 h-4 text-[#3B82F6]" strokeWidth={3} />
               </div>

@@ -20,15 +20,15 @@ export class Overlay {
       strokeWidth: STROKE_WIDTH,
       stroke: BORDER_COLOR,
       radius: 0,
-      x: manipulationBounds.x,
-      y: manipulationBounds.y,
-      width: manipulationBounds.w,
-      height: manipulationBounds.h,
+      x: Math.ceil(manipulationBounds.x),
+      y: Math.ceil(manipulationBounds.y),
+      width: Math.ceil(manipulationBounds.w),
+      height: Math.ceil(manipulationBounds.h),
     };
 
     CanvasPainter.drawRectShape(ctx, borderFigure as unknown as Shape);
-    const handlerRadius = RESIZE_HANDLE_SIZE / zoom;
-    const strokeWidth = 0.5 / zoom;
+    const handlerRadius = Math.ceil(RESIZE_HANDLE_SIZE / zoom);
+    const strokeWidth = Math.ceil(0.5 / zoom);
     CanvasPainter.drawHandlers(
       ctx,
       borderFigure as unknown as Shape,
@@ -44,10 +44,10 @@ export class Overlay {
     currentX: number,
     currentY: number,
   ) {
-    const x = Math.min(startX, currentX);
-    const y = Math.min(startY, currentY);
-    const width = Math.abs(currentX - startX);
-    const height = Math.abs(currentY - startY);
+    const x = Math.ceil(Math.min(startX, currentX));
+    const y = Math.ceil(Math.min(startY, currentY));
+    const width = Math.ceil(Math.abs(currentX - startX));
+    const height = Math.ceil(Math.abs(currentY - startY));
 
     const selectionShape = {
       x,

@@ -1,14 +1,31 @@
-import { useState } from "react";
-import { MousePointer2, Square, Type, Hand, Trash2 } from "lucide-react";
-import type { Tool } from "../../../entities/block/model/types";
-import { type StickyColorId } from "../../../entities/Shape";
-import { ColorPicker } from "../../../features/color-picker/ui/ColorPicker";
+import { useMemo, useState } from "react";
+import {
+  MousePointer2,
+  Square,
+  Circle,
+  StickyNote,
+  Type,
+  Hand,
+  Trash2,
+} from "lucide-react";
+import {
+  SHAPE_COLORS,
+  STICKY_COLORS,
+  STICKY_PRESETS,
+  type StickyColorId,
+  type Tool,
+} from "../../../entities/Shape";
+import {
+  ColorPicker,
+  type ColorPickerOption,
+} from "../../../features/color-picker/ui/ColorPicker";
 
 interface ToolbarProps {
   activeTool: Tool;
   setActiveTool: (tool: Tool) => void;
   activeStickyColorId: StickyColorId;
   setActiveStickyColorId: (id: StickyColorId) => void;
+  onShapeColorChange?: (fill: string, stroke: string) => void;
 }
 
 export function Toolbar({
@@ -16,8 +33,13 @@ export function Toolbar({
   setActiveTool,
   activeStickyColorId,
   setActiveStickyColorId,
+  onShapeColorChange,
 }: ToolbarProps) {
-  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showStickyColorPicker, setShowStickyColorPicker] = useState(false);
+  const [showShapeColorPicker, setShowShapeColorPicker] = useState(false);
+  const [activeShapeColorId, setActiveShapeColorId] = useState<string>(
+    SHAPE_COLORS[0].id,
+  );
 
   const tools: { id: Tool; icon: React.ReactNode; label: string }[] = [
     {
@@ -26,27 +48,55 @@ export function Toolbar({
       label: "Pointer",
     },
     {
+      id: "sticker",
+      icon: <StickyNote className="w-5 h-5" />,
+      label: "Sticky note",
+    },
+    {
       id: "rectangle",
       icon: <Square className="w-5 h-5" />,
       label: "Rectangle",
+    },
+    {
+      id: "ellipse",
+      icon: <Circle className="w-5 h-5" />,
+      label: "Ellipse",
     },
     { id: "text", icon: <Type className="w-5 h-5" />, label: "Text" },
     { id: "hand", icon: <Hand className="w-5 h-5" />, label: "Hand" },
     { id: "delete", icon: <Trash2 className="w-5 h-5" />, label: "Delete" },
   ];
 
+  const stickyOptions = useMemo(
+    () =>
+      STICKY_COLORS.map((color) => ({
+        id: color,
+        fill: STICKY_PRESETS[color].fill,
+        stroke: STICKY_PRESETS[color].stroke,
+        label: color,
+      })),
+    [],
+  );
+
   const handleToolClick = (toolId: Tool) => {
     setActiveTool(toolId);
-    if (toolId === "rectangle") {
-      setShowColorPicker(true);
-    } else {
-      setShowColorPicker(false);
-    }
+    setShowStickyColorPicker(toolId === "sticker");
+    setShowShapeColorPicker(toolId === "rectangle" || toolId === "ellipse");
   };
 
-  const handleColorChange = (id: StickyColorId) => {
+  const handleStickyColorChange = (id: StickyColorId) => {
     setActiveStickyColorId(id);
-    setShowColorPicker(false);
+    setShowStickyColorPicker(false);
+  };
+
+  const handleShapeColorChange = (id: string) => {
+    setActiveShapeColorId(id);
+
+    const color = SHAPE_COLORS.find((item) => item.id === id);
+    if (!color) return;
+
+    onShapeColorChange?.(color.fill, color.stroke);
+    setShowShapeColorPicker(false);
   };
 
   return (
@@ -68,11 +118,25 @@ export function Toolbar({
         ))}
       </div>
 
-      {showColorPicker && (
-        <ColorPicker
-          activeStickyColorId={activeStickyColorId}
-          setActiveStickyColorId={handleColorChange}
-          onClose={() => setShowColorPicker(false)}
+      {showStickyColorPicker && (
+        <ColorPicker<StickyColorId>
+          title="Sticker color"
+          options={stickyOptions}
+          activeId={activeStickyColorId}
+          onSelect={handleStickyColorChange}
+          onClose={() => setShowStickyColorPicker(false)}
+          columns={2}
+        />
+      )}
+
+      {showShapeColorPicker && (
+        <ColorPicker<string>
+          title="Fill color"
+          options={SHAPE_COLORS as ColorPickerOption<string>[]}
+          activeId={activeShapeColorId}
+          onSelect={handleShapeColorChange}
+          onClose={() => setShowShapeColorPicker(false)}
+          columns={2}
         />
       )}
     </div>

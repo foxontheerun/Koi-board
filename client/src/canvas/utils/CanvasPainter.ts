@@ -11,7 +11,10 @@ export class CanvasPainter {
     const { x, y, width, height, radius = 8 } = normalized;
 
     // ✅ Безопасный радиус (не больше половины меньшей стороны)
-    const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+    const safeRadius = Math.max(
+      0,
+      Math.min(radius, Math.ceil(width / 2), Math.ceil(height / 2)),
+    );
 
     ctx.save();
 
@@ -79,18 +82,39 @@ export class CanvasPainter {
     ctx: CanvasRenderingContext2D,
     ellipse: Shape,
   ) {
-    const { x, y, width, height, rotation = 0 } = ellipse;
-    const centerX = x + width / 2;
-    const centerY = y + height / 2;
-    const radiusX = width / 2;
-    const radiusY = height / 2;
+    const {
+      x,
+      y,
+      width,
+      height,
+      rotation = 0,
+      fill,
+      stroke,
+      strokeWidth,
+    } = ellipse;
+    const centerX = Math.ceil(x + width / 2);
+    const centerY = Math.ceil(y + height / 2);
+    const radiusX = Math.ceil(Math.abs(width / 2));
+    const radiusY = Math.ceil(Math.abs(height / 2));
 
     ctx.save();
     ctx.translate(centerX, centerY);
     ctx.rotate(rotation);
-    this.drawShapeWithFillAndStroke(ctx, ellipse, () =>
-      ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2),
-    );
+
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = strokeWidth ?? 2;
+      ctx.stroke();
+    }
+
     ctx.restore();
   }
 
@@ -103,6 +127,11 @@ export class CanvasPainter {
       options || {};
     ctx.save();
     this.drawStickerWithShadow(ctx, shape, shadowColor, showShadow);
+    if (shape.text) {
+      ctx.fillStyle = "#333";
+      ctx.font = "14px sans-serif";
+      ctx.fillText(shape.text, shape.x + 8, shape.y + 20);
+    }
     ctx.restore();
   }
 
@@ -113,19 +142,21 @@ export class CanvasPainter {
     showShadow: boolean,
   ) {
     if (!shape) return;
+
     const { x, y, width, height } = shape;
     const fillColor = shape.fill || "#ccf9ffff";
 
-    this.applyShadow(ctx, shadowColor, showShadow, 20, 0, 10);
+    this.applyShadow(ctx, shadowColor, showShadow, 8, 0, 4);
 
     const gradient = ctx.createLinearGradient(x, y, x, y + height);
-    gradient.addColorStop(0, fillColor);
-    gradient.addColorStop(1, adjustHexBrightness(fillColor, 15, "lighten"));
+    gradient.addColorStop(0, adjustHexBrightness(fillColor, 3, "lighten"));
+    gradient.addColorStop(1, adjustHexBrightness(fillColor, 10, "darken"));
 
     ctx.beginPath();
     ctx.rect(x, y, width, height);
     ctx.fillStyle = gradient;
     ctx.fill();
+
     this.resetShadow(ctx);
   }
 
@@ -142,10 +173,17 @@ export class CanvasPainter {
     ctx.lineWidth = strokeWidth ? parseFloat(strokeWidth) : 2;
 
     ctx.beginPath();
-    ctx.moveTo(x + w / 2, y + h * 0.8);
+    ctx.moveTo(x + Math.ceil(w / 2), y + Math.ceil(h * 0.8));
 
     const curves = [
-      [x + w / 2, y + h * 0.8, x, y + (2 / 6) * h, x + w / 4, y + h / 8],
+      [
+        x + Math.ceil(w / 2),
+        y + Math.ceil(h * 0.8),
+        x,
+        y + Math.ceil((2 / 6) * h),
+        Math.ceil(x + w / 4),
+        Math.ceil(y + h / 8),
+      ],
       [
         x + w / 2.8,
         y + h * 0.05,
@@ -213,27 +251,6 @@ export class CanvasPainter {
     });
 
     ctx.restore();
-  }
-
-  private static drawShapeWithFillAndStroke(
-    ctx: CanvasRenderingContext2D,
-    shape: Shape,
-    drawFill: () => void,
-    drawStroke?: () => void,
-  ) {
-    const { fill = "blue", stroke = "", strokeWidth = 1 } = shape;
-    const lineWidth = strokeWidth || 2;
-
-    if (fill && drawFill) {
-      ctx.fillStyle = fill as string;
-      drawFill();
-    }
-
-    if (stroke && drawStroke) {
-      ctx.strokeStyle = stroke as string;
-      ctx.lineWidth = lineWidth;
-      drawStroke();
-    }
   }
 
   private static applyShadow(

@@ -7,6 +7,9 @@ export class StaticLayer {
     shapes.forEach((s) => {
       if (s.state === "dragging" || s.state === "remote-dragging") return;
       switch (s.type) {
+        case "STICKER":
+          CanvasPainter.drawSticker(ctx, s as unknown as Shape);
+          break;
         case "ELLIPSE":
           CanvasPainter.drawEllipseShape(ctx, s as unknown as Shape);
           break;

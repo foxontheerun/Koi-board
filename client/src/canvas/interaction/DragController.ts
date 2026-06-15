@@ -14,8 +14,8 @@ export class DragController {
 
     this.shapes.forEach((shape) => {
       this.offsets.set(shape.id, {
-        x: startPoint.x - shape.x,
-        y: startPoint.y - shape.y,
+        x: Math.ceil(startPoint.x - shape.x),
+        y: Math.ceil(startPoint.y - shape.y),
       });
       shape.state = "dragging";
     });
@@ -29,8 +29,8 @@ export class DragController {
 
       const offset = this.offsets.get(shape.id);
       if (!offset) return;
-      shape.x = point.x - offset.x;
-      shape.y = point.y - offset.y;
+      shape.x = Math.ceil(point.x) - Math.ceil(offset.x);
+      shape.y = Math.ceil(point.y) - Math.ceil(offset.y);
     });
 
     return this.shapes;

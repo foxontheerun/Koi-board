@@ -29,14 +29,9 @@ export class RenderManager {
   private dragLayer = new DragLayer();
   private overlay = new Overlay();
 
-  // Предыдущий dirty rect — нужен чтобы затирать область где фигура была
-  // на прошлом кадре, а не весь canvas.
   private prevDragRect: Rect | null = null;
   private prevOverlayRect: Rect | null = null;
 
-  // Позиции движущихся фигур на прошлом кадре.
-  // Нужны чтобы строить union(prevRect, nextRect) — иначе при быстром
-  // движении между кадрами остаются незатёртые артефакты.
   private prevMovingShapeRects = new Map<string, Rect>();
 
   constructor(
@@ -70,11 +65,6 @@ export class RenderManager {
     this.invalidateDirtyRects();
   }
 
-  /**
-   * Сбрасывает все prev-rect'ы — следующий draw сделает полный clearRect.
-   * Вызывать при любом изменении камеры (zoom/pan), иначе старые rect'ы
-   * в старых screen-координатах приведут к артефактам.
-   */
   invalidateDirtyRects() {
     this.prevDragRect = null;
     this.prevOverlayRect = null;
@@ -154,6 +144,24 @@ export class RenderManager {
 
     camera.applyTransform(this.dragCtx);
     this.dragLayer.draw(this.dragCtx, dragging);
+
+    // --- debug: рамка dirtyRect ---
+    // if (dirtyRect) {
+    //   this.dragCtx.save();
+    //   this.dragCtx.setTransform(1, 0, 0, 1, 0, 0); // сброс camera transform
+    //   this.dragCtx.strokeStyle = "rgba(221, 0, 11, 0.89)";
+    //   this.dragCtx.lineWidth = 1;
+    //   this.dragCtx.setLineDash([4, 3]);
+    //   this.dragCtx.strokeRect(
+    //     dirtyRect.x,
+    //     dirtyRect.y,
+    //     dirtyRect.w,
+    //     dirtyRect.h,
+    //   );
+    //   this.dragCtx.restore();
+    // }
+    // --- end debug ---
+
     this.dragCtx.restore();
   }
 
@@ -232,13 +240,12 @@ export class RenderManager {
 
   private drawPreviewShape(ctx: CanvasRenderingContext2D, shape: _Shape) {
     ctx.save();
-
     ctx.fillStyle = shape.fill + "80";
     ctx.strokeStyle = shape.stroke;
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
 
-    if (shape.type === "RECT") {
+    if (shape.type === "RECT" || shape.type === "STICKER") {
       if (shape.radius) {
         this.drawRoundedRect(
           ctx,
@@ -252,6 +259,23 @@ export class RenderManager {
         ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
         ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
       }
+    }
+
+    if (shape.type === "ELLIPSE") {
+      const cx = shape.x + shape.width / 2;
+      const cy = shape.y + shape.height / 2;
+      ctx.beginPath();
+      ctx.ellipse(
+        cx,
+        cy,
+        Math.abs(shape.width / 2),
+        Math.abs(shape.height / 2),
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+      ctx.stroke();
     }
 
     ctx.restore();

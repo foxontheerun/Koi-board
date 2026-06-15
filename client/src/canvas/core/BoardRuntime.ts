@@ -29,6 +29,13 @@ export class BoardRuntime {
 
   private unsubscribeCamera?: () => void;
   private activeStickyColor: StickyColorId = "yellow";
+
+  // Color used for non-sticky shapes (RECT, ELLIPSE).
+  private activeShapeColor: { fill: string; stroke: string } = {
+    fill: "#DBEAFE",
+    stroke: "#93C5FD",
+  };
+
   private creationTool: {
     type: ShapeType | null;
     startPoint: { x: number; y: number } | null;
@@ -39,6 +46,7 @@ export class BoardRuntime {
     previewShape: null,
   };
 
+  // Flag: drag or resize in progress — static layer is not redrawn.
   private isInteracting = false;
 
   constructor(
@@ -93,6 +101,10 @@ export class BoardRuntime {
 
   setActiveStickyColor(colorId: StickyColorId) {
     this.activeStickyColor = colorId;
+  }
+
+  setActiveShapeColor(fill: string, stroke: string) {
+    this.activeShapeColor = { fill, stroke };
   }
 
   private syncCallbacks: {
@@ -153,6 +165,47 @@ export class BoardRuntime {
     this.renderManager.updateSize(rect);
     this.camera.updateViewport(this.renderManager.getMainCanvas());
     this.redrawAll();
+  }
+
+  // Returns the shape at the given screen coordinates.
+  findShapeAtScreen(screenX: number, screenY: number): _Shape | null {
+    const worldPoint = this.coordinateTransformer.screenToWorld(
+      screenX,
+      screenY,
+    );
+    return this.entityManager.findShapeAt(worldPoint);
+  }
+
+  // Returns the shape bounding rect in screen coordinates.
+  getShapeScreenRect(
+    shape: _Shape,
+  ): { x: number; y: number; w: number; h: number } | null {
+    const topLeft = this.camera.worldToScreen(shape.x, shape.y);
+    const bottomRight = this.camera.worldToScreen(
+      shape.x + shape.width,
+      shape.y + shape.height,
+    );
+
+    const canvasRect = this.renderManager
+      .getMainCanvas()
+      .getBoundingClientRect();
+
+    return {
+      x: topLeft.x + canvasRect.left,
+      y: topLeft.y + canvasRect.top,
+      w: bottomRight.x - topLeft.x,
+      h: bottomRight.y - topLeft.y,
+    };
+  }
+
+  // Updates shape text locally and persists it.
+  updateShapeText(id: string, text: string) {
+    const shape = this.entityManager.getById(id);
+    if (!shape) return;
+
+    shape.text = text;
+    this.renderManager.drawStatic(this.camera, this.entityManager);
+    this.syncCallbacks.onLocalShapePersisted?.(shape);
   }
 
   handleMouseDown(screenX: number, screenY: number) {
@@ -267,9 +320,6 @@ export class BoardRuntime {
     this.isInteracting = false;
 
     if (wasDragOrResize) {
-      // Конец взаимодействия: фигуры вернулись в state "static",
-      // перерисовываем статик слой с их финальными позициями,
-      // и очищаем drag слой.
       this.renderManager.drawStatic(this.camera, this.entityManager);
       this.renderManager.drawDrag(this.camera, this.entityManager);
       this.renderManager.drawOverlay(
@@ -338,7 +388,10 @@ export class BoardRuntime {
   private startCreatingShape(worldPoint: { x: number; y: number }) {
     this.creationTool.startPoint = worldPoint;
 
-    const colorPreset = STICKY_PRESETS[this.activeStickyColor];
+    const isSticky = this.creationTool.type === "STICKER";
+    const color = isSticky
+      ? STICKY_PRESETS[this.activeStickyColor]
+      : this.activeShapeColor;
 
     this.creationTool.previewShape = {
       id: crypto.randomUUID(),
@@ -347,10 +400,10 @@ export class BoardRuntime {
       y: worldPoint.y,
       width: 0,
       height: 0,
-      fill: colorPreset.fill,
-      stroke: colorPreset.stroke,
+      fill: color.fill,
+      stroke: color.stroke,
       state: "static",
-      radius: 8,
+      radius: this.creationTool.type === "RECT" ? 8 : 0,
       zIndex: this.entityManager.getMaxZIndex() + 1,
     };
   }
