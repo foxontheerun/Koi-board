@@ -118,10 +118,20 @@ export class BoardRuntime {
   }
 
   applyTransientPatch(patch: TransientShapePatch) {
-    const { becameRemote } = this.entityManager.applyTransientPatch(patch);
+    this.applyTransientPatches([patch]);
+  }
 
-    if (becameRemote) {
-      // First patch — redraw static layer to remove the shape from mainCanvas.
+  applyTransientPatches(patches: TransientShapePatch[]) {
+    let anyBecameRemote = false;
+
+    for (const patch of patches) {
+      const { becameRemote } = this.entityManager.applyTransientPatch(patch);
+      if (becameRemote) anyBecameRemote = true;
+    }
+
+    if (anyBecameRemote) {
+      // A shape just entered remote-dragging — redraw the static layer once
+      // to remove it from mainCanvas.
       this.renderManager.drawStatic(this.camera, this.entityManager);
     }
 
@@ -346,8 +356,6 @@ export class BoardRuntime {
   }
 
   private redrawAll() {
-    console.log("redrawAll ");
-
     const selectedIds = this.interactionManager.getSelectedIds();
     this.renderManager.drawAll(this.camera, this.entityManager, selectedIds);
   }

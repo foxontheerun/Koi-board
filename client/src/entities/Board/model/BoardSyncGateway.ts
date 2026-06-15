@@ -75,9 +75,7 @@ export class BoardSyncGateway {
           const moved = data?.shapesMoved;
           if (!moved || moved.clientID === this.clientId) return;
 
-          moved.shapes.forEach((patch) => {
-            this.runtime.applyTransientPatch(patch);
-          });
+          this.runtime.applyTransientPatches(moved.shapes);
         },
       });
 

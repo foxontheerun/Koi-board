@@ -76,8 +76,6 @@ export class RenderManager {
    * в старых screen-координатах приведут к артефактам.
    */
   invalidateDirtyRects() {
-    console.trace("invalidateDirtyRects");
-
     this.prevDragRect = null;
     this.prevOverlayRect = null;
     this.prevMovingShapeRects.clear();
