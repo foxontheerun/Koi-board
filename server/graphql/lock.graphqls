@@ -1,0 +1,10 @@
+enum LockAction {
+  ACQUIRE
+  RELEASE
+}
+
+type LockEvent {
+  shapeId: ID!
+  clientID: ID!
+  action: LockAction!
+}
