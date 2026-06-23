@@ -28,19 +28,60 @@ describe("EntityManager.findShapeAt", () => {
   });
 
   it("returns null when the point is outside every shape", () => {
-    const em = managerWith([remote({ id: "a", x: 0, y: 0, width: 100, height: 100 })]);
+    const em = managerWith([
+      remote({ id: "a", x: 0, y: 0, width: 100, height: 100 }),
+    ]);
 
     expect(em.findShapeAt({ x: 500, y: 500 })).toBeNull();
   });
 
-  it.todo("includes points within the margin");
+  it("includes points within the margin", () => {
+    const em = managerWith([
+      remote({ id: "a", x: 0, y: 0, width: 100, height: 100 }),
+    ]);
+
+    expect(em.findShapeAt({ x: 110, y: 50 })).toBeNull();
+    expect(em.findShapeAt({ x: 110, y: 50 }, 20)?.id).toBe("a");
+  });
 });
 
 describe("EntityManager.findShapesInRect", () => {
-  it.todo("returns shapes fully inside the rect");
-  it.todo("returns shapes partially overlapping the rect");
-  it.todo("excludes shapes outside the rect");
-  it.todo("works regardless of drag direction (rect with negative size)");
+  it("returns shapes fully inside the rect", () => {
+    const em = managerWith([
+      remote({ id: "a", x: 20, y: 20, width: 30, height: 30 }),
+    ]);
+    const found = em.findShapesInRect({ x: 0, y: 0, width: 100, height: 100 });
+    expect(found.map((s) => s.id)).toContain("a");
+  });
+
+  it("returns shapes partially overlapping the rect", () => {
+    const em = managerWith([
+      remote({ id: "a", x: 80, y: 20, width: 100, height: 30 }),
+    ]);
+    const found = em.findShapesInRect({ x: 0, y: 0, width: 100, height: 100 });
+    expect(found.map((s) => s.id)).toContain("a");
+  });
+
+  it("excludes shapes outside the rect", () => {
+    const em = managerWith([
+      remote({ id: "a", x: 500, y: 500, width: 30, height: 30 }),
+    ]);
+    const found = em.findShapesInRect({ x: 0, y: 0, width: 100, height: 100 });
+    expect(found.map((s) => s.id)).not.toContain("a");
+  });
+
+  it("works regardless of drag direction (rect with negative size)", () => {
+    const em = managerWith([
+      remote({ id: "a", x: 20, y: 20, width: 30, height: 30 }),
+    ]);
+    const found = em.findShapesInRect({
+      x: 100,
+      y: 100,
+      width: -100,
+      height: -100,
+    });
+    expect(found.map((s) => s.id)).toContain("a");
+  });
 });
 
 describe("EntityManager.applyShapeEvent", () => {
@@ -53,16 +94,75 @@ describe("EntityManager.applyShapeEvent", () => {
     expect(em.getById("b")).not.toBeNull();
   });
 
-  it.todo("adds a new shape on CREATED");
-  it.todo("merges into the existing shape on UPDATED");
-  it.todo("resets remote-dragging back to static on UPDATED");
+  it("adds a new shape on CREATED", () => {
+    const em = managerWith([remote({ id: "a" })]);
+    em.applyShapeEvent({
+      type: "CREATED",
+      shape: remote({ id: "b", x: 200, y: 200 }),
+    });
+    expect(em.getById("b")).not.toBeNull();
+  });
+
+  it("merges into the existing shape on UPDATED", () => {
+    const em = managerWith([remote({ id: "a", x: 0, y: 0 })]);
+    em.applyShapeEvent({
+      type: "UPDATED",
+      shape: remote({ id: "a", x: 300, y: 400 }),
+    });
+    const shape = em.getById("a");
+    expect(shape?.x).toBe(300);
+    expect(shape?.y).toBe(400);
+  });
+
+  it("resets remote-dragging back to static on UPDATED", () => {
+    const em = managerWith([remote({ id: "a" })]);
+    em.applyTransientPatch({ id: "a", x: 10, y: 10 });
+    em.applyShapeEvent({
+      type: "UPDATED",
+      shape: remote({ id: "a", x: 20, y: 20 }),
+    });
+    expect(em.getById("a")?.state).toBe("static");
+  });
 });
 
 describe("EntityManager.applyTransientPatch", () => {
-  it.todo("updates the shape position from the patch");
-  it.todo("returns becameRemote=true on the first transition to remote-dragging");
-  it.todo("returns becameRemote=false while already remote-dragging");
-  it.todo("returns becameRemote=false for an unknown id");
+  it("updates the shape position from the patch", () => {
+    const em = managerWith([remote({ id: "a", x: 0, y: 0 })]);
+
+    em.applyTransientPatch({ id: "a", x: 50, y: 60 });
+
+    const shape = em.getById("a");
+    expect(shape?.x).toBe(50);
+    expect(shape?.y).toBe(60);
+  });
+
+  it("returns becameRemote=true on the first transition to remote-dragging", () => {
+    const em = managerWith([remote({ id: "a", x: 0, y: 0 })]);
+    const { becameRemote } = em.applyTransientPatch({ id: "a", x: 50, y: 60 });
+    expect(becameRemote).toBe(true);
+  });
+
+  it("returns becameRemote=false while already remote-dragging", () => {
+    const em = managerWith([remote({ id: "a", x: 0, y: 0 })]);
+    const patch = { id: "a", x: 50, y: 60 };
+
+    em.applyTransientPatch(patch);
+
+    const { becameRemote } = em.applyTransientPatch(patch);
+    expect(becameRemote).toBe(false);
+  });
+
+  it("returns becameRemote=false for an unknown id", () => {
+    const em = managerWith([remote({ id: "a" })]);
+
+    const { becameRemote } = em.applyTransientPatch({
+      id: "zzz",
+      x: 10,
+      y: 10,
+    });
+
+    expect(becameRemote).toBe(false);
+  });
 });
 
 describe("EntityManager z-index", () => {

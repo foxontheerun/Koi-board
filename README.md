@@ -33,6 +33,7 @@ Frontend on React + Vite, backend on Go + GraphQL (gqlgen) with subscriptions.
 - TypeScript
 - Apollo Client (GraphQL)
 - Tailwind CSS
+- [Vitest](https://vitest.dev/) for unit tests
 - UI:
   - custom components
   - [lucide-react](https://lucide.dev/) for icons
@@ -58,5 +59,19 @@ realtime-board/
 
 - Front: check README.md in client path
 - Back: `go run ./cmd/api`
+
+## Testing
+
+Unit tests for the client are written with [Vitest](https://vitest.dev/) and
+cover the canvas pure logic: coordinate/zoom math, color helpers, dirty-rect
+geometry, shape resizing, and the `EntityManager` state (hit testing, shape
+events, transient updates).
+
+Run from the `client/` folder:
+
+```bash
+npm test          # watch mode
+npm run test:run  # single run
+```
 
 

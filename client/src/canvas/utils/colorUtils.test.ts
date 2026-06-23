@@ -10,12 +10,31 @@ describe("adjustHexBrightness", () => {
     expect(adjustHexBrightness("#808080", 100, "darken")).toBe("#000000");
   });
 
-  it.todo("clamps channels at 255 when lightening (#ffffff stays #ffffff)");
-  it.todo("expands shorthand #fff to #ffffff");
-  it.todo("strips the alpha channel from #rrggbbaa");
-  it.todo("parses rgb(128,128,128) the same as #808080");
-  it.todo("returns invalid input ('hello') unchanged");
-  it.todo("returns an incomplete hex ('#12') unchanged");
+  it("keeps #ffffff white when lightening", () => {
+    expect(adjustHexBrightness("#ffffff", 50)).toBe("#ffffff");
+  });
+
+  it("expands shorthand #f00 to #ff0000", () => {
+    expect(adjustHexBrightness("#f00", 0)).toBe("#ff0000");
+  });
+
+  it("preserves the alpha channel of #rrggbbaa", () => {
+    expect(adjustHexBrightness("#80808080", 0)).toBe("#80808080");
+  });
+
+  it("keeps rgb() format for rgb input", () => {
+    expect(adjustHexBrightness("rgb(128, 128, 128)", 0)).toBe(
+      "rgb(128, 128, 128)",
+    );
+  });
+
+  it("returns invalid input unchanged", () => {
+    expect(adjustHexBrightness("hello", 50)).toBe("hello");
+  });
+
+  it("returns an incomplete hex unchanged", () => {
+    expect(adjustHexBrightness("#12", 50)).toBe("#12");
+  });
 });
 
 describe("hexToRgba", () => {
@@ -23,8 +42,20 @@ describe("hexToRgba", () => {
     expect(hexToRgba("#ff0000")).toBe("rgba(255, 0, 0, 1)");
   });
 
-  it.todo("forwards the given alpha");
-  it.todo("works without a leading '#'");
-  it.todo("expands shorthand #0f0");
-  it.todo("alpha from #rrggbbaa overrides the alpha argument");
+  it("forwards the given alpha", () => {
+    expect(hexToRgba("#ff0000", 0.5)).toBe("rgba(255, 0, 0, 0.5)");
+  });
+
+  it("works without a leading '#'", () => {
+    expect(hexToRgba("00ff00")).toBe("rgba(0, 255, 0, 1)");
+  });
+
+  it("expands shorthand #0f0", () => {
+    expect(hexToRgba("#0f0")).toBe("rgba(0, 255, 0, 1)");
+  });
+
+  it("alpha from #rrggbbaa overrides the alpha argument", () => {
+    // hex alpha ff (= 1) wins over the passed 0.5
+    expect(hexToRgba("#ff0000ff", 0.5)).toBe("rgba(255, 0, 0, 1)");
+  });
 });
