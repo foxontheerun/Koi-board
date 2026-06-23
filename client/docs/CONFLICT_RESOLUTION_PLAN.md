@@ -3,7 +3,43 @@
 How we will build conflict handling for concurrent shape manipulation
 (multiple users dragging/resizing the same board at the same time).
 
-> Status: planning. Nothing here is implemented yet.
+> Status: in progress — see Progress below.
+
+---
+
+## Progress (state of play)
+
+Decision: **soft-lock + LWW** (chosen over full Figma-style server ordering; see §2).
+
+Branches (not merged yet):
+- `feat/lock-manager` — P1, P2 and P3 server side.
+- `fix/remote-drag-zorder` — related render fix (correct z-order for shapes
+  dragged by other clients). Independent of locks; verified, PR ready.
+
+Done:
+- **P1 ✅** `LockManager` pure module + 18 unit tests (`client/src/canvas/collab/`).
+- **P2 ✅** wired into `BoardRuntime`: acquire on drag start, renew per frame,
+  release on mouse up, and skip incoming transient patches for shapes the local
+  client holds. Local side only so far.
+- **P3 server ✅** `LockEvent`/`LockAction`, `setShapeLock` mutation, `shapeLocks`
+  subscription, `server/locks` pub/sub. Verified publish→subscribe end to end.
+
+Next:
+- **P3 client ⏳** — add `SET_SHAPE_LOCK` mutation + `SHAPE_LOCKS` subscription to
+  `board.gql.ts`; in `BoardSyncGateway` send locks on acquire/release and feed
+  incoming lock events into a **shared** `LockManager` (it currently lives private
+  inside `BoardRuntime` — the gateway needs access). Only then do locks work
+  across clients (two tabs: the second can't grab a held shape).
+- **P4 ⏳** renew via piggyback on the transient stream; sweep on disconnect.
+- **P5 / P6 ⏳** convergence simulation tests; Playground/Playwright smoke.
+
+Notes:
+- To run the lock server: restart `go run ./cmd/api`. To re-run gqlgen codegen on
+  a fresh clone, run `go get github.com/99designs/gqlgen` once first.
+- Separate render follow-up (not locks): remote drag still full-clears every
+  frame. Clipping it to the dirty rect needs `remote-dragging` included in the
+  dirty-rect set AND a fix for the zoom-invalidation artifact (an earlier attempt
+  left stale content on zoom).
 
 ---
 
@@ -135,14 +171,13 @@ non-deterministic ordering). Layers:
 
 ## 5. Phased plan
 
-- [ ] **P0 — Decide & spec.** Confirm soft-lock + LWW; lease duration; protocol shape.
-- [ ] **P1 — `LockManager`** pure module + unit tests (acquire/release/expire/contention).
-- [ ] **P2 — Apply-path guard.** Skip remote transient patches for shapes locked
-      by others; wire `LockManager` into the transient apply flow.
-- [ ] **P3 — Protocol.** Add lock acquire/release on the wire (server schema +
-      gateway send/receive); echo-suppress by `clientId`.
-- [ ] **P4 — Lifecycle.** Acquire on drag start, renew per frame, release on end,
-      sweep on timeout/disconnect.
+- [x] **P0 — Decide & spec.** Soft-lock + LWW; default lease 3000ms; lock events on the wire.
+- [x] **P1 — `LockManager`** pure module + unit tests (acquire/release/expire/contention).
+- [x] **P2 — Apply-path guard.** Wired into `BoardRuntime`: lifecycle + skip transient
+      patches for shapes the local client holds.
+- [~] **P3 — Protocol.** Server done (`setShapeLock` + `shapeLocks`); **client wiring
+      pending** (gateway send/subscribe + shared `LockManager`).
+- [ ] **P4 — Lifecycle.** Renew via piggyback on transient; sweep on timeout/disconnect.
 - [ ] **P5 — Simulation tests.** Multi-client convergence harness + the 4 invariants.
 - [ ] **P6 — E2E smoke.** Playwright, two contexts, same-shape contention.
 
