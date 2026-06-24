@@ -16,6 +16,8 @@ import { InteractionManager } from "../interaction/InteractionManager";
 import { RenderManager } from "../rendering/RenderManager";
 import { CoordinateTransformer } from "../utils/CoordinateTransformer";
 import { LockManager } from "../collab/LockManager";
+import type { LockAction } from "../collab/types";
+import { RESIZE_HANDLE_SIZE } from "../rendering/layers/mouseEventHandlingHelpers";
 
 export class BoardRuntime {
   public camera: CameraController;
@@ -115,7 +117,11 @@ export class BoardRuntime {
     const clientId = this.clientId;
     if (!clientId) return;
     const now = Date.now();
-    ids.forEach((id) => this.lockManager.acquire(id, clientId, now));
+    ids.forEach((id) => {
+      if (this.lockManager.acquire(id, clientId, now)) {
+        this.syncCallbacks.onLocalLock?.(id, "ACQUIRE");
+      }
+    });
   }
 
   private renewLocks(ids: string[]) {
@@ -128,17 +134,36 @@ export class BoardRuntime {
   private releaseLocks(ids: string[]) {
     const clientId = this.clientId;
     if (!clientId) return;
-    ids.forEach((id) => this.lockManager.release(id, clientId));
+    ids.forEach((id) => {
+      this.lockManager.release(id, clientId);
+      this.syncCallbacks.onLocalLock?.(id, "RELEASE");
+    });
+  }
+
+  applyRemoteLock(shapeId: string, clientId: string, action: LockAction) {
+    if (action === "ACQUIRE") {
+      this.lockManager.acquire(shapeId, clientId, Date.now());
+    } else {
+      this.lockManager.release(shapeId, clientId);
+    }
+  }
+
+  // Keepalive piggybacked on the transient stream: an incoming move from a
+  // client refreshes that client's lock on the shape.
+  renewRemoteLock(shapeId: string, clientId: string) {
+    this.lockManager.acquire(shapeId, clientId, Date.now());
   }
 
   private syncCallbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
+    onLocalLock?: (shapeId: string, action: LockAction) => void;
   } = {};
 
   setSyncCallbacks(callbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
+    onLocalLock?: (shapeId: string, action: LockAction) => void;
   }) {
     this.syncCallbacks = callbacks;
 
@@ -252,6 +277,15 @@ export class BoardRuntime {
 
     if (this.creationTool.type) {
       this.startCreatingShape(worldPoint);
+      return;
+    }
+
+    const hit = this.entityManager.findShapeAt(worldPoint, RESIZE_HANDLE_SIZE);
+    if (
+      hit &&
+      this.clientId !== null &&
+      this.lockManager.isLockedByOther(hit.id, this.clientId, Date.now())
+    ) {
       return;
     }
 

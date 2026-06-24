@@ -4,3 +4,5 @@ export interface ShapeLock {
   acquiredAt: number;
   expiresAt: number;
 }
+
+export type LockAction = "ACQUIRE" | "RELEASE";

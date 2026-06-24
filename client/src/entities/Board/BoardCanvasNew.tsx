@@ -99,6 +99,9 @@ export const BoardCanvasNew = forwardRef<
         gatewayRef.current?.sendPersisted(shape);
         onToolComplete?.();
       },
+      onLocalLock: (shapeId, action) => {
+        gatewayRef.current?.sendLock(shapeId, action);
+      },
     });
 
     gatewayRef.current.connect().catch((error) => {

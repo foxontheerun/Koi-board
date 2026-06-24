@@ -2,7 +2,9 @@ import { apolloClient } from "../../../app/apolloClient";
 import {
   BOARD_QUERY,
   MOVE_SHAPES_TRANSIENT_MUTATION,
+  SET_SHAPE_LOCK_MUTATION,
   SHAPE_EVENTS_SUBSCRIPTION,
+  SHAPE_LOCKS_SUBSCRIPTION,
   SHAPES_MOVED_SUBSCRIPTION,
   UPDATE_SHAPE_MUTATION,
 } from "../api/board.gql";
@@ -14,6 +16,7 @@ import type {
 import type { BoardRuntime } from "../../../canvas";
 import { throttle } from "lodash";
 import type { _Shape } from "../../../canvas/entities";
+import type { LockAction } from "../../../canvas/collab/types";
 
 type BoardQueryResponse = {
   board?: {
@@ -30,6 +33,14 @@ type ShapesMovedResponse = {
 
 type ShapeEventsResponse = {
   shapeEvents?: (ShapeEventPayload & { clientID?: string }) | null;
+};
+
+type ShapeLocksResponse = {
+  shapeLocks?: {
+    shapeId: string;
+    clientID: string;
+    action: LockAction;
+  } | null;
 };
 
 export class BoardSyncGateway {
@@ -75,6 +86,13 @@ export class BoardSyncGateway {
           const moved = data?.shapesMoved;
           if (!moved || moved.clientID === this.clientId) return;
 
+          const sender = moved.clientID;
+          if (sender) {
+            moved.shapes.forEach((p) =>
+              this.runtime.renewRemoteLock(p.id, sender),
+            );
+          }
+
           this.runtime.applyTransientPatches(moved.shapes);
         },
       });
@@ -93,7 +111,37 @@ export class BoardSyncGateway {
         },
       });
 
-    this.subscriptions.push(movedSub, eventsSub);
+    const locksSub = apolloClient
+      .subscribe<ShapeLocksResponse>({
+        query: SHAPE_LOCKS_SUBSCRIPTION,
+        variables: { boardId: this.boardId },
+      })
+      .subscribe({
+        next: ({ data }) => {
+          const lock = data?.shapeLocks;
+          if (!lock || lock.clientID === this.clientId) return;
+
+          this.runtime.applyRemoteLock(lock.shapeId, lock.clientID, lock.action);
+        },
+      });
+
+    this.subscriptions.push(movedSub, eventsSub, locksSub);
+  }
+
+  sendLock(shapeId: string, action: LockAction) {
+    void apolloClient
+      .mutate({
+        mutation: SET_SHAPE_LOCK_MUTATION,
+        variables: {
+          boardId: this.boardId,
+          shapeId,
+          clientID: this.clientId,
+          action,
+        },
+      })
+      .catch((error) => {
+        console.error("setShapeLock mutation error", error);
+      });
   }
 
   sendTransient(shape: _Shape) {
