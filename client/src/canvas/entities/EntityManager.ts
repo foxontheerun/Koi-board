@@ -171,21 +171,14 @@ export class EntityManager {
   }
 
   getShapesOnDragLayer(): _Shape[] {
-    const dragging = this.getShapes().find((s) => s.state === "dragging");
-
-    const remoteDragging = this.shapes.filter(
-      (s) => s.state === "remote-dragging",
+    const shapes = this.getShapes();
+    const moving = shapes.filter(
+      (s) => s.state === "dragging" || s.state === "remote-dragging",
     );
+    if (moving.length === 0) return [];
 
-    if (!dragging) return remoteDragging;
-
-    const localDragLayer = this.getShapes().filter(
-      (s) => (s.zIndex ?? 0) >= (dragging.zIndex ?? 0),
-    );
-
-    // Объединяем локальный drag layer и remote-dragging фигуры без дублей
-    const ids = new Set(localDragLayer.map((s) => s.id));
-    return [...localDragLayer, ...remoteDragging.filter((s) => !ids.has(s.id))];
+    const minZ = Math.min(...moving.map((s) => s.zIndex ?? 0));
+    return shapes.filter((s) => (s.zIndex ?? 0) >= minZ);
   }
 
   clearSelection() {

@@ -186,3 +186,35 @@ describe("EntityManager z-index", () => {
     expect(em.getMinZIndex()).toBe(2);
   });
 });
+
+describe("EntityManager.getShapesOnDragLayer", () => {
+  it("is empty when nothing is moving", () => {
+    const em = managerWith([remote({ id: "a" })]);
+
+    expect(em.getShapesOnDragLayer()).toEqual([]);
+  });
+
+  it("lifts higher-z shapes onto the drag layer for a remote-dragged shape", () => {
+    const em = managerWith([
+      remote({ id: "low", zIndex: 0 }),
+      remote({ id: "high", zIndex: 5 }),
+    ]);
+    em.applyTransientPatch({ id: "low", x: 10, y: 10 });
+
+    const ids = em.getShapesOnDragLayer().map((s) => s.id);
+    expect(ids).toContain("low");
+    expect(ids).toContain("high");
+  });
+
+  it("excludes lower-z shapes from the drag layer", () => {
+    const em = managerWith([
+      remote({ id: "low", zIndex: 0 }),
+      remote({ id: "mid", zIndex: 5 }),
+    ]);
+    em.applyTransientPatch({ id: "mid", x: 10, y: 10 });
+
+    const ids = em.getShapesOnDragLayer().map((s) => s.id);
+    expect(ids).toContain("mid");
+    expect(ids).not.toContain("low");
+  });
+});
