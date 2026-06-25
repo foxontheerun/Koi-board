@@ -53,3 +53,28 @@ cd client
 npm install
 npm run dev
 ```
+
+---
+
+## 🧪 Testing
+
+**Unit** — [Vitest](https://vitest.dev/): canvas pure logic (coordinate/zoom
+math, colors, dirty-rect geometry, resizing), `EntityManager`, `LockManager`.
+
+```bash
+npm test          # watch mode
+npm run test:run  # single run
+```
+
+**End-to-end** — [Playwright](https://playwright.dev/) (Chromium). The config
+starts/reuses the dev server and the Go backend, so the suite is self-contained.
+Covers board load, persistence, realtime broadcast across two browser contexts
+(events, locks, movement), and a canvas snapshot (visual regression).
+
+```bash
+npm run test:e2e                        # run all
+npm run test:e2e -- --update-snapshots  # refresh visual baselines
+```
+
+Snapshot baselines are committed per platform; regenerate them with
+`--update-snapshots` on a new OS.

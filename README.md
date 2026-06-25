@@ -62,16 +62,8 @@ realtime-board/
 
 ## Testing
 
-Unit tests for the client are written with [Vitest](https://vitest.dev/) and
-cover the canvas pure logic: coordinate/zoom math, color helpers, dirty-rect
-geometry, shape resizing, and the `EntityManager` state (hit testing, shape
-events, transient updates).
-
-Run from the `client/` folder:
-
-```bash
-npm test          # watch mode
-npm run test:run  # single run
-```
+The client has unit tests ([Vitest](https://vitest.dev/)) and end-to-end tests
+([Playwright](https://playwright.dev/), including two-client realtime and a
+canvas snapshot). Commands and details: [client/README.md](client/README.md#-testing).
 
 
