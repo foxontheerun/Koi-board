@@ -62,30 +62,8 @@ realtime-board/
 
 ## Testing
 
-Run everything from the `client/` folder.
-
-**Unit tests** — [Vitest](https://vitest.dev/). Cover the canvas pure logic:
-coordinate/zoom math, color helpers, dirty-rect geometry, shape resizing, the
-`EntityManager` state (hit testing, shape events, transient updates), and the
-`LockManager` (acquire/renew/release/expire).
-
-```bash
-npm test          # watch mode
-npm run test:run  # single run
-```
-
-**End-to-end tests** — [Playwright](https://playwright.dev/) (Chromium). The
-config starts/reuses both the dev server and the Go backend, so the suite is
-self-contained. Coverage: board loads, drawing persists via `updateShape`,
-realtime broadcast across two browser contexts (shape events, locks, movement),
-and a canvas snapshot (visual regression).
-
-```bash
-npm run test:e2e                      # run all
-npm run test:e2e -- --update-snapshots  # refresh visual baselines
-```
-
-> Snapshot baselines are platform-specific (committed per OS); regenerate them
-> with `--update-snapshots` on a new platform.
+The client has unit tests ([Vitest](https://vitest.dev/)) and end-to-end tests
+([Playwright](https://playwright.dev/), including two-client realtime and a
+canvas snapshot). Commands and details: [client/README.md](client/README.md#-testing).
 
 
