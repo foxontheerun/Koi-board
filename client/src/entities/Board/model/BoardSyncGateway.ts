@@ -176,6 +176,7 @@ export class BoardSyncGateway {
             width: shape.width,
             height: shape.height,
             zIndex: shape.zIndex ?? 0,
+            locked: shape.locked ?? false,
             fill: shape.fill,
             stroke: shape.stroke,
           },

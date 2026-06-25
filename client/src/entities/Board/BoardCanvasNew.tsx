@@ -61,6 +61,7 @@ export const BoardCanvasNew = forwardRef<
     x: number;
     y: number;
     ids: string[];
+    isLocked: boolean;
   } | null>(null);
 
   useImperativeHandle(ref, () => ({
@@ -216,7 +217,8 @@ export const BoardCanvasNew = forwardRef<
           if (!selected.includes(shape.id)) {
             runtimeRef.current?.selectShape(shape.id);
           }
-          setMenu({ x: e.clientX, y: e.clientY, ids });
+          const isLocked = runtimeRef.current?.areAllLocked(ids) ?? false;
+          setMenu({ x: e.clientX, y: e.clientY, ids, isLocked });
         }}
       />
       <canvas
@@ -229,10 +231,12 @@ export const BoardCanvasNew = forwardRef<
           x={menu.x}
           y={menu.y}
           onClose={() => setMenu(null)}
+          isLocked={menu.isLocked}
           onBringToFront={() => runtimeRef.current?.bringToFront(menu.ids)}
           onMoveForward={() => runtimeRef.current?.moveForward(menu.ids)}
           onMoveBackward={() => runtimeRef.current?.moveBackward(menu.ids)}
           onSendToBack={() => runtimeRef.current?.sendToBack(menu.ids)}
+          onToggleLock={() => runtimeRef.current?.toggleLock(menu.ids)}
           onDelete={() => runtimeRef.current?.deleteShapes(menu.ids)}
         />
       )}

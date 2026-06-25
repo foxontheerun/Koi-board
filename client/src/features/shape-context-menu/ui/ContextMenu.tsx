@@ -4,28 +4,34 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsDown,
+  Lock,
+  LockOpen,
   Trash2,
 } from "lucide-react";
 
 export interface ContextMenuProps {
   x: number;
   y: number;
+  isLocked: boolean;
   onClose: () => void;
   onBringToFront: () => void;
   onMoveForward: () => void;
   onMoveBackward: () => void;
   onSendToBack: () => void;
+  onToggleLock: () => void;
   onDelete: () => void;
 }
 
 export function ContextMenu({
   x,
   y,
+  isLocked,
   onClose,
   onBringToFront,
   onMoveForward,
   onMoveBackward,
   onSendToBack,
+  onToggleLock,
   onDelete,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -41,14 +47,17 @@ export function ContextMenu({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
 
-  const items = [
-    { icon: <ChevronsUp className="w-4 h-4" />, label: "Bring to front", onClick: onBringToFront },
-    { icon: <ChevronUp className="w-4 h-4" />, label: "Move forward", onClick: onMoveForward },
-    { icon: <ChevronDown className="w-4 h-4" />, label: "Move backward", onClick: onMoveBackward },
-    { icon: <ChevronsDown className="w-4 h-4" />, label: "Send to back", onClick: onSendToBack },
-    { divider: true } as const,
-    { icon: <Trash2 className="w-4 h-4" />, label: "Delete", onClick: onDelete, danger: true },
-  ];
+  const items = isLocked
+    ? [{ icon: <LockOpen className="w-4 h-4" />, label: "Unlock", onClick: onToggleLock }]
+    : [
+        { icon: <ChevronsUp className="w-4 h-4" />, label: "Bring to front", onClick: onBringToFront },
+        { icon: <ChevronUp className="w-4 h-4" />, label: "Move forward", onClick: onMoveForward },
+        { icon: <ChevronDown className="w-4 h-4" />, label: "Move backward", onClick: onMoveBackward },
+        { icon: <ChevronsDown className="w-4 h-4" />, label: "Send to back", onClick: onSendToBack },
+        { divider: true } as const,
+        { icon: <Lock className="w-4 h-4" />, label: "Lock", onClick: onToggleLock },
+        { icon: <Trash2 className="w-4 h-4" />, label: "Delete", onClick: onDelete, danger: true },
+      ];
 
   return (
     <div

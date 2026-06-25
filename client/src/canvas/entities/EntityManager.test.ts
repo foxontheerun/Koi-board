@@ -329,3 +329,24 @@ describe("EntityManager.removeShape", () => {
     expect(em.getById("a")).not.toBeNull();
   });
 });
+
+describe("EntityManager.setLocked", () => {
+  it("locks the given shapes and returns the changed ones", () => {
+    const em = managerWith([remote({ id: "a" }), remote({ id: "b" })]);
+
+    const changed = em.setLocked(["a", "b"], true);
+
+    expect(changed.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(em.getById("a")?.locked).toBe(true);
+    expect(em.getById("b")?.locked).toBe(true);
+  });
+
+  it("skips shapes already in the requested state", () => {
+    const em = managerWith([remote({ id: "a" }), remote({ id: "b" })]);
+    em.setLocked(["a"], true);
+
+    const changed = em.setLocked(["a", "b"], true);
+
+    expect(changed.map((s) => s.id)).toEqual(["b"]);
+  });
+});

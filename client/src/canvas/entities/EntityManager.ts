@@ -94,6 +94,7 @@ export interface RemoteShape {
   strokeWidth?: number | null;
   type?: ShapeType;
   zIndex?: number | null;
+  locked?: boolean | null;
 }
 
 export interface TransientShapePatch {
@@ -139,6 +140,7 @@ export class EntityManager {
       state: "static",
       radius: 8,
       zIndex: shape.zIndex ?? 0,
+      locked: shape.locked ?? false,
     };
   }
 
@@ -164,6 +166,18 @@ export class EntityManager {
       if (this.removeShape(id)) removed.push(id);
     }
     return removed;
+  }
+
+  setLocked(ids: string[], locked: boolean): _Shape[] {
+    const changed: _Shape[] = [];
+    for (const id of ids) {
+      const shape = this.byId.get(id);
+      if (shape && (shape.locked ?? false) !== locked) {
+        shape.locked = locked;
+        changed.push(shape);
+      }
+    }
+    return changed;
   }
 
   getMaxZIndex(shapes = this.shapes): number {

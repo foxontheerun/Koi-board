@@ -65,6 +65,13 @@ export class InteractionManager {
       return;
     }
 
+    // Locked shapes can be selected (to unlock) but never moved or resized.
+    if (shape.locked) {
+      this.selectShapes([shape]);
+      this.interaction = { type: "idle", selectedIds: [shape.id] };
+      return;
+    }
+
     const selectedIds = this.getSelectedIds();
     const isSelected = selectedIds.includes(shape.id);
     if (!isSelected) {
@@ -84,11 +91,13 @@ export class InteractionManager {
       return;
     }
 
-    const dragShapes = isSelected
-      ? this.entityManager
-          .getShapes()
-          .filter((candidate) => selectedIds.includes(candidate.id))
-      : [shape];
+    const dragShapes = (
+      isSelected
+        ? this.entityManager
+            .getShapes()
+            .filter((candidate) => selectedIds.includes(candidate.id))
+        : [shape]
+    ).filter((candidate) => !candidate.locked);
 
     this.dragController.begin(dragShapes, worldPoint);
     this.interaction = {

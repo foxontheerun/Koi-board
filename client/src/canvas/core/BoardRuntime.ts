@@ -297,20 +297,39 @@ export class BoardRuntime {
     return this.interactionManager.getSelectedIds();
   }
 
+  areAllLocked(ids: string[]): boolean {
+    if (ids.length === 0) return false;
+    return ids.every((id) => this.entityManager.getById(id)?.locked === true);
+  }
+
+  // Locked shapes are protected from layer changes and deletion.
+  private unlockedIds(ids: string[]): string[] {
+    return ids.filter((id) => this.entityManager.getById(id)?.locked !== true);
+  }
+
+  toggleLock(ids: string[]) {
+    const changed = this.entityManager.setLocked(ids, !this.areAllLocked(ids));
+    if (changed.length === 0) return;
+    this.redrawAll();
+    changed.forEach((shape) =>
+      this.syncCallbacks.onLocalShapePersisted?.(shape),
+    );
+  }
+
   bringToFront(ids: string[]) {
-    this.applyZOrder(this.entityManager.bringToFront(ids));
+    this.applyZOrder(this.entityManager.bringToFront(this.unlockedIds(ids)));
   }
 
   sendToBack(ids: string[]) {
-    this.applyZOrder(this.entityManager.sendToBack(ids));
+    this.applyZOrder(this.entityManager.sendToBack(this.unlockedIds(ids)));
   }
 
   moveForward(ids: string[]) {
-    this.applyZOrder(this.entityManager.moveForward(ids));
+    this.applyZOrder(this.entityManager.moveForward(this.unlockedIds(ids)));
   }
 
   moveBackward(ids: string[]) {
-    this.applyZOrder(this.entityManager.moveBackward(ids));
+    this.applyZOrder(this.entityManager.moveBackward(this.unlockedIds(ids)));
   }
 
   private applyZOrder(changed: _Shape[]) {
@@ -332,7 +351,7 @@ export class BoardRuntime {
   }
 
   deleteShapes(ids: string[]) {
-    const removed = this.entityManager.removeShapes(ids);
+    const removed = this.entityManager.removeShapes(this.unlockedIds(ids));
     if (removed.length === 0) return;
     this.interactionManager.selectById("");
     this.redrawAll();
