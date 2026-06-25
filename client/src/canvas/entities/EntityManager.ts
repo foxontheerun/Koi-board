@@ -158,6 +158,57 @@ export class EntityManager {
     return Math.min(...shapes.map((s) => s.zIndex ?? 0));
   }
 
+  bringToFront(id: string): _Shape[] {
+    const shape = this.byId.get(id);
+    if (!shape) return [];
+    shape.zIndex = this.getMaxZIndex() + 1;
+    this.sortDirty = true;
+    return [shape];
+  }
+
+  sendToBack(id: string): _Shape[] {
+    const shape = this.byId.get(id);
+    if (!shape) return [];
+    shape.zIndex = this.getMinZIndex() - 1;
+    this.sortDirty = true;
+    return [shape];
+  }
+
+  moveForward(id: string): _Shape[] {
+    return this.swapWithNeighbor(id, "up");
+  }
+
+  moveBackward(id: string): _Shape[] {
+    return this.swapWithNeighbor(id, "down");
+  }
+
+  private swapWithNeighbor(id: string, dir: "up" | "down"): _Shape[] {
+    const shape = this.byId.get(id);
+    if (!shape) return [];
+    const z = shape.zIndex ?? 0;
+
+    let neighbor: _Shape | null = null;
+    for (const s of this.shapes) {
+      if (s === shape) continue;
+      const sz = s.zIndex ?? 0;
+      const isCandidate = dir === "up" ? sz > z : sz < z;
+      if (!isCandidate) continue;
+      const closer =
+        neighbor === null ||
+        (dir === "up"
+          ? sz < (neighbor.zIndex ?? 0)
+          : sz > (neighbor.zIndex ?? 0));
+      if (closer) neighbor = s;
+    }
+
+    if (!neighbor) return [];
+
+    shape.zIndex = neighbor.zIndex ?? 0;
+    neighbor.zIndex = z;
+    this.sortDirty = true;
+    return [shape, neighbor];
+  }
+
   getShapes() {
     if (this.sortDirty) {
       this.shapes.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
