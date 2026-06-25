@@ -130,3 +130,29 @@ export const SHAPES_MOVED_SUBSCRIPTION = gql`
     }
   }
 `;
+
+export const SET_SHAPE_LOCK_MUTATION = gql`
+  mutation SetShapeLock(
+    $boardId: ID!
+    $shapeId: ID!
+    $clientID: ID!
+    $action: LockAction!
+  ) {
+    setShapeLock(
+      boardId: $boardId
+      shapeId: $shapeId
+      clientID: $clientID
+      action: $action
+    )
+  }
+`;
+
+export const SHAPE_LOCKS_SUBSCRIPTION = gql`
+  subscription ShapeLocks($boardId: ID!) {
+    shapeLocks(boardId: $boardId) {
+      shapeId
+      clientID
+      action
+    }
+  }
+`;

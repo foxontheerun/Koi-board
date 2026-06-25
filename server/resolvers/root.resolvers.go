@@ -7,6 +7,7 @@ package resolvers
 import (
 	"context"
 	"server/graph"
+	"server/locks"
 	"server/storage"
 	"server/subscriptions"
 	"server/transient"
@@ -137,6 +138,17 @@ func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shap
 	return deleted != nil, nil
 }
 
+// SetShapeLock is the resolver for the setShapeLock field.
+func (r *mutationResolver) SetShapeLock(ctx context.Context, boardID string, shapeID string, clientID string, action graph.LockAction) (bool, error) {
+	locks.Publish(boardID, &graph.LockEvent{
+		ShapeID:  shapeID,
+		ClientID: clientID,
+		Action:   action,
+	})
+
+	return true, nil
+}
+
 // Board is the resolver for the board field.
 func (r *queryResolver) Board(ctx context.Context, id string) (*graph.Board, error) {
 	storage.BoardsMu.RLock()
@@ -194,6 +206,19 @@ func (r *subscriptionResolver) ShapeEvents(ctx context.Context, boardID string) 
 	go func() {
 		<-ctx.Done()
 		subscriptions.Unsubscribe(boardID, ch)
+	}()
+
+	return ch, nil
+}
+
+// ShapeLocks is the resolver for the shapeLocks field.
+func (r *subscriptionResolver) ShapeLocks(ctx context.Context, boardID string) (<-chan *graph.LockEvent, error) {
+	ch := make(chan *graph.LockEvent, 1)
+	locks.Subscribe(boardID, ch)
+
+	go func() {
+		<-ctx.Done()
+		locks.Unsubscribe(boardID, ch)
 	}()
 
 	return ch, nil

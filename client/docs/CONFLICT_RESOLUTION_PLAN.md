@@ -3,7 +3,40 @@
 How we will build conflict handling for concurrent shape manipulation
 (multiple users dragging/resizing the same board at the same time).
 
-> Status: planning. Nothing here is implemented yet.
+> Status: in progress — see Progress below.
+
+---
+
+## Progress (state of play)
+
+Decision: **soft-lock + LWW** (chosen over full Figma-style server ordering; see §2).
+
+Branch `feat/lock-manager` (has master merged in for the z-order fix):
+
+Done — **locks work across clients** (verified live on two tabs):
+- **P1 ✅** `LockManager` pure module + 18 unit tests (`client/src/canvas/collab/`).
+- **P2 ✅** wired into `BoardRuntime`: acquire on drag start, renew per frame,
+  release on mouse up, and skip incoming transient patches for shapes the local
+  client holds.
+- **P3 ✅** server (`setShapeLock` / `shapeLocks` + `server/locks` pub/sub) and
+  client (gql docs, broadcast ACQUIRE/RELEASE, shared `LockManager` fed by the
+  `shapeLocks` subscription, and a grab guard in `handleMouseDown`). Renew is
+  piggybacked on the transient stream so a held shape survives a long drag.
+
+Next:
+- **P4 (partial) ⏳** — piggyback renew done; still missing an explicit
+  `sweepExpired` on a timer / disconnect (currently self-heals lazily via the
+  lease, since queries treat expired locks as free).
+- **P5 / P6 ⏳** convergence simulation tests; Playground/Playwright smoke.
+- **Nice-to-have** — visual "locked by someone else" indicator.
+
+Notes:
+- To run the lock server: restart `go run ./cmd/api`. To re-run gqlgen codegen on
+  a fresh clone, run `go get github.com/99designs/gqlgen` once first.
+- Separate render follow-up (not locks): remote drag still full-clears every
+  frame. Clipping it to the dirty rect needs `remote-dragging` included in the
+  dirty-rect set AND a fix for the zoom-invalidation artifact (an earlier attempt
+  left stale content on zoom).
 
 ---
 
@@ -135,14 +168,14 @@ non-deterministic ordering). Layers:
 
 ## 5. Phased plan
 
-- [ ] **P0 — Decide & spec.** Confirm soft-lock + LWW; lease duration; protocol shape.
-- [ ] **P1 — `LockManager`** pure module + unit tests (acquire/release/expire/contention).
-- [ ] **P2 — Apply-path guard.** Skip remote transient patches for shapes locked
-      by others; wire `LockManager` into the transient apply flow.
-- [ ] **P3 — Protocol.** Add lock acquire/release on the wire (server schema +
-      gateway send/receive); echo-suppress by `clientId`.
-- [ ] **P4 — Lifecycle.** Acquire on drag start, renew per frame, release on end,
-      sweep on timeout/disconnect.
+- [x] **P0 — Decide & spec.** Soft-lock + LWW; default lease 3000ms; lock events on the wire.
+- [x] **P1 — `LockManager`** pure module + unit tests (acquire/release/expire/contention).
+- [x] **P2 — Apply-path guard.** Wired into `BoardRuntime`: lifecycle + skip transient
+      patches for shapes the local client holds.
+- [x] **P3 — Protocol.** Server (`setShapeLock` + `shapeLocks`) and client (gateway
+      send/subscribe + shared `LockManager` + grab guard). Locks work across clients.
+- [~] **P4 — Lifecycle.** Renew piggybacked on transient (done); explicit
+      `sweepExpired` on a timer / disconnect still pending.
 - [ ] **P5 — Simulation tests.** Multi-client convergence harness + the 4 invariants.
 - [ ] **P6 — E2E smoke.** Playwright, two contexts, same-shape contention.
 

@@ -15,6 +15,12 @@ type Board struct {
 	Shapes []*Shape `json:"shapes"`
 }
 
+type LockEvent struct {
+	ShapeID  string     `json:"shapeId"`
+	ClientID string     `json:"clientID"`
+	Action   LockAction `json:"action"`
+}
+
 type Mutation struct {
 }
 
@@ -83,6 +89,61 @@ type TransientShapeInput struct {
 type TransientShapesBatch struct {
 	Shapes   []*TransientShape `json:"shapes"`
 	ClientID string            `json:"clientID"`
+}
+
+type LockAction string
+
+const (
+	LockActionAcquire LockAction = "ACQUIRE"
+	LockActionRelease LockAction = "RELEASE"
+)
+
+var AllLockAction = []LockAction{
+	LockActionAcquire,
+	LockActionRelease,
+}
+
+func (e LockAction) IsValid() bool {
+	switch e {
+	case LockActionAcquire, LockActionRelease:
+		return true
+	}
+	return false
+}
+
+func (e LockAction) String() string {
+	return string(e)
+}
+
+func (e *LockAction) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = LockAction(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid LockAction", str)
+	}
+	return nil
+}
+
+func (e LockAction) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *LockAction) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e LockAction) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 type ShapeEventType string

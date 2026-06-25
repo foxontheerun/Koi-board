@@ -15,6 +15,9 @@ import { ResizeController, DragController } from "../interaction";
 import { InteractionManager } from "../interaction/InteractionManager";
 import { RenderManager } from "../rendering/RenderManager";
 import { CoordinateTransformer } from "../utils/CoordinateTransformer";
+import { LockManager } from "../collab/LockManager";
+import type { LockAction } from "../collab/types";
+import { RESIZE_HANDLE_SIZE } from "../rendering/layers/mouseEventHandlingHelpers";
 
 export class BoardRuntime {
   public camera: CameraController;
@@ -26,6 +29,8 @@ export class BoardRuntime {
   public entityManager: EntityManager;
   private dragController: DragController;
   private resizeController: ResizeController;
+  private lockManager = new LockManager();
+  private clientId: string | null = null;
 
   private unsubscribeCamera?: () => void;
   private activeStickyColor: StickyColorId = "yellow";
@@ -104,14 +109,61 @@ export class BoardRuntime {
     this.activeShapeColor = { fill, stroke };
   }
 
+  setClientId(clientId: string) {
+    this.clientId = clientId;
+  }
+
+  private acquireLocks(ids: string[]) {
+    const clientId = this.clientId;
+    if (!clientId) return;
+    const now = Date.now();
+    ids.forEach((id) => {
+      if (this.lockManager.acquire(id, clientId, now)) {
+        this.syncCallbacks.onLocalLock?.(id, "ACQUIRE");
+      }
+    });
+  }
+
+  private renewLocks(ids: string[]) {
+    const clientId = this.clientId;
+    if (!clientId) return;
+    const now = Date.now();
+    ids.forEach((id) => this.lockManager.renew(id, clientId, now));
+  }
+
+  private releaseLocks(ids: string[]) {
+    const clientId = this.clientId;
+    if (!clientId) return;
+    ids.forEach((id) => {
+      this.lockManager.release(id, clientId);
+      this.syncCallbacks.onLocalLock?.(id, "RELEASE");
+    });
+  }
+
+  applyRemoteLock(shapeId: string, clientId: string, action: LockAction) {
+    if (action === "ACQUIRE") {
+      this.lockManager.acquire(shapeId, clientId, Date.now());
+    } else {
+      this.lockManager.release(shapeId, clientId);
+    }
+  }
+
+  // Keepalive piggybacked on the transient stream: an incoming move from a
+  // client refreshes that client's lock on the shape.
+  renewRemoteLock(shapeId: string, clientId: string) {
+    this.lockManager.acquire(shapeId, clientId, Date.now());
+  }
+
   private syncCallbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
+    onLocalLock?: (shapeId: string, action: LockAction) => void;
   } = {};
 
   setSyncCallbacks(callbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
+    onLocalLock?: (shapeId: string, action: LockAction) => void;
   }) {
     this.syncCallbacks = callbacks;
 
@@ -131,9 +183,17 @@ export class BoardRuntime {
   }
 
   applyTransientPatches(patches: TransientShapePatch[]) {
+    const now = Date.now();
     let anyBecameRemote = false;
 
     for (const patch of patches) {
+      if (
+        this.clientId !== null &&
+        this.lockManager.getOwner(patch.id, now) === this.clientId
+      ) {
+        continue;
+      }
+
       const { becameRemote } = this.entityManager.applyTransientPatch(patch);
       if (becameRemote) anyBecameRemote = true;
     }
@@ -220,11 +280,21 @@ export class BoardRuntime {
       return;
     }
 
+    const hit = this.entityManager.findShapeAt(worldPoint, RESIZE_HANDLE_SIZE);
+    if (
+      hit &&
+      this.clientId !== null &&
+      this.lockManager.isLockedByOther(hit.id, this.clientId, Date.now())
+    ) {
+      return;
+    }
+
     this.interactionManager.handleMouseDown(worldPoint, canvasPoint);
 
     const interaction = this.interactionManager.getInteraction();
 
     if (interaction.type === "drag" || interaction.type === "resize") {
+      this.acquireLocks(this.interactionManager.getSelectedIds());
       this.renderManager.drawStatic(this.camera, this.entityManager);
       this.renderManager.drawDrag(this.camera, this.entityManager);
       this.renderManager.drawOverlay(
@@ -275,6 +345,7 @@ export class BoardRuntime {
     if (interaction.type === "pan" || interaction.type === "idle") return;
 
     if (interaction.type === "drag" || interaction.type === "resize") {
+      this.renewLocks(this.interactionManager.getSelectedIds());
       this.renderManager.drawDrag(this.camera, this.entityManager);
       this.renderManager.drawOverlay(
         this.camera,
@@ -315,6 +386,7 @@ export class BoardRuntime {
     this.interactionManager.handleMouseUp();
 
     if (wasDragOrResize) {
+      this.releaseLocks(interactionBefore.selectedIds);
       this.renderManager.drawStatic(this.camera, this.entityManager);
       this.renderManager.drawDrag(this.camera, this.entityManager);
       this.renderManager.drawOverlay(

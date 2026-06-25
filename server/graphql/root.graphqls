@@ -22,10 +22,17 @@ extend type Mutation {
     clientID: ID!
   ): Boolean!
   deleteShape(boardId: ID!, shapeId: ID!): Boolean!
+  setShapeLock(
+    boardId: ID!
+    shapeId: ID!
+    clientID: ID!
+    action: LockAction!
+  ): Boolean!
 }
 
 extend type Subscription {
   shapeMoved(boardId: ID!): TransientShape!
   shapesMoved(boardId: ID!): TransientShapesBatch!
   shapeEvents(boardId: ID!): ShapeEvent!
+  shapeLocks(boardId: ID!): LockEvent!
 }
