@@ -92,10 +92,10 @@ export class CanvasPainter {
       stroke,
       strokeWidth,
     } = ellipse;
-    const centerX = Math.ceil(x + width / 2);
-    const centerY = Math.ceil(y + height / 2);
-    const radiusX = Math.ceil(Math.abs(width / 2));
-    const radiusY = Math.ceil(Math.abs(height / 2));
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    const radiusX = Math.abs(width / 2);
+    const radiusY = Math.abs(height / 2);
 
     ctx.save();
     ctx.translate(centerX, centerY);
