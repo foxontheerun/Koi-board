@@ -1,11 +1,11 @@
 # Realtime Whiteboard — Client
 
 Frontend application for an interactive realtime whiteboard.  
-Supports live collaboration, shape creation, resizing, movement, z-index control, zooming, and GraphQL-based synchronization.
+Supports live collaboration (remote cursors, soft-locks), shape creation, resizing, movement, z-index control, zooming, and GraphQL-based synchronization.
 
 ## 🚀 Tech Stack
 
-- **React 18**
+- **React 19**
 - **TypeScript**
 - **Vite**
 - **TailwindCSS**
@@ -22,27 +22,31 @@ Backend: `Go + gqlgen` with WebSocket streaming.
 ### Implemented
 
 - Rendering the board and grid
-- Adding and displaying shapes (`RECT`, `TEXT`)
-- Dragging and moving shapes
-- Resizing shapes (with realtime updates to other clients)
-- Zooming and viewport offset calculation
-- Shape selection and context menu
+- Adding and displaying shapes (`RECT`, `ELLIPSE`, `STICKER`)
+- Inline text editing on a shape (double-click)
+- Dragging, moving and resizing shapes (with realtime updates to other clients)
+- Zooming, panning and viewport offset calculation
+- Multi-selection (drag-select box)
+- Shape selection, right-click context menu and a floating selection toolbar
+- Lock / unlock shapes (locked shapes are protected from edits and deletion)
 - Layer (z-index) controls:
   - Bring to front
   - Send to back
   - Move one layer up
   - Move one layer down
-- Realtime synchronization between clients:
+- Realtime collaboration between clients:
+  - **Live cursors** (presence) rendered as a smoothed DOM overlay
+  - **Soft-locks** so two clients don't fight over the same shape
   - **Transient updates** (fast x/y/width/height patches sent while dragging)
   - **Persisted updates** (final save after user releases the mouse)
 
 ### Planned / TODO
 
-- More shape types (`ELLIPSE`, image, line, arrow)
+- Standalone text shape tool (`TEXT` type exists, no creation UI yet)
+- More shape types (image, line, arrow)
 - Undo/Redo history
-- Multi-selection
 - Keyboard shortcuts
-- Pan/Hand tool for moving the entire board
+- Cursor labels / user names in presence
 
 ---
 
@@ -59,7 +63,8 @@ npm run dev
 ## 🧪 Testing
 
 **Unit** — [Vitest](https://vitest.dev/): canvas pure logic (coordinate/zoom
-math, colors, dirty-rect geometry, resizing), `EntityManager`, `LockManager`.
+math, colors, dirty-rect geometry, resizing), `EntityManager`, `LockManager`,
+`PresenceManager`.
 
 ```bash
 npm test          # watch mode
