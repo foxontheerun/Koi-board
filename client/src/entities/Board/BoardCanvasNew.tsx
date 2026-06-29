@@ -1,11 +1,24 @@
-import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { type CameraController, BoardRuntime } from "../../canvas";
+import type { RemoteCursor } from "../../canvas/types";
 import { BoardSyncGateway } from "./model/BoardSyncGateway";
 import type { ShapeType, StickyColorId, Tool } from "../Shape";
 import type { EditingContextValue } from "./EditingContext";
+import { SelectionToolbar } from "../../features/shape-context-menu/ui/SelectionToolbar";
+import { RemoteCursorsLayer } from "../../features/presence/ui/RemoteCursorsLayer";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
+
+// Constant screen-space gap between a shape and its floating toolbar.
+const TOOLBAR_GAP = 12;
 
 const toolToShapeType: Partial<Record<Tool, ShapeType>> = {
   sticker: "STICKER",
@@ -50,6 +63,37 @@ export const BoardCanvasNew = forwardRef<
   const gatewayRef = useRef<BoardSyncGateway | null>(null);
   const clientIdRef = useRef<string>(crypto.randomUUID());
 
+  const [selection, setSelection] = useState<{
+    ids: string[];
+    isLocked: boolean;
+  } | null>(null);
+  const [toolbar, setToolbar] = useState<{
+    x: number;
+    y: number;
+    visible: boolean;
+  } | null>(null);
+  const [cursors, setCursors] = useState<RemoteCursor[]>([]);
+  const [camera, setLocalCamera] = useState<CameraController | null>(null);
+  const pointerDownRef = useRef(false);
+
+  // Anchors the toolbar above the selection's current screen position.
+  const showToolbar = useCallback(() => {
+    const runtime = runtimeRef.current;
+    const ids = runtime?.getSelectedIds() ?? [];
+    if (!runtime || ids.length === 0) {
+      setToolbar(null);
+      return;
+    }
+    const rect = runtime.getSelectionScreenRect(ids);
+    const canvas = dragCanvasRef.current?.getBoundingClientRect();
+    if (!rect || !canvas) return;
+    setToolbar({
+      x: canvas.left + rect.x + rect.w / 2,
+      y: canvas.top + rect.y - TOOLBAR_GAP,
+      visible: true,
+    });
+  }, []);
+
   useImperativeHandle(ref, () => ({
     setShapeColor: (fill: string, stroke: string) => {
       runtimeRef.current?.setActiveShapeColor(fill, stroke);
@@ -85,6 +129,7 @@ export const BoardCanvasNew = forwardRef<
 
     runtimeRef.current.setClientId(clientIdRef.current);
     setCamera(runtimeRef.current.camera);
+    setLocalCamera(runtimeRef.current.camera);
     gatewayRef.current = new BoardSyncGateway(
       boardId,
       runtimeRef.current,
@@ -101,6 +146,22 @@ export const BoardCanvasNew = forwardRef<
       },
       onLocalLock: (shapeId, action) => {
         gatewayRef.current?.sendLock(shapeId, action);
+      },
+      onLocalShapeDeleted: (shapeId) => {
+        gatewayRef.current?.sendDelete(shapeId);
+      },
+      onSelectionChange: (ids) => {
+        setSelection(
+          ids.length > 0
+            ? { ids, isLocked: runtimeRef.current?.areAllLocked(ids) ?? false }
+            : null,
+        );
+      },
+      onLocalCursor: (x, y) => {
+        gatewayRef.current?.sendCursor(x, y);
+      },
+      onRemoteCursors: (next) => {
+        setCursors(next);
       },
     });
 
@@ -121,6 +182,31 @@ export const BoardCanvasNew = forwardRef<
       runtimeRef.current = null;
     };
   }, [boardId, setCamera]);
+
+  // Hide the toolbar while the camera is moving (pan/zoom); re-anchor it once
+  // the scene is static again, like Miro.
+  useEffect(() => {
+    if (!selection) return;
+    const camera = runtimeRef.current?.camera;
+    if (!camera) return;
+
+    let settleTimer: number;
+    const onCameraChange = () => {
+      setToolbar((current) =>
+        current ? { ...current, visible: false } : current,
+      );
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(() => {
+        if (!pointerDownRef.current) showToolbar();
+      }, 120);
+    };
+
+    const unsubscribe = camera.subscribe(onCameraChange);
+    return () => {
+      window.clearTimeout(settleTimer);
+      unsubscribe();
+    };
+  }, [selection, showToolbar]);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (!runtimeRef.current) return;
@@ -169,18 +255,25 @@ export const BoardCanvasNew = forwardRef<
       />
       <canvas
         ref={dragCanvasRef}
-        onMouseUp={() => runtimeRef.current?.handleMouseUp()}
+        onMouseUp={() => {
+          pointerDownRef.current = false;
+          runtimeRef.current?.handleMouseUp();
+          showToolbar();
+        }}
         className="absolute inset-0 touch-none w-full h-full"
         onWheel={handleWheel}
         onDoubleClick={handleDblClick}
         onMouseDown={(e) => {
+          if (e.button !== 0 && e.button !== 2) return;
+          pointerDownRef.current = true;
+          setToolbar((current) =>
+            current ? { ...current, visible: false } : current,
+          );
           if (e.button === 2) {
             runtimeRef.current?.handlePanStart(e.clientX, e.clientY);
             return;
           }
-          if (e.button === 0) {
-            runtimeRef.current?.handleMouseDown(e.clientX, e.clientY);
-          }
+          runtimeRef.current?.handleMouseDown(e.clientX, e.clientY);
         }}
         onMouseMove={(e) =>
           runtimeRef.current?.handleMouseMove(e.clientX, e.clientY)
@@ -191,6 +284,22 @@ export const BoardCanvasNew = forwardRef<
         ref={overlayCanvasRef}
         className="absolute inset-0 pointer-events-none w-full h-full"
       />
+
+      {camera && <RemoteCursorsLayer cursors={cursors} camera={camera} />}
+
+      {selection && toolbar?.visible && (
+        <SelectionToolbar
+          x={toolbar.x}
+          y={toolbar.y}
+          isLocked={selection.isLocked}
+          onBringToFront={() => runtimeRef.current?.bringToFront(selection.ids)}
+          onMoveForward={() => runtimeRef.current?.moveForward(selection.ids)}
+          onMoveBackward={() => runtimeRef.current?.moveBackward(selection.ids)}
+          onSendToBack={() => runtimeRef.current?.sendToBack(selection.ids)}
+          onToggleLock={() => runtimeRef.current?.toggleLock(selection.ids)}
+          onDelete={() => runtimeRef.current?.deleteShapes(selection.ids)}
+        />
+      )}
     </div>
   );
 });

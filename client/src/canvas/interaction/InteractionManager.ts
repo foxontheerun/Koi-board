@@ -9,12 +9,21 @@ import {
 import type { InteractionMode, Point } from "../types";
 import type { _Shape } from "../entities";
 
+// Movement past this many canvas pixels turns a click into a drag.
+const DRAG_THRESHOLD = 3;
+
 export class InteractionManager {
   private interaction: InteractionMode = { type: "idle", selectedIds: [] };
   private containerElement: HTMLElement | null = null;
 
   private onTransientUpdateCallback?: (shape: _Shape) => void;
   private onFinalUpdateCallback?: (shape: _Shape) => void;
+
+  // A transient drag grabs an unselected shape: it moves but leaves no
+  // selection behind unless the press turns out to be a click.
+  private transientDrag = false;
+  private dragMoved = false;
+  private dragStart: Point | null = null;
 
   constructor(
     private entityManager: EntityManager,
@@ -65,37 +74,57 @@ export class InteractionManager {
       return;
     }
 
-    const selectedIds = this.getSelectedIds();
-    const isSelected = selectedIds.includes(shape.id);
-    if (!isSelected) {
+    // Locked shapes can be selected (to unlock) but never moved or resized.
+    if (shape.locked) {
       this.selectShapes([shape]);
-    }
-
-    const bound = ResizeCalculator.getShapeManipulationBounds(shape);
-    const handle = hitTestResizeHandle(bound, worldPoint);
-
-    if (handle) {
-      this.resizeController.begin(shape, handle, worldPoint);
-      this.interaction = {
-        type: "resize",
-        selectedIds: [shape.id],
-        activeId: shape.id,
-      };
+      this.interaction = { type: "idle", selectedIds: [shape.id] };
       return;
     }
 
-    const dragShapes = isSelected
-      ? this.entityManager
-          .getShapes()
-          .filter((candidate) => selectedIds.includes(candidate.id))
-      : [shape];
+    const selectedIds = this.getSelectedIds();
+    const isSelected = selectedIds.includes(shape.id);
 
-    this.dragController.begin(dragShapes, worldPoint);
-    this.interaction = {
-      type: "drag",
-      selectedIds: dragShapes.map((s) => s.id),
-      activeId: shape.id,
-    };
+    // Resize handles only exist on an already-selected shape.
+    if (isSelected) {
+      const bound = ResizeCalculator.getShapeManipulationBounds(shape);
+      const handle = hitTestResizeHandle(bound, worldPoint);
+      if (handle) {
+        this.resizeController.begin(shape, handle, worldPoint);
+        this.interaction = {
+          type: "resize",
+          selectedIds: [shape.id],
+          activeId: shape.id,
+        };
+        return;
+      }
+    }
+
+    this.dragStart = canvasPoint;
+    this.dragMoved = false;
+
+    if (isSelected) {
+      const dragShapes = this.entityManager
+        .getShapes()
+        .filter((candidate) => selectedIds.includes(candidate.id))
+        .filter((candidate) => !candidate.locked);
+      this.dragController.begin(dragShapes, worldPoint);
+      this.interaction = {
+        type: "drag",
+        selectedIds: dragShapes.map((s) => s.id),
+        activeId: shape.id,
+      };
+      this.transientDrag = false;
+    } else {
+      // Grabbing an unselected shape drags it without committing a selection.
+      this.entityManager.clearSelection();
+      this.dragController.begin([shape], worldPoint);
+      this.interaction = {
+        type: "drag",
+        selectedIds: [shape.id],
+        activeId: shape.id,
+      };
+      this.transientDrag = true;
+    }
   }
 
   handleMouseMove(worldPoint: Point, canvasPoint: Point) {
@@ -116,6 +145,12 @@ export class InteractionManager {
     }
 
     if (this.interaction.type === "drag") {
+      if (this.dragStart && !this.dragMoved) {
+        const dx = canvasPoint.x - this.dragStart.x;
+        const dy = canvasPoint.y - this.dragStart.y;
+        if (Math.hypot(dx, dy) > DRAG_THRESHOLD) this.dragMoved = true;
+      }
+
       const updatedShapes = this.dragController.update(worldPoint);
       updatedShapes.forEach((shape) => {
         this.entityManager.updateShapeList(shape);
@@ -168,6 +203,22 @@ export class InteractionManager {
         this.entityManager.updateShapeList(shape);
         this.onFinalUpdateCallback?.(shape);
       });
+
+      if (this.transientDrag) {
+        if (this.dragMoved) {
+          // Moved an unselected shape — leave nothing selected.
+          this.entityManager.clearSelection();
+          this.interaction = { type: "idle", selectedIds: [] };
+        } else {
+          // It was a click, not a drag — select the shape.
+          this.selectShapes(finalShapes);
+          this.interaction = {
+            type: "idle",
+            selectedIds: finalShapes.map((shape) => shape.id),
+          };
+        }
+        return;
+      }
     }
 
     if (this.interaction.type === "resize") {
@@ -205,6 +256,12 @@ export class InteractionManager {
     this.interaction.startY = screenY;
 
     return true;
+  }
+
+  selectById(id: string) {
+    const shape = this.entityManager.getById(id);
+    this.selectShapes(shape ? [shape] : []);
+    this.interaction = { type: "idle", selectedIds: shape ? [id] : [] };
   }
 
   private selectShapes(shapes: _Shape[]) {

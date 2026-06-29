@@ -226,3 +226,127 @@ describe("EntityManager.getShapesOnDragLayer", () => {
     expect(em.getShapesOnDragLayer()).toEqual([]);
   });
 });
+
+describe("EntityManager z-order", () => {
+  const threeShapes = () =>
+    managerWith([
+      remote({ id: "a", zIndex: 0 }),
+      remote({ id: "b", zIndex: 1 }),
+      remote({ id: "c", zIndex: 2 }),
+    ]);
+  const order = (em: EntityManager) => em.getShapes().map((s) => s.id);
+
+  it("bringToFront moves a shape above all others", () => {
+    const em = threeShapes();
+    em.bringToFront(["a"]);
+    expect(order(em)).toEqual(["b", "c", "a"]);
+  });
+
+  it("sendToBack moves a shape below all others", () => {
+    const em = threeShapes();
+    em.sendToBack(["c"]);
+    expect(order(em)).toEqual(["c", "a", "b"]);
+  });
+
+  it("moveForward swaps with the next shape up", () => {
+    const em = threeShapes();
+    em.moveForward(["a"]);
+    expect(order(em)).toEqual(["b", "a", "c"]);
+  });
+
+  it("moveBackward swaps with the next shape down", () => {
+    const em = threeShapes();
+    em.moveBackward(["c"]);
+    expect(order(em)).toEqual(["a", "c", "b"]);
+  });
+
+  it("moveForward on the top shape is a no-op", () => {
+    const em = threeShapes();
+    expect(em.moveForward(["c"])).toEqual([]);
+    expect(order(em)).toEqual(["a", "b", "c"]);
+  });
+
+  it("returns nothing for an unknown id", () => {
+    const em = threeShapes();
+    expect(em.bringToFront(["zzz"])).toEqual([]);
+  });
+});
+
+describe("EntityManager z-order (multiple shapes)", () => {
+  const fourShapes = () =>
+    managerWith([
+      remote({ id: "a", zIndex: 0 }),
+      remote({ id: "b", zIndex: 1 }),
+      remote({ id: "c", zIndex: 2 }),
+      remote({ id: "d", zIndex: 3 }),
+    ]);
+  const order = (em: EntityManager) => em.getShapes().map((s) => s.id);
+
+  it("bringToFront keeps the selection's relative order on top", () => {
+    const em = fourShapes();
+    em.bringToFront(["c", "a"]);
+    expect(order(em)).toEqual(["b", "d", "a", "c"]);
+  });
+
+  it("sendToBack keeps the selection's relative order at the bottom", () => {
+    const em = fourShapes();
+    em.sendToBack(["d", "b"]);
+    expect(order(em)).toEqual(["b", "d", "a", "c"]);
+  });
+
+  it("moveForward steps a contiguous group up without splitting it", () => {
+    const em = fourShapes();
+    em.moveForward(["a", "b"]);
+    expect(order(em)).toEqual(["c", "a", "b", "d"]);
+  });
+
+  it("moveForward steps a scattered group over its neighbours", () => {
+    const em = fourShapes();
+    em.moveForward(["a", "c"]);
+    expect(order(em)).toEqual(["b", "a", "d", "c"]);
+  });
+
+  it("moveBackward steps a scattered group down over its neighbours", () => {
+    const em = fourShapes();
+    em.moveBackward(["b", "d"]);
+    expect(order(em)).toEqual(["b", "a", "d", "c"]);
+  });
+});
+
+describe("EntityManager.removeShape", () => {
+  it("removes a shape and reports success", () => {
+    const em = managerWith([remote({ id: "a" }), remote({ id: "b" })]);
+
+    expect(em.removeShape("a")).toBe(true);
+    expect(em.getById("a")).toBeNull();
+    expect(em.getShapes().map((s) => s.id)).toEqual(["b"]);
+  });
+
+  it("returns false for an unknown id", () => {
+    const em = managerWith([remote({ id: "a" })]);
+
+    expect(em.removeShape("zzz")).toBe(false);
+    expect(em.getById("a")).not.toBeNull();
+  });
+});
+
+describe("EntityManager.setLocked", () => {
+  it("locks the given shapes and returns the changed ones", () => {
+    const em = managerWith([remote({ id: "a" }), remote({ id: "b" })]);
+
+    const changed = em.setLocked(["a", "b"], true);
+
+    expect(changed.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(em.getById("a")?.locked).toBe(true);
+    expect(em.getById("b")?.locked).toBe(true);
+  });
+
+  it("skips shapes already in the requested state", () => {
+    const em = managerWith([remote({ id: "a" }), remote({ id: "b" })]);
+    em.setLocked(["a"], true);
+
+    const changed = em.setLocked(["a", "b"], true);
+
+    expect(changed.map((s) => s.id)).toEqual(["b"]);
+  });
+});

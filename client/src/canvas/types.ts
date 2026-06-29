@@ -20,3 +20,9 @@ export interface Point {
   x: number;
   y: number;
 }
+
+export interface RemoteCursor {
+  clientId: string;
+  x: number;
+  y: number;
+}

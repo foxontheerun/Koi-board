@@ -18,6 +18,8 @@ import { CoordinateTransformer } from "../utils/CoordinateTransformer";
 import { LockManager } from "../collab/LockManager";
 import type { LockAction } from "../collab/types";
 import { RESIZE_HANDLE_SIZE } from "../rendering/layers/mouseEventHandlingHelpers";
+import type { RemoteCursor } from "../types";
+import { PresenceManager } from "../collab/PresenceManager";
 
 export class BoardRuntime {
   public camera: CameraController;
@@ -33,10 +35,11 @@ export class BoardRuntime {
   private clientId: string | null = null;
   private lockSweepTimer?: ReturnType<typeof setInterval>;
 
+  private presenceManager = new PresenceManager();
+
   private unsubscribeCamera?: () => void;
   private activeStickyColor: StickyColorId = "yellow";
 
-  // Color used for non-sticky shapes (RECT, ELLIPSE).
   private activeShapeColor: { fill: string; stroke: string } = {
     fill: "#DBEAFE",
     stroke: "#93C5FD",
@@ -151,14 +154,19 @@ export class BoardRuntime {
     }
   }
 
-  // Keepalive piggybacked on the transient stream: an incoming move from a
-  // client refreshes that client's lock on the shape.
   renewRemoteLock(shapeId: string, clientId: string) {
     this.lockManager.acquire(shapeId, clientId, Date.now());
   }
 
-  // Recover shapes left in remote-dragging by a client that vanished without
-  // releasing (e.g. closed its tab): once its lease lapses, return them to static.
+  applyRemoteCursor(clientId: string, x: number, y: number) {
+    this.presenceManager.setCursor(clientId, x, y, Date.now());
+    this.emitRemoteCursors();
+  }
+
+  private emitRemoteCursors() {
+    this.syncCallbacks.onRemoteCursors?.(this.presenceManager.getCursors());
+  }
+
   private sweepStaleLocks() {
     const now = Date.now();
     this.lockManager.sweepExpired(now);
@@ -178,18 +186,28 @@ export class BoardRuntime {
       this.renderManager.drawStatic(this.camera, this.entityManager);
       this.renderManager.drawDrag(this.camera, this.entityManager);
     }
+
+    if (this.presenceManager.sweepExpired(now)) this.emitRemoteCursors();
   }
 
   private syncCallbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
     onLocalLock?: (shapeId: string, action: LockAction) => void;
+    onLocalShapeDeleted?: (shapeId: string) => void;
+    onSelectionChange?: (ids: string[]) => void;
+    onLocalCursor?: (x: number, y: number) => void;
+    onRemoteCursors?: (cursors: RemoteCursor[]) => void;
   } = {};
 
   setSyncCallbacks(callbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
     onLocalLock?: (shapeId: string, action: LockAction) => void;
+    onLocalShapeDeleted?: (shapeId: string) => void;
+    onSelectionChange?: (ids: string[]) => void;
+    onLocalCursor?: (x: number, y: number) => void;
+    onRemoteCursors?: (cursors: RemoteCursor[]) => void;
   }) {
     this.syncCallbacks = callbacks;
 
@@ -291,6 +309,107 @@ export class BoardRuntime {
     this.syncCallbacks.onLocalShapePersisted?.(shape);
   }
 
+  getSelectedIds(): string[] {
+    return this.interactionManager.getSelectedIds();
+  }
+
+  // Screen-space bounding box of the selection, used to anchor the toolbar.
+  getSelectionScreenRect(
+    ids: string[],
+  ): { x: number; y: number; w: number; h: number } | null {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const id of ids) {
+      const shape = this.entityManager.getById(id);
+      if (!shape) continue;
+      minX = Math.min(minX, shape.x);
+      minY = Math.min(minY, shape.y);
+      maxX = Math.max(maxX, shape.x + shape.width);
+      maxY = Math.max(maxY, shape.y + shape.height);
+    }
+    if (minX === Infinity) return null;
+
+    const topLeft = this.camera.worldToScreen(minX, minY);
+    const bottomRight = this.camera.worldToScreen(maxX, maxY);
+    return {
+      x: topLeft.x,
+      y: topLeft.y,
+      w: bottomRight.x - topLeft.x,
+      h: bottomRight.y - topLeft.y,
+    };
+  }
+
+  private notifySelection() {
+    this.syncCallbacks.onSelectionChange?.(
+      this.interactionManager.getSelectedIds(),
+    );
+  }
+
+  areAllLocked(ids: string[]): boolean {
+    if (ids.length === 0) return false;
+    return ids.every((id) => this.entityManager.getById(id)?.locked === true);
+  }
+
+  // Locked shapes are protected from layer changes and deletion.
+  private unlockedIds(ids: string[]): string[] {
+    return ids.filter((id) => this.entityManager.getById(id)?.locked !== true);
+  }
+
+  toggleLock(ids: string[]) {
+    const changed = this.entityManager.setLocked(ids, !this.areAllLocked(ids));
+    if (changed.length === 0) return;
+    this.redrawAll();
+    changed.forEach((shape) =>
+      this.syncCallbacks.onLocalShapePersisted?.(shape),
+    );
+    this.notifySelection();
+  }
+
+  bringToFront(ids: string[]) {
+    this.applyZOrder(this.entityManager.bringToFront(this.unlockedIds(ids)));
+  }
+
+  sendToBack(ids: string[]) {
+    this.applyZOrder(this.entityManager.sendToBack(this.unlockedIds(ids)));
+  }
+
+  moveForward(ids: string[]) {
+    this.applyZOrder(this.entityManager.moveForward(this.unlockedIds(ids)));
+  }
+
+  moveBackward(ids: string[]) {
+    this.applyZOrder(this.entityManager.moveBackward(this.unlockedIds(ids)));
+  }
+
+  private applyZOrder(changed: _Shape[]) {
+    if (changed.length === 0) return;
+    this.redrawAll();
+    changed.forEach((shape) =>
+      this.syncCallbacks.onLocalShapePersisted?.(shape),
+    );
+  }
+
+  selectShape(id: string) {
+    this.interactionManager.selectById(id);
+    this.renderManager.drawStatic(this.camera, this.entityManager);
+    this.renderManager.drawOverlay(
+      this.camera,
+      this.entityManager,
+      this.interactionManager.getSelectedIds(),
+    );
+  }
+
+  deleteShapes(ids: string[]) {
+    const removed = this.entityManager.removeShapes(this.unlockedIds(ids));
+    if (removed.length === 0) return;
+    this.interactionManager.selectById("");
+    this.redrawAll();
+    removed.forEach((id) => this.syncCallbacks.onLocalShapeDeleted?.(id));
+    this.notifySelection();
+  }
+
   handleMouseDown(screenX: number, screenY: number) {
     const worldPoint = this.coordinateTransformer.screenToWorld(
       screenX,
@@ -335,9 +454,17 @@ export class BoardRuntime {
         this.interactionManager.getSelectedIds(),
       );
     }
+
+    this.notifySelection();
   }
 
   handleMouseMove(screenX: number, screenY: number) {
+    const cursorWorld = this.coordinateTransformer.screenToWorld(
+      screenX,
+      screenY,
+    );
+    this.syncCallbacks.onLocalCursor?.(cursorWorld.x, cursorWorld.y);
+
     if (this.creationTool.startPoint) {
       const worldPoint = this.coordinateTransformer.screenToWorld(
         screenX,
@@ -427,6 +554,8 @@ export class BoardRuntime {
         this.interactionManager.getSelectedIds(),
       );
     }
+
+    this.notifySelection();
   }
 
   handlePanStart(screenX: number, screenY: number) {

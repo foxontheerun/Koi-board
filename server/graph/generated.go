@@ -52,6 +52,12 @@ type ComplexityRoot struct {
 		Title  func(childComplexity int) int
 	}
 
+	CursorPresence struct {
+		ClientID func(childComplexity int) int
+		X        func(childComplexity int) int
+		Y        func(childComplexity int) int
+	}
+
 	LockEvent struct {
 		Action   func(childComplexity int) int
 		ClientID func(childComplexity int) int
@@ -63,6 +69,7 @@ type ComplexityRoot struct {
 		MoveShapeTransient  func(childComplexity int, boardID string, shape TransientShapeInput, clientID string) int
 		MoveShapesTransient func(childComplexity int, boardID string, shapes []*TransientShapeInput, clientID string) int
 		SetShapeLock        func(childComplexity int, boardID string, shapeID string, clientID string, action LockAction) int
+		UpdateCursor        func(childComplexity int, boardID string, clientID string, x float64, y float64) int
 		UpdateShape         func(childComplexity int, boardID string, shape ShapeInput, clientID string) int
 	}
 
@@ -95,10 +102,11 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		ShapeEvents func(childComplexity int, boardID string) int
-		ShapeLocks  func(childComplexity int, boardID string) int
-		ShapeMoved  func(childComplexity int, boardID string) int
-		ShapesMoved func(childComplexity int, boardID string) int
+		CursorsMoved func(childComplexity int, boardID string) int
+		ShapeEvents  func(childComplexity int, boardID string) int
+		ShapeLocks   func(childComplexity int, boardID string) int
+		ShapeMoved   func(childComplexity int, boardID string) int
+		ShapesMoved  func(childComplexity int, boardID string) int
 	}
 
 	TransientShape struct {
@@ -117,6 +125,7 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
+	UpdateCursor(ctx context.Context, boardID string, clientID string, x float64, y float64) (bool, error)
 	UpdateShape(ctx context.Context, boardID string, shape ShapeInput, clientID string) (*Shape, error)
 	MoveShapeTransient(ctx context.Context, boardID string, shape TransientShapeInput, clientID string) (bool, error)
 	MoveShapesTransient(ctx context.Context, boardID string, shapes []*TransientShapeInput, clientID string) (bool, error)
@@ -128,6 +137,7 @@ type QueryResolver interface {
 	Hello(ctx context.Context) (string, error)
 }
 type SubscriptionResolver interface {
+	CursorsMoved(ctx context.Context, boardID string) (<-chan *CursorPresence, error)
 	ShapeMoved(ctx context.Context, boardID string) (<-chan *TransientShape, error)
 	ShapesMoved(ctx context.Context, boardID string) (<-chan *TransientShapesBatch, error)
 	ShapeEvents(ctx context.Context, boardID string) (<-chan *ShapeEvent, error)
@@ -171,6 +181,25 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Board.Title(childComplexity), true
+
+	case "CursorPresence.clientID":
+		if e.complexity.CursorPresence.ClientID == nil {
+			break
+		}
+
+		return e.complexity.CursorPresence.ClientID(childComplexity), true
+	case "CursorPresence.x":
+		if e.complexity.CursorPresence.X == nil {
+			break
+		}
+
+		return e.complexity.CursorPresence.X(childComplexity), true
+	case "CursorPresence.y":
+		if e.complexity.CursorPresence.Y == nil {
+			break
+		}
+
+		return e.complexity.CursorPresence.Y(childComplexity), true
 
 	case "LockEvent.action":
 		if e.complexity.LockEvent.Action == nil {
@@ -235,6 +264,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.SetShapeLock(childComplexity, args["boardId"].(string), args["shapeId"].(string), args["clientID"].(string), args["action"].(LockAction)), true
+	case "Mutation.updateCursor":
+		if e.complexity.Mutation.UpdateCursor == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateCursor_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateCursor(childComplexity, args["boardId"].(string), args["clientID"].(string), args["x"].(float64), args["y"].(float64)), true
 	case "Mutation.updateShape":
 		if e.complexity.Mutation.UpdateShape == nil {
 			break
@@ -369,6 +409,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.ShapeEvent.Type(childComplexity), true
 
+	case "Subscription.cursorsMoved":
+		if e.complexity.Subscription.CursorsMoved == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_cursorsMoved_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.CursorsMoved(childComplexity, args["boardId"].(string)), true
 	case "Subscription.shapeEvents":
 		if e.complexity.Subscription.ShapeEvents == nil {
 			break
@@ -605,6 +656,22 @@ type LockEvent {
   action: LockAction!
 }
 `, BuiltIn: false},
+	{Name: "../graphql/presence.graphqls", Input: `# Live cursor presence. Position is in world coordinates; the receiver derives
+# the cursor color deterministically from clientID, so color is not sent.
+type CursorPresence {
+  clientID: ID!
+  x: Float!
+  y: Float!
+}
+
+extend type Mutation {
+  updateCursor(boardId: ID!, clientID: ID!, x: Float!, y: Float!): Boolean!
+}
+
+extend type Subscription {
+  cursorsMoved(boardId: ID!): CursorPresence!
+}
+`, BuiltIn: false},
 	{Name: "../graphql/root.graphqls", Input: `schema {
   query: Query
   mutation: Mutation
@@ -815,6 +882,32 @@ func (ec *executionContext) field_Mutation_setShapeLock_args(ctx context.Context
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_updateCursor_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "boardId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["boardId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "clientID", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["clientID"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "x", ec.unmarshalNFloat2float64)
+	if err != nil {
+		return nil, err
+	}
+	args["x"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "y", ec.unmarshalNFloat2float64)
+	if err != nil {
+		return nil, err
+	}
+	args["y"] = arg3
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_updateShape_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -855,6 +948,17 @@ func (ec *executionContext) field_Query_board_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_cursorsMoved_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "boardId", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["boardId"] = arg0
 	return args, nil
 }
 
@@ -1071,6 +1175,93 @@ func (ec *executionContext) fieldContext_Board_shapes(_ context.Context, field g
 	return fc, nil
 }
 
+func (ec *executionContext) _CursorPresence_clientID(ctx context.Context, field graphql.CollectedField, obj *CursorPresence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CursorPresence_clientID,
+		func(ctx context.Context) (any, error) {
+			return obj.ClientID, nil
+		},
+		nil,
+		ec.marshalNID2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CursorPresence_clientID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CursorPresence",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CursorPresence_x(ctx context.Context, field graphql.CollectedField, obj *CursorPresence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CursorPresence_x,
+		func(ctx context.Context) (any, error) {
+			return obj.X, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CursorPresence_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CursorPresence",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CursorPresence_y(ctx context.Context, field graphql.CollectedField, obj *CursorPresence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CursorPresence_y,
+		func(ctx context.Context) (any, error) {
+			return obj.Y, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CursorPresence_y(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CursorPresence",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _LockEvent_shapeId(ctx context.Context, field graphql.CollectedField, obj *LockEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1154,6 +1345,47 @@ func (ec *executionContext) fieldContext_LockEvent_action(_ context.Context, fie
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type LockAction does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateCursor(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_updateCursor,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().UpdateCursor(ctx, fc.Args["boardId"].(string), fc.Args["clientID"].(string), fc.Args["x"].(float64), fc.Args["y"].(float64))
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateCursor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateCursor_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -2098,6 +2330,55 @@ func (ec *executionContext) fieldContext_ShapeEvent_clientID(_ context.Context, 
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Subscription_cursorsMoved(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	return graphql.ResolveFieldStream(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Subscription_cursorsMoved,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Subscription().CursorsMoved(ctx, fc.Args["boardId"].(string))
+		},
+		nil,
+		ec.marshalNCursorPresence2ᚖserverᚋgraphᚐCursorPresence,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Subscription_cursorsMoved(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Subscription",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "clientID":
+				return ec.fieldContext_CursorPresence_clientID(ctx, field)
+			case "x":
+				return ec.fieldContext_CursorPresence_x(ctx, field)
+			case "y":
+				return ec.fieldContext_CursorPresence_y(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CursorPresence", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_cursorsMoved_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -4217,6 +4498,55 @@ func (ec *executionContext) _Board(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
+var cursorPresenceImplementors = []string{"CursorPresence"}
+
+func (ec *executionContext) _CursorPresence(ctx context.Context, sel ast.SelectionSet, obj *CursorPresence) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, cursorPresenceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CursorPresence")
+		case "clientID":
+			out.Values[i] = ec._CursorPresence_clientID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "x":
+			out.Values[i] = ec._CursorPresence_x(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "y":
+			out.Values[i] = ec._CursorPresence_y(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var lockEventImplementors = []string{"LockEvent"}
 
 func (ec *executionContext) _LockEvent(ctx context.Context, sel ast.SelectionSet, obj *LockEvent) graphql.Marshaler {
@@ -4285,6 +4615,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "updateCursor":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateCursor(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "updateShape":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateShape(ctx, field)
@@ -4588,6 +4925,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	}
 
 	switch fields[0].Name {
+	case "cursorsMoved":
+		return ec._Subscription_cursorsMoved(ctx, fields[0])
 	case "shapeMoved":
 		return ec._Subscription_shapeMoved(ctx, fields[0])
 	case "shapesMoved":
@@ -5046,6 +5385,20 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNCursorPresence2serverᚋgraphᚐCursorPresence(ctx context.Context, sel ast.SelectionSet, v CursorPresence) graphql.Marshaler {
+	return ec._CursorPresence(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNCursorPresence2ᚖserverᚋgraphᚐCursorPresence(ctx context.Context, sel ast.SelectionSet, v *CursorPresence) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CursorPresence(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNFloat2float64(ctx context.Context, v any) (float64, error) {

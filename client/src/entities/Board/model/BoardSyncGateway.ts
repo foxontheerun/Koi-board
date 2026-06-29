@@ -1,11 +1,14 @@
 import { apolloClient } from "../../../app/apolloClient";
 import {
   BOARD_QUERY,
+  CURSORS_MOVED_SUBSCRIPTION,
+  DELETE_SHAPE_MUTATION,
   MOVE_SHAPES_TRANSIENT_MUTATION,
   SET_SHAPE_LOCK_MUTATION,
   SHAPE_EVENTS_SUBSCRIPTION,
   SHAPE_LOCKS_SUBSCRIPTION,
   SHAPES_MOVED_SUBSCRIPTION,
+  UPDATE_CURSOR_MUTATION,
   UPDATE_SHAPE_MUTATION,
 } from "../api/board.gql";
 import type {
@@ -43,6 +46,14 @@ type ShapeLocksResponse = {
   } | null;
 };
 
+type CursorsMovedResponse = {
+  cursorsMoved?: {
+    clientID: string;
+    x: number;
+    y: number;
+  } | null;
+};
+
 export class BoardSyncGateway {
   private subscriptions: Array<{ unsubscribe: () => void }> = [];
   private readonly boardId: string;
@@ -54,6 +65,10 @@ export class BoardSyncGateway {
   private pendingTransient = new Map<string, _Shape>();
   private readonly flushTransient: ReturnType<typeof throttle>;
 
+  // Latest local cursor position awaiting flush (world coordinates).
+  private pendingCursor: { x: number; y: number } | null = null;
+  private readonly flushCursor: ReturnType<typeof throttle>;
+
   constructor(boardId: string, runtime: BoardRuntime, clientId: string) {
     this.boardId = boardId;
     this.runtime = runtime;
@@ -64,6 +79,13 @@ export class BoardSyncGateway {
       if (shapes.length === 0) return;
       this.pendingTransient.clear();
       this.sendTransientNow(shapes);
+    }, 40);
+
+    this.flushCursor = throttle(() => {
+      if (!this.pendingCursor) return;
+      const { x, y } = this.pendingCursor;
+      this.pendingCursor = null;
+      this.sendCursorNow(x, y);
     }, 40);
   }
 
@@ -125,7 +147,32 @@ export class BoardSyncGateway {
         },
       });
 
-    this.subscriptions.push(movedSub, eventsSub, locksSub);
+    const cursorsSub = apolloClient
+      .subscribe<CursorsMovedResponse>({
+        query: CURSORS_MOVED_SUBSCRIPTION,
+        variables: { boardId: this.boardId },
+      })
+      .subscribe({
+        next: ({ data }) => {
+          const cursor = data?.cursorsMoved;
+          if (!cursor || cursor.clientID === this.clientId) return;
+
+          this.runtime.applyRemoteCursor(cursor.clientID, cursor.x, cursor.y);
+        },
+      });
+
+    this.subscriptions.push(movedSub, eventsSub, locksSub, cursorsSub);
+  }
+
+  sendDelete(shapeId: string) {
+    void apolloClient
+      .mutate({
+        mutation: DELETE_SHAPE_MUTATION,
+        variables: { boardId: this.boardId, shapeId },
+      })
+      .catch((error) => {
+        console.error("deleteShape mutation error", error);
+      });
   }
 
   sendLock(shapeId: string, action: LockAction) {
@@ -150,6 +197,12 @@ export class BoardSyncGateway {
     this.flushTransient();
   }
 
+  sendCursor(x: number, y: number) {
+    // Overwrite — only the latest cursor position matters.
+    this.pendingCursor = { x, y };
+    this.flushCursor();
+  }
+
   sendPersisted(shape: _Shape) {
     void apolloClient
       .mutate({
@@ -164,6 +217,7 @@ export class BoardSyncGateway {
             width: shape.width,
             height: shape.height,
             zIndex: shape.zIndex ?? 0,
+            locked: shape.locked ?? false,
             fill: shape.fill,
             stroke: shape.stroke,
           },
@@ -178,6 +232,8 @@ export class BoardSyncGateway {
   dispose() {
     this.flushTransient.cancel();
     this.pendingTransient.clear();
+    this.flushCursor.cancel();
+    this.pendingCursor = null;
     this.subscriptions.forEach((s) => s.unsubscribe());
     this.subscriptions = [];
   }
@@ -200,6 +256,22 @@ export class BoardSyncGateway {
       })
       .catch((error) => {
         console.error("moveShapesTransient mutation error", error);
+      });
+  }
+
+  private sendCursorNow(x: number, y: number) {
+    void apolloClient
+      .mutate({
+        mutation: UPDATE_CURSOR_MUTATION,
+        variables: {
+          boardId: this.boardId,
+          clientID: this.clientId,
+          x,
+          y,
+        },
+      })
+      .catch((error) => {
+        console.error("updateCursor mutation error", error);
       });
   }
 }

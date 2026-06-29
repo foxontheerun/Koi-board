@@ -156,3 +156,19 @@ export const SHAPE_LOCKS_SUBSCRIPTION = gql`
     }
   }
 `;
+
+export const UPDATE_CURSOR_MUTATION = gql`
+  mutation UpdateCursor($boardId: ID!, $clientID: ID!, $x: Float!, $y: Float!) {
+    updateCursor(boardId: $boardId, clientID: $clientID, x: $x, y: $y)
+  }
+`;
+
+export const CURSORS_MOVED_SUBSCRIPTION = gql`
+  subscription CursorsMoved($boardId: ID!) {
+    cursorsMoved(boardId: $boardId) {
+      clientID
+      x
+      y
+    }
+  }
+`;

@@ -15,6 +15,12 @@ type Board struct {
 	Shapes []*Shape `json:"shapes"`
 }
 
+type CursorPresence struct {
+	ClientID string  `json:"clientID"`
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+}
+
 type LockEvent struct {
 	ShapeID  string     `json:"shapeId"`
 	ClientID string     `json:"clientID"`

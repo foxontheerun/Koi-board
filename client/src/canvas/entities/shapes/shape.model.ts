@@ -14,6 +14,7 @@ export interface _Shape {
   state: "static" | "dragging" | "selected" | "remote-dragging";
   zIndex?: number;
   text?: string;
+  locked?: boolean;
 }
 export interface ManipulationBounds {
   x: number;

@@ -1,0 +1,15 @@
+# Live cursor presence. Position is in world coordinates; the receiver derives
+# the cursor color deterministically from clientID, so color is not sent.
+type CursorPresence {
+  clientID: ID!
+  x: Float!
+  y: Float!
+}
+
+extend type Mutation {
+  updateCursor(boardId: ID!, clientID: ID!, x: Float!, y: Float!): Boolean!
+}
+
+extend type Subscription {
+  cursorsMoved(boardId: ID!): CursorPresence!
+}
