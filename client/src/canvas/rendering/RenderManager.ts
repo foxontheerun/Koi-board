@@ -199,11 +199,25 @@ export class RenderManager {
 
     camera.applyTransform(this.overlayCtx);
 
-    selectedIds?.forEach((selectedId) => {
-      const selected = entityManager.getById(selectedId);
-      if (!selected) return;
-      this.overlay.drawBounds(this.overlayCtx, selected, camera.getScale());
-    });
+    if (selectedShapes.length > 1) {
+      selectedShapes.forEach((shape) =>
+        this.overlay.drawBounds(
+          this.overlayCtx,
+          shape,
+          camera.getScale(),
+          false,
+        ),
+      );
+      this.overlay.drawGroupBounds(
+        this.overlayCtx,
+        selectedShapes,
+        camera.getScale(),
+      );
+    } else {
+      selectedShapes.forEach((shape) =>
+        this.overlay.drawBounds(this.overlayCtx, shape, camera.getScale()),
+      );
+    }
 
     if (previewShape) {
       this.drawPreviewShape(this.overlayCtx, previewShape);
