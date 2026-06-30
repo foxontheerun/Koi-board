@@ -12,12 +12,12 @@ import { InteractionManager } from "../interaction/InteractionManager";
 import { RenderManager } from "../rendering/RenderManager";
 import { CoordinateTransformer } from "../utils/CoordinateTransformer";
 import type { LockAction } from "../collab/types";
-import { RESIZE_HANDLE_SIZE } from "../rendering/layers/mouseEventHandlingHelpers";
 import type { RemoteCursor } from "../types";
 import { RenderOrchestrator } from "../rendering/RenderOrchestrator";
 import { CollabController } from "../collab/CollabController";
 import { ShapeCreationController } from "../interaction/ShapeCreationController";
 import { ShapeCommands } from "./ShapeCommands";
+import { PointerController } from "../interaction/PointerController";
 
 export class BoardRuntime {
   public camera: CameraController;
@@ -35,6 +35,7 @@ export class BoardRuntime {
 
   private lockSweepTimer?: ReturnType<typeof setInterval>;
   private shapeCommands: ShapeCommands;
+  private pointer: PointerController;
 
   private unsubscribeCamera?: () => void;
 
@@ -96,6 +97,20 @@ export class BoardRuntime {
       this.entityManager,
       this.renderOrchestrator,
       (shape) => this.syncCallbacks.onLocalShapePersisted?.(shape),
+    );
+
+    this.pointer = new PointerController(
+      this.coordinateTransformer,
+      this.interactionManager,
+      this.camera,
+      this.entityManager,
+      this.collab,
+      this.creation,
+      this.renderOrchestrator,
+      {
+        onLocalCursor: (x, y) => this.syncCallbacks.onLocalCursor?.(x, y),
+        onSelectionChange: (ids) => this.syncCallbacks.onSelectionChange?.(ids),
+      },
     );
 
     const container = overlayCanvas.parentElement;
@@ -280,12 +295,6 @@ export class BoardRuntime {
     };
   }
 
-  private notifySelection() {
-    this.syncCallbacks.onSelectionChange?.(
-      this.interactionManager.getSelectedIds(),
-    );
-  }
-
   areAllLocked(ids: string[]): boolean {
     return this.shapeCommands.areAllLocked(ids);
   }
@@ -321,130 +330,19 @@ export class BoardRuntime {
   }
 
   handleMouseDown(screenX: number, screenY: number) {
-    const worldPoint = this.coordinateTransformer.screenToWorld(
-      screenX,
-      screenY,
-    );
-    const canvasPoint = this.coordinateTransformer.screenToCanvas(
-      screenX,
-      screenY,
-    );
-
-    if (this.creation.hasTool()) {
-      this.creation.begin(worldPoint);
-      return;
-    }
-
-    const scale = this.camera.getScale();
-    const hit = this.entityManager.findShapeAt(
-      worldPoint,
-      RESIZE_HANDLE_SIZE / scale,
-    );
-    if (hit && this.collab.isLockedByOther(hit.id)) {
-      return;
-    }
-
-    this.interactionManager.handleMouseDown(worldPoint, canvasPoint, scale);
-
-    const interaction = this.interactionManager.getInteraction();
-
-    if (interaction.type === "drag" || interaction.type === "resize") {
-      this.collab.acquire(this.interactionManager.getSelectedIds());
-      this.renderOrchestrator.staticLayer();
-      this.renderOrchestrator.dragLayer();
-      this.renderOrchestrator.overlay();
-    } else {
-      this.renderOrchestrator.overlay();
-    }
-
-    this.notifySelection();
+    this.pointer.handleMouseDown(screenX, screenY);
   }
 
   handleMouseMove(screenX: number, screenY: number) {
-    const cursorWorld = this.coordinateTransformer.screenToWorld(
-      screenX,
-      screenY,
-    );
-    this.syncCallbacks.onLocalCursor?.(cursorWorld.x, cursorWorld.y);
-
-    if (this.creation.isCreating()) {
-      const worldPoint = this.coordinateTransformer.screenToWorld(
-        screenX,
-        screenY,
-      );
-      this.creation.updatePreview(worldPoint);
-      return;
-    }
-
-    const isPanning = this.interactionManager.handlePanMove(
-      screenX,
-      screenY,
-      this.camera,
-    );
-
-    if (isPanning) return;
-
-    const worldPoint = this.coordinateTransformer.screenToWorld(
-      screenX,
-      screenY,
-    );
-    const canvasPoint = this.coordinateTransformer.screenToCanvas(
-      screenX,
-      screenY,
-    );
-
-    this.interactionManager.handleMouseMove(worldPoint, canvasPoint);
-
-    const interaction = this.interactionManager.getInteraction();
-
-    if (interaction.type === "pan" || interaction.type === "idle") return;
-
-    if (interaction.type === "drag" || interaction.type === "resize") {
-      this.collab.renew(this.interactionManager.getSelectedIds());
-      this.renderOrchestrator.dragLayer();
-      this.renderOrchestrator.overlay();
-      return;
-    }
-
-    const selectionBox =
-      interaction.type === "select"
-        ? {
-            startX: interaction.startX,
-            startY: interaction.startY,
-            currentX: interaction.currentX,
-            currentY: interaction.currentY,
-          }
-        : undefined;
-
-    this.renderOrchestrator.overlay(selectionBox);
+    this.pointer.handleMouseMove(screenX, screenY);
   }
 
   handleMouseUp() {
-    if (this.creation.isCreating() && this.creation.hasPreview()) {
-      this.creation.finish();
-      return;
-    }
-
-    const interactionBefore = this.interactionManager.getInteraction();
-    const wasDragOrResize =
-      interactionBefore.type === "drag" || interactionBefore.type === "resize";
-
-    this.interactionManager.handleMouseUp();
-
-    if (wasDragOrResize) {
-      this.collab.release(interactionBefore.selectedIds);
-      this.renderOrchestrator.staticLayer();
-      this.renderOrchestrator.dragLayer();
-      this.renderOrchestrator.overlay();
-    } else {
-      this.renderOrchestrator.overlay();
-    }
-
-    this.notifySelection();
+    this.pointer.handleMouseUp();
   }
 
   handlePanStart(screenX: number, screenY: number) {
-    this.interactionManager.handlePanStart(screenX, screenY);
+    this.pointer.handlePanStart(screenX, screenY);
   }
 
   private redrawAll() {
