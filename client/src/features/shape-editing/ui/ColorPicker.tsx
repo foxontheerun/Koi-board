@@ -47,7 +47,7 @@ export function ColorPicker({
           >
             {activeStickyColorId === color && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <Check className="w-4 h-4 text-[#3B82F6]" strokeWidth={3} />
+                <Check className="w-4 h-4 text-[#1db3e0]" strokeWidth={3} />
               </div>
             )}
           </button>

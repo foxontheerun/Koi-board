@@ -108,7 +108,7 @@ export function Toolbar({
             onClick={() => handleToolClick(tool.id)}
             className={`w-11 h-11 rounded-lg flex items-center justify-center transition-all ${
               activeTool === tool.id
-                ? "bg-[#3B82F6] text-white shadow-md"
+                ? "bg-[#1db3e0] text-white shadow-md"
                 : "bg-transparent text-[#666666] hover:bg-[#F5F5F5]"
             }`}
             title={tool.label}

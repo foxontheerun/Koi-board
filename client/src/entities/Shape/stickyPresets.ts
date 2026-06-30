@@ -60,7 +60,7 @@ export const STICKY_PRESETS: Record<
   },
   blue: {
     fill: "#E6F0FF",
-    stroke: "#3B82F6",
+    stroke: "#1db3e0",
   },
   teal: {
     fill: "#E6FAF7",

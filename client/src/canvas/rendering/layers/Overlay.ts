@@ -4,7 +4,7 @@ import { ResizeCalculator } from "../../interaction";
 import { CanvasPainter } from "../../utils";
 import { RESIZE_HANDLE_SIZE } from "./mouseEventHandlingHelpers";
 
-const BORDER_COLOR = "#388effff";
+const BORDER_COLOR = "#16B8D4";
 const LOCKED_BORDER_COLOR = "#9ca3af";
 const STROKE_WIDTH = 2;
 export class Overlay {
