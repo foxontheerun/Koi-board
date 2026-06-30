@@ -15,11 +15,11 @@ import { ResizeController, DragController } from "../interaction";
 import { InteractionManager } from "../interaction/InteractionManager";
 import { RenderManager } from "../rendering/RenderManager";
 import { CoordinateTransformer } from "../utils/CoordinateTransformer";
-import { LockManager } from "../collab/LockManager";
 import type { LockAction } from "../collab/types";
 import { RESIZE_HANDLE_SIZE } from "../rendering/layers/mouseEventHandlingHelpers";
 import type { RemoteCursor } from "../types";
-import { PresenceManager } from "../collab/PresenceManager";
+import { RenderOrchestrator } from "../rendering/RenderOrchestrator";
+import { CollabController } from "../collab/CollabController";
 
 export class BoardRuntime {
   public camera: CameraController;
@@ -27,15 +27,15 @@ export class BoardRuntime {
   private renderManager: RenderManager;
   private interactionManager: InteractionManager;
   private coordinateTransformer: CoordinateTransformer;
+  private renderOrchestrator: RenderOrchestrator;
 
   public entityManager: EntityManager;
   private dragController: DragController;
   private resizeController: ResizeController;
-  private lockManager = new LockManager();
-  private clientId: string | null = null;
-  private lockSweepTimer?: ReturnType<typeof setInterval>;
 
-  private presenceManager = new PresenceManager();
+  private collab: CollabController;
+
+  private lockSweepTimer?: ReturnType<typeof setInterval>;
 
   private unsubscribeCamera?: () => void;
   private activeStickyColor: StickyColorId = "yellow";
@@ -63,6 +63,12 @@ export class BoardRuntime {
   ) {
     this.camera = new CameraController();
     this.entityManager = new EntityManager();
+    this.collab = new CollabController(this.entityManager, {
+      onLocalLock: (id, action) => this.syncCallbacks.onLocalLock?.(id, action),
+      onRemoteCursors: (cursors) =>
+        this.syncCallbacks.onRemoteCursors?.(cursors),
+    });
+
     this.dragController = new DragController();
     this.resizeController = new ResizeController();
 
@@ -85,6 +91,13 @@ export class BoardRuntime {
       overlayCanvas,
     );
 
+    this.renderOrchestrator = new RenderOrchestrator(
+      this.renderManager,
+      this.camera,
+      this.entityManager,
+      () => this.interactionManager.getSelectedIds(),
+    );
+
     const container = overlayCanvas.parentElement;
     if (container) {
       this.interactionManager.setContainer(container);
@@ -98,7 +111,13 @@ export class BoardRuntime {
     this.updateSize();
     this.redrawAll();
 
-    this.lockSweepTimer = setInterval(() => this.sweepStaleLocks(), 1000);
+    this.lockSweepTimer = setInterval(() => {
+      const { shapesChanged } = this.collab.sweep();
+      if (shapesChanged) {
+        this.renderOrchestrator.staticLayer();
+        this.renderOrchestrator.dragLayer();
+      }
+    }, 1000);
   }
 
   setCreationTool(type: ShapeType | null) {
@@ -116,78 +135,19 @@ export class BoardRuntime {
   }
 
   setClientId(clientId: string) {
-    this.clientId = clientId;
-  }
-
-  private acquireLocks(ids: string[]) {
-    const clientId = this.clientId;
-    if (!clientId) return;
-    const now = Date.now();
-    ids.forEach((id) => {
-      if (this.lockManager.acquire(id, clientId, now)) {
-        this.syncCallbacks.onLocalLock?.(id, "ACQUIRE");
-      }
-    });
-  }
-
-  private renewLocks(ids: string[]) {
-    const clientId = this.clientId;
-    if (!clientId) return;
-    const now = Date.now();
-    ids.forEach((id) => this.lockManager.renew(id, clientId, now));
-  }
-
-  private releaseLocks(ids: string[]) {
-    const clientId = this.clientId;
-    if (!clientId) return;
-    ids.forEach((id) => {
-      this.lockManager.release(id, clientId);
-      this.syncCallbacks.onLocalLock?.(id, "RELEASE");
-    });
+    this.collab.setClientId(clientId);
   }
 
   applyRemoteLock(shapeId: string, clientId: string, action: LockAction) {
-    if (action === "ACQUIRE") {
-      this.lockManager.acquire(shapeId, clientId, Date.now());
-    } else {
-      this.lockManager.release(shapeId, clientId);
-    }
+    this.collab.applyRemoteLock(shapeId, clientId, action);
   }
 
   renewRemoteLock(shapeId: string, clientId: string) {
-    this.lockManager.acquire(shapeId, clientId, Date.now());
+    this.collab.renewRemoteLock(shapeId, clientId);
   }
 
   applyRemoteCursor(clientId: string, x: number, y: number) {
-    this.presenceManager.setCursor(clientId, x, y, Date.now());
-    this.emitRemoteCursors();
-  }
-
-  private emitRemoteCursors() {
-    this.syncCallbacks.onRemoteCursors?.(this.presenceManager.getCursors());
-  }
-
-  private sweepStaleLocks() {
-    const now = Date.now();
-    this.lockManager.sweepExpired(now);
-
-    let changed = false;
-    for (const shape of this.entityManager.getShapes()) {
-      if (
-        shape.state === "remote-dragging" &&
-        this.lockManager.getOwner(shape.id, now) === null
-      ) {
-        shape.state = "static";
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      this.renderManager.drawStatic(this.camera, this.entityManager);
-      this.renderManager.drawDrag(this.camera, this.entityManager);
-    }
-
-    if (this.presenceManager.sweepExpired(now)) this.emitRemoteCursors();
+    this.collab.applyRemoteCursor(clientId, x, y);
   }
 
   private syncCallbacks: {
@@ -227,16 +187,10 @@ export class BoardRuntime {
   }
 
   applyTransientPatches(patches: TransientShapePatch[]) {
-    const now = Date.now();
     let anyBecameRemote = false;
 
     for (const patch of patches) {
-      if (
-        this.clientId !== null &&
-        this.lockManager.getOwner(patch.id, now) === this.clientId
-      ) {
-        continue;
-      }
+      if (this.collab.ownsShape(patch.id)) continue;
 
       const { becameRemote } = this.entityManager.applyTransientPatch(patch);
       if (becameRemote) anyBecameRemote = true;
@@ -245,15 +199,11 @@ export class BoardRuntime {
     if (anyBecameRemote) {
       // A shape just entered remote-dragging — redraw the static layer once
       // to remove it from mainCanvas.
-      this.renderManager.drawStatic(this.camera, this.entityManager);
+      this.renderOrchestrator.staticLayer();
     }
 
-    this.renderManager.drawDrag(this.camera, this.entityManager);
-    this.renderManager.drawOverlay(
-      this.camera,
-      this.entityManager,
-      this.interactionManager.getSelectedIds(),
-    );
+    this.renderOrchestrator.dragLayer();
+    this.renderOrchestrator.overlay();
   }
 
   applyShapeEvent(event: ShapeEventPayload) {
@@ -268,7 +218,6 @@ export class BoardRuntime {
     this.redrawAll();
   }
 
-  // Returns the shape at the given screen coordinates.
   findShapeAtScreen(screenX: number, screenY: number): _Shape | null {
     const worldPoint = this.coordinateTransformer.screenToWorld(
       screenX,
@@ -277,7 +226,6 @@ export class BoardRuntime {
     return this.entityManager.findShapeAt(worldPoint);
   }
 
-  // Returns the shape bounding rect in screen coordinates.
   getShapeScreenRect(
     shape: _Shape,
   ): { x: number; y: number; w: number; h: number } | null {
@@ -299,13 +247,12 @@ export class BoardRuntime {
     };
   }
 
-  // Updates shape text locally and persists it.
   updateShapeText(id: string, text: string) {
     const shape = this.entityManager.getById(id);
     if (!shape) return;
 
     shape.text = text;
-    this.renderManager.drawStatic(this.camera, this.entityManager);
+    this.renderOrchestrator.staticLayer();
     this.syncCallbacks.onLocalShapePersisted?.(shape);
   }
 
@@ -313,7 +260,6 @@ export class BoardRuntime {
     return this.interactionManager.getSelectedIds();
   }
 
-  // Screen-space bounding box of the selection, used to anchor the toolbar.
   getSelectionScreenRect(
     ids: string[],
   ): { x: number; y: number; w: number; h: number } | null {
@@ -352,7 +298,6 @@ export class BoardRuntime {
     return ids.every((id) => this.entityManager.getById(id)?.locked === true);
   }
 
-  // Locked shapes are protected from layer changes and deletion.
   private unlockedIds(ids: string[]): string[] {
     return ids.filter((id) => this.entityManager.getById(id)?.locked !== true);
   }
@@ -393,12 +338,8 @@ export class BoardRuntime {
 
   selectShape(id: string) {
     this.interactionManager.selectById(id);
-    this.renderManager.drawStatic(this.camera, this.entityManager);
-    this.renderManager.drawOverlay(
-      this.camera,
-      this.entityManager,
-      this.interactionManager.getSelectedIds(),
-    );
+    this.renderOrchestrator.staticLayer();
+    this.renderOrchestrator.overlay();
   }
 
   deleteShapes(ids: string[]) {
@@ -426,11 +367,7 @@ export class BoardRuntime {
     }
 
     const hit = this.entityManager.findShapeAt(worldPoint, RESIZE_HANDLE_SIZE);
-    if (
-      hit &&
-      this.clientId !== null &&
-      this.lockManager.isLockedByOther(hit.id, this.clientId, Date.now())
-    ) {
+    if (hit && this.collab.isLockedByOther(hit.id)) {
       return;
     }
 
@@ -439,20 +376,12 @@ export class BoardRuntime {
     const interaction = this.interactionManager.getInteraction();
 
     if (interaction.type === "drag" || interaction.type === "resize") {
-      this.acquireLocks(this.interactionManager.getSelectedIds());
-      this.renderManager.drawStatic(this.camera, this.entityManager);
-      this.renderManager.drawDrag(this.camera, this.entityManager);
-      this.renderManager.drawOverlay(
-        this.camera,
-        this.entityManager,
-        this.interactionManager.getSelectedIds(),
-      );
+      this.collab.acquire(this.interactionManager.getSelectedIds());
+      this.renderOrchestrator.staticLayer();
+      this.renderOrchestrator.dragLayer();
+      this.renderOrchestrator.overlay();
     } else {
-      this.renderManager.drawOverlay(
-        this.camera,
-        this.entityManager,
-        this.interactionManager.getSelectedIds(),
-      );
+      this.renderOrchestrator.overlay();
     }
 
     this.notifySelection();
@@ -498,13 +427,9 @@ export class BoardRuntime {
     if (interaction.type === "pan" || interaction.type === "idle") return;
 
     if (interaction.type === "drag" || interaction.type === "resize") {
-      this.renewLocks(this.interactionManager.getSelectedIds());
-      this.renderManager.drawDrag(this.camera, this.entityManager);
-      this.renderManager.drawOverlay(
-        this.camera,
-        this.entityManager,
-        this.interactionManager.getSelectedIds(),
-      );
+      this.collab.renew(this.interactionManager.getSelectedIds());
+      this.renderOrchestrator.dragLayer();
+      this.renderOrchestrator.overlay();
       return;
     }
 
@@ -518,12 +443,7 @@ export class BoardRuntime {
           }
         : undefined;
 
-    this.renderManager.drawOverlay(
-      this.camera,
-      this.entityManager,
-      this.interactionManager.getSelectedIds(),
-      selectionBox,
-    );
+    this.renderOrchestrator.overlay(selectionBox);
   }
 
   handleMouseUp() {
@@ -539,20 +459,12 @@ export class BoardRuntime {
     this.interactionManager.handleMouseUp();
 
     if (wasDragOrResize) {
-      this.releaseLocks(interactionBefore.selectedIds);
-      this.renderManager.drawStatic(this.camera, this.entityManager);
-      this.renderManager.drawDrag(this.camera, this.entityManager);
-      this.renderManager.drawOverlay(
-        this.camera,
-        this.entityManager,
-        this.interactionManager.getSelectedIds(),
-      );
+      this.collab.release(interactionBefore.selectedIds);
+      this.renderOrchestrator.staticLayer();
+      this.renderOrchestrator.dragLayer();
+      this.renderOrchestrator.overlay();
     } else {
-      this.renderManager.drawOverlay(
-        this.camera,
-        this.entityManager,
-        this.interactionManager.getSelectedIds(),
-      );
+      this.renderOrchestrator.overlay();
     }
 
     this.notifySelection();
@@ -631,8 +543,7 @@ export class BoardRuntime {
   }
 
   private redrawAll() {
-    const selectedIds = this.interactionManager.getSelectedIds();
-    this.renderManager.drawAll(this.camera, this.entityManager, selectedIds);
+    this.renderOrchestrator.all();
   }
 
   destroy() {
