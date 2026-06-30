@@ -44,4 +44,14 @@ export class RenderOrchestrator {
       preview,
     );
   }
+
+  preview(shape: _Shape) {
+    this.renderManager.drawOverlay(
+      this.camera,
+      this.entityManager,
+      null,
+      undefined,
+      shape,
+    );
+  }
 }
