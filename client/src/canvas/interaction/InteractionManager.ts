@@ -75,6 +75,19 @@ export class InteractionManager {
       }
     }
 
+    if (!shiftKey) {
+      const grabbed = this.findSelectedResizeHandle(worldPoint, scale);
+      if (grabbed) {
+        this.resizeController.begin(grabbed.shape, grabbed.handle, worldPoint);
+        this.interaction = {
+          type: "resize",
+          selectedIds: [grabbed.shape.id],
+          activeId: grabbed.shape.id,
+        };
+        return;
+      }
+    }
+
     const shape = this.entityManager.findShapeAt(
       worldPoint,
       RESIZE_HANDLE_SIZE / scale,
@@ -124,21 +137,6 @@ export class InteractionManager {
       return;
     }
 
-    // Resize handles only exist on an already-selected shape.
-    if (isSelected) {
-      const bound = ResizeCalculator.getShapeManipulationBounds(shape);
-      const handle = hitTestResizeHandle(bound, worldPoint, scale);
-      if (handle) {
-        this.resizeController.begin(shape, handle, worldPoint);
-        this.interaction = {
-          type: "resize",
-          selectedIds: [shape.id],
-          activeId: shape.id,
-        };
-        return;
-      }
-    }
-
     this.dragStart = canvasPoint;
     this.dragMoved = false;
 
@@ -165,6 +163,20 @@ export class InteractionManager {
       };
       this.transientDrag = true;
     }
+  }
+
+  private findSelectedResizeHandle(worldPoint: Point, scale: number) {
+    for (const id of this.getSelectedIds()) {
+      const shape = this.entityManager.getById(id);
+      if (!shape || shape.locked) continue;
+      const handle = hitTestResizeHandle(
+        ResizeCalculator.getShapeManipulationBounds(shape),
+        worldPoint,
+        scale,
+      );
+      if (handle) return { shape, handle };
+    }
+    return null;
   }
 
   handleMouseMove(worldPoint: Point, canvasPoint: Point) {
