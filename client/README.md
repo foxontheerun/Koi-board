@@ -3,7 +3,7 @@
 Frontend application for an interactive realtime whiteboard.  
 Supports live collaboration (remote cursors, soft-locks), shape creation, resizing, movement, z-index control, zooming, and GraphQL-based synchronization.
 
-## 🚀 Tech Stack
+## Tech Stack
 
 - **React 19**
 - **TypeScript**
@@ -17,7 +17,7 @@ Backend: `Go + gqlgen` with WebSocket streaming.
 
 ---
 
-## ✨ Features
+## Features
 
 ### Implemented
 
@@ -50,7 +50,7 @@ Backend: `Go + gqlgen` with WebSocket streaming.
 
 ---
 
-## 🛠️ Installation & Development
+## Installation & Development
 
 ```bash
 cd client
@@ -60,7 +60,7 @@ npm run dev
 
 ---
 
-## 🧪 Testing
+## Testing
 
 **Unit** — [Vitest](https://vitest.dev/): canvas pure logic (coordinate/zoom
 math, colors, dirty-rect geometry, resizing), `EntityManager`, `LockManager`,
