@@ -54,6 +54,7 @@ type ComplexityRoot struct {
 
 	CursorPresence struct {
 		ClientID func(childComplexity int) int
+		Name     func(childComplexity int) int
 		X        func(childComplexity int) int
 		Y        func(childComplexity int) int
 	}
@@ -69,7 +70,7 @@ type ComplexityRoot struct {
 		MoveShapeTransient  func(childComplexity int, boardID string, shape TransientShapeInput, clientID string) int
 		MoveShapesTransient func(childComplexity int, boardID string, shapes []*TransientShapeInput, clientID string) int
 		SetShapeLock        func(childComplexity int, boardID string, shapeID string, clientID string, action LockAction) int
-		UpdateCursor        func(childComplexity int, boardID string, clientID string, x float64, y float64) int
+		UpdateCursor        func(childComplexity int, boardID string, clientID string, x float64, y float64, name *string) int
 		UpdateShape         func(childComplexity int, boardID string, shape ShapeInput, clientID string) int
 	}
 
@@ -125,7 +126,7 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	UpdateCursor(ctx context.Context, boardID string, clientID string, x float64, y float64) (bool, error)
+	UpdateCursor(ctx context.Context, boardID string, clientID string, x float64, y float64, name *string) (bool, error)
 	UpdateShape(ctx context.Context, boardID string, shape ShapeInput, clientID string) (*Shape, error)
 	MoveShapeTransient(ctx context.Context, boardID string, shape TransientShapeInput, clientID string) (bool, error)
 	MoveShapesTransient(ctx context.Context, boardID string, shapes []*TransientShapeInput, clientID string) (bool, error)
@@ -188,6 +189,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.CursorPresence.ClientID(childComplexity), true
+	case "CursorPresence.name":
+		if e.complexity.CursorPresence.Name == nil {
+			break
+		}
+
+		return e.complexity.CursorPresence.Name(childComplexity), true
 	case "CursorPresence.x":
 		if e.complexity.CursorPresence.X == nil {
 			break
@@ -274,7 +281,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateCursor(childComplexity, args["boardId"].(string), args["clientID"].(string), args["x"].(float64), args["y"].(float64)), true
+		return e.complexity.Mutation.UpdateCursor(childComplexity, args["boardId"].(string), args["clientID"].(string), args["x"].(float64), args["y"].(float64), args["name"].(*string)), true
 	case "Mutation.updateShape":
 		if e.complexity.Mutation.UpdateShape == nil {
 			break
@@ -658,14 +665,22 @@ type LockEvent {
 `, BuiltIn: false},
 	{Name: "../graphql/presence.graphqls", Input: `# Live cursor presence. Position is in world coordinates; the receiver derives
 # the cursor color deterministically from clientID, so color is not sent.
+# name is the user's self-assigned display label (optional).
 type CursorPresence {
   clientID: ID!
   x: Float!
   y: Float!
+  name: String
 }
 
 extend type Mutation {
-  updateCursor(boardId: ID!, clientID: ID!, x: Float!, y: Float!): Boolean!
+  updateCursor(
+    boardId: ID!
+    clientID: ID!
+    x: Float!
+    y: Float!
+    name: String
+  ): Boolean!
 }
 
 extend type Subscription {
@@ -905,6 +920,11 @@ func (ec *executionContext) field_Mutation_updateCursor_args(ctx context.Context
 		return nil, err
 	}
 	args["y"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "name", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg4
 	return args, nil
 }
 
@@ -1262,6 +1282,35 @@ func (ec *executionContext) fieldContext_CursorPresence_y(_ context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _CursorPresence_name(ctx context.Context, field graphql.CollectedField, obj *CursorPresence) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CursorPresence_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_CursorPresence_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CursorPresence",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _LockEvent_shapeId(ctx context.Context, field graphql.CollectedField, obj *LockEvent) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1357,7 +1406,7 @@ func (ec *executionContext) _Mutation_updateCursor(ctx context.Context, field gr
 		ec.fieldContext_Mutation_updateCursor,
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.resolvers.Mutation().UpdateCursor(ctx, fc.Args["boardId"].(string), fc.Args["clientID"].(string), fc.Args["x"].(float64), fc.Args["y"].(float64))
+			return ec.resolvers.Mutation().UpdateCursor(ctx, fc.Args["boardId"].(string), fc.Args["clientID"].(string), fc.Args["x"].(float64), fc.Args["y"].(float64), fc.Args["name"].(*string))
 		},
 		nil,
 		ec.marshalNBoolean2bool,
@@ -2365,6 +2414,8 @@ func (ec *executionContext) fieldContext_Subscription_cursorsMoved(ctx context.C
 				return ec.fieldContext_CursorPresence_x(ctx, field)
 			case "y":
 				return ec.fieldContext_CursorPresence_y(ctx, field)
+			case "name":
+				return ec.fieldContext_CursorPresence_name(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type CursorPresence", field.Name)
 		},
@@ -4524,6 +4575,8 @@ func (ec *executionContext) _CursorPresence(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "name":
+			out.Values[i] = ec._CursorPresence_name(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

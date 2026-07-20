@@ -159,8 +159,8 @@ export class BoardRuntime {
     this.collab.renewRemoteLock(shapeId, clientId);
   }
 
-  applyRemoteCursor(clientId: string, x: number, y: number) {
-    this.collab.applyRemoteCursor(clientId, x, y);
+  applyRemoteCursor(clientId: string, x: number, y: number, name?: string) {
+    this.collab.applyRemoteCursor(clientId, x, y, name);
   }
 
   private syncCallbacks: {

@@ -51,6 +51,7 @@ type CursorsMovedResponse = {
     clientID: string;
     x: number;
     y: number;
+    name?: string | null;
   } | null;
 };
 
@@ -59,6 +60,7 @@ export class BoardSyncGateway {
   private readonly boardId: string;
   private readonly runtime: BoardRuntime;
   private readonly clientId: string;
+  private displayName: string;
 
   // Accumulates the latest position of each shape between flush calls.
   // Map key is shape id — later updates overwrite earlier ones.
@@ -69,10 +71,16 @@ export class BoardSyncGateway {
   private pendingCursor: { x: number; y: number } | null = null;
   private readonly flushCursor: ReturnType<typeof throttle>;
 
-  constructor(boardId: string, runtime: BoardRuntime, clientId: string) {
+  constructor(
+    boardId: string,
+    runtime: BoardRuntime,
+    clientId: string,
+    displayName: string,
+  ) {
     this.boardId = boardId;
     this.runtime = runtime;
     this.clientId = clientId;
+    this.displayName = displayName;
 
     this.flushTransient = throttle(() => {
       const shapes = Array.from(this.pendingTransient.values());
@@ -157,7 +165,12 @@ export class BoardSyncGateway {
           const cursor = data?.cursorsMoved;
           if (!cursor || cursor.clientID === this.clientId) return;
 
-          this.runtime.applyRemoteCursor(cursor.clientID, cursor.x, cursor.y);
+          this.runtime.applyRemoteCursor(
+            cursor.clientID,
+            cursor.x,
+            cursor.y,
+            cursor.name ?? undefined,
+          );
         },
       });
 
@@ -201,6 +214,10 @@ export class BoardSyncGateway {
     // Overwrite — only the latest cursor position matters.
     this.pendingCursor = { x, y };
     this.flushCursor();
+  }
+
+  setDisplayName(name: string) {
+    this.displayName = name;
   }
 
   sendPersisted(shape: _Shape) {
@@ -268,6 +285,7 @@ export class BoardSyncGateway {
           clientID: this.clientId,
           x,
           y,
+          name: this.displayName,
         },
       })
       .catch((error) => {

@@ -26,4 +26,5 @@ export interface RemoteCursor {
   clientId: string;
   x: number;
   y: number;
+  name?: string;
 }
