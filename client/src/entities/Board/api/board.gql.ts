@@ -158,8 +158,20 @@ export const SHAPE_LOCKS_SUBSCRIPTION = gql`
 `;
 
 export const UPDATE_CURSOR_MUTATION = gql`
-  mutation UpdateCursor($boardId: ID!, $clientID: ID!, $x: Float!, $y: Float!) {
-    updateCursor(boardId: $boardId, clientID: $clientID, x: $x, y: $y)
+  mutation UpdateCursor(
+    $boardId: ID!
+    $clientID: ID!
+    $x: Float!
+    $y: Float!
+    $name: String
+  ) {
+    updateCursor(
+      boardId: $boardId
+      clientID: $clientID
+      x: $x
+      y: $y
+      name: $name
+    )
   }
 `;
 
@@ -169,6 +181,7 @@ export const CURSORS_MOVED_SUBSCRIPTION = gql`
       clientID
       x
       y
+      name
     }
   }
 `;

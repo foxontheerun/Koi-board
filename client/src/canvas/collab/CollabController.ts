@@ -70,8 +70,8 @@ export class CollabController {
     return this.lockManager.getOwner(shapeId, Date.now()) === this.clientId;
   }
 
-  applyRemoteCursor(clientId: string, x: number, y: number) {
-    this.presenceManager.setCursor(clientId, x, y, Date.now());
+  applyRemoteCursor(clientId: string, x: number, y: number, name?: string) {
+    this.presenceManager.setCursor(clientId, x, y, Date.now(), name);
     this.callbacks.onRemoteCursors(this.presenceManager.getCursors());
   }
 

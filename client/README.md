@@ -35,7 +35,8 @@ Backend: `Go + gqlgen` with WebSocket streaming.
   - Move one layer up
   - Move one layer down
 - Realtime collaboration between clients:
-  - **Live cursors** (presence) rendered as a smoothed DOM overlay
+  - **Live cursors** (presence) rendered as a smoothed DOM overlay, each with an
+    editable **display name** (auto-generated, persisted in localStorage)
   - **Soft-locks** so two clients don't fight over the same shape
   - **Transient updates** (fast x/y/width/height patches sent while dragging)
   - **Persisted updates** (final save after user releases the mouse)
@@ -46,7 +47,7 @@ Backend: `Go + gqlgen` with WebSocket streaming.
 - More shape types (image, line, arrow)
 - Undo/Redo history
 - Keyboard shortcuts
-- Cursor labels / user names in presence
+- Authentication & per-board access control — see [docs/AUTH_PLAN.md](docs/AUTH_PLAN.md)
 
 ---
 

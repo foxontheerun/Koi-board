@@ -19,6 +19,7 @@ type CursorPresence struct {
 	ClientID string  `json:"clientID"`
 	X        float64 `json:"x"`
 	Y        float64 `json:"y"`
+	Name     *string `json:"name,omitempty"`
 }
 
 type LockEvent struct {

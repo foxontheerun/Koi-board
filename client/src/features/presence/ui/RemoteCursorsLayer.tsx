@@ -23,6 +23,7 @@ export function RemoteCursorsLayer({
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
       {cursors.map((c) => {
         const screen = camera.worldToScreen(c.x, c.y);
+        const color = colorFromId(c.clientId);
         return (
           <div
             key={c.clientId}
@@ -33,10 +34,27 @@ export function RemoteCursorsLayer({
               willChange: "transform",
             }}
           >
-            <CursorArrow color={colorFromId(c.clientId)} />
+            <CursorArrow color={color} />
+            {c.name && <CursorLabel name={c.name} color={color} />}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// Name tag pinned just below-right of the cursor tip, tinted with the peer's color.
+function CursorLabel({ name, color }: { name: string; color: string }) {
+  return (
+    <div
+      className="absolute whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium text-[#14202B]"
+      style={{
+        top: 18,
+        left: 18,
+        backgroundColor: color,
+      }}
+    >
+      {name}
     </div>
   );
 }

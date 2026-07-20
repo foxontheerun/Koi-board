@@ -1,13 +1,21 @@
 # Live cursor presence. Position is in world coordinates; the receiver derives
 # the cursor color deterministically from clientID, so color is not sent.
+# name is the user's self-assigned display label (optional).
 type CursorPresence {
   clientID: ID!
   x: Float!
   y: Float!
+  name: String
 }
 
 extend type Mutation {
-  updateCursor(boardId: ID!, clientID: ID!, x: Float!, y: Float!): Boolean!
+  updateCursor(
+    boardId: ID!
+    clientID: ID!
+    x: Float!
+    y: Float!
+    name: String
+  ): Boolean!
 }
 
 extend type Subscription {

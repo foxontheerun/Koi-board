@@ -11,11 +11,12 @@ import (
 )
 
 // UpdateCursor is the resolver for the updateCursor field.
-func (r *mutationResolver) UpdateCursor(ctx context.Context, boardID string, clientID string, x float64, y float64) (bool, error) {
+func (r *mutationResolver) UpdateCursor(ctx context.Context, boardID string, clientID string, x float64, y float64, name *string) (bool, error) {
 	presence.Publish(boardID, &graph.CursorPresence{
 		ClientID: clientID,
 		X:        x,
 		Y:        y,
+		Name:     name,
 	})
 	return true, nil
 }

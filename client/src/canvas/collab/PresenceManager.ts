@@ -5,6 +5,7 @@ export const DEFAULT_CURSOR_TTL_MS = 5000;
 interface PresenceEntry {
   x: number;
   y: number;
+  name?: string;
   lastSeen: number;
 }
 
@@ -16,8 +17,14 @@ export class PresenceManager {
     this.ttlMs = ttlMs;
   }
 
-  setCursor(clientId: string, x: number, y: number, now: number): void {
-    this.cursors.set(clientId, { x, y, lastSeen: now });
+  setCursor(
+    clientId: string,
+    x: number,
+    y: number,
+    now: number,
+    name?: string,
+  ): void {
+    this.cursors.set(clientId, { x, y, name, lastSeen: now });
   }
 
   sweepExpired(now: number): boolean {
@@ -34,7 +41,7 @@ export class PresenceManager {
   getCursors(): RemoteCursor[] {
     const cursors: RemoteCursor[] = [];
     for (const [clientId, entry] of this.cursors) {
-      cursors.push({ clientId, x: entry.x, y: entry.y });
+      cursors.push({ clientId, x: entry.x, y: entry.y, name: entry.name });
     }
     return cursors;
   }

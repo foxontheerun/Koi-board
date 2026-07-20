@@ -13,6 +13,11 @@ import type { ShapeType, StickyColorId, Tool } from "../Shape";
 import type { EditingContextValue } from "./EditingContext";
 import { SelectionToolbar } from "../../features/shape-context-menu/ui/SelectionToolbar";
 import { RemoteCursorsLayer } from "../../features/presence/ui/RemoteCursorsLayer";
+import {
+  loadOrCreateDisplayName,
+  saveDisplayName,
+} from "../../features/presence/lib/displayName";
+import { NamePlate } from "../../features/presence/ui/NamePlate";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
@@ -74,7 +79,14 @@ export const BoardCanvasNew = forwardRef<
   } | null>(null);
   const [cursors, setCursors] = useState<RemoteCursor[]>([]);
   const [camera, setLocalCamera] = useState<CameraController | null>(null);
+  const [displayName, setDisplayName] = useState(loadOrCreateDisplayName);
   const pointerDownRef = useRef(false);
+
+  const handleNameChange = useCallback((name: string) => {
+    setDisplayName(name);
+    saveDisplayName(name);
+    gatewayRef.current?.setDisplayName(name);
+  }, []);
 
   // Anchors the toolbar above the selection's current screen position.
   const showToolbar = useCallback(() => {
@@ -134,6 +146,7 @@ export const BoardCanvasNew = forwardRef<
       boardId,
       runtimeRef.current,
       clientIdRef.current,
+      displayName,
     );
 
     runtimeRef.current.setSyncCallbacks({
@@ -286,6 +299,8 @@ export const BoardCanvasNew = forwardRef<
       />
 
       {camera && <RemoteCursorsLayer cursors={cursors} camera={camera} />}
+
+      <NamePlate name={displayName} onChange={handleNameChange} />
 
       {selection && toolbar?.visible && (
         <SelectionToolbar
