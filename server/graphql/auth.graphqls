@@ -1,0 +1,23 @@
+# Authentication: email + password, JWT (access + refresh). See docs/AUTH_PLAN.md.
+
+type User {
+  id: ID!
+  email: String!
+}
+
+type AuthPayload {
+  accessToken: String!
+  refreshToken: String!
+  user: User!
+}
+
+extend type Query {
+  # The signed-in user, or null when the request carries no valid token.
+  me: User
+}
+
+extend type Mutation {
+  signup(email: String!, password: String!): AuthPayload!
+  login(email: String!, password: String!): AuthPayload!
+  refresh(refreshToken: String!): AuthPayload!
+}
