@@ -3,185 +3,208 @@
 How we will introduce real user identity, sign-in, and per-board access control
 on top of what is today a fully anonymous, single-shared-board app.
 
-> Status: not started — this is a design/scoping document.
+> Status: in progress — backend skeleton landed (see Progress); wiring next.
+
+Strategy: **JWT (access + refresh) over email + password**, verified on both HTTP
+requests and the WebSocket handshake. Chosen over server-side session cookies
+because a token in the subscription `connectionParams` is the natural fit for our
+Apollo GraphQL-over-WebSocket transport, and a working token/hashing skeleton
+already exists.
 
 ---
 
 ## Progress (state of play)
 
-Nothing built yet. This doc exists so auth is an explicit, phased backlog item
-rather than an afterthought.
+Branch `feat/auth` (skeleton cherry-picked from the earlier `feat/jwt-auth`):
 
-Today there is **no auth of any kind**:
+Done — **backend primitives**:
+- **`server/users`** — in-memory user store keyed by email; `Register` /
+  `GetByEmail` (password verify) / `GetByID`. Passwords hashed with **bcrypt**,
+  never stored in plaintext.
+- **`server/auth`** — HS256 JWT: `GenerateAccessToken` (15 min),
+  `GenerateRefreshToken` (7 days), `ParseToken` (distinguishes expired vs
+  invalid). `Claims` carries `userID`.
 
-- The only notion of a user is `clientID` — an anonymous, per-tab identifier used
-  to suppress a client's own echoes and to key presence / soft-locks. It is not
-  an account: close the tab and it is gone. Cursor color is derived from it
-  deterministically (`colorFromId`), so identity is throwaway by design.
-- The backend keeps everything **in-memory** (resets on restart). No database,
-  no users, no sessions.
-- One shared board. WebSocket subscriptions and mutations are open — anyone who
-  reaches the endpoint can read and write.
+Next:
+- **P1 ⏳** — GraphQL `signup` / `login` / `refresh` mutations + a `me` query,
+  returning tokens; resolvers wired to `users` + `auth`.
+- **P2..P5** — see the phased plan below.
 
-So auth is **not** the next feature off the backlog; it is a separate
-infrastructure layer with no foundation underneath it yet. It has to bring its
-own storage, identity model, and transport hardening.
+Known gaps to fix while wiring (not blockers, but must land before this is real):
+- **Secret is hardcoded** (`jwtSecret = "super-secret-change-in-prod"`) — move to
+  an env var, fail fast if unset in production.
+- **In-memory store** resets on restart — fine for now; Postgres is a later,
+  non-blocking swap.
+- No token revocation list yet — acceptable for a short access-token TTL.
+
+Today there is otherwise **no auth**: the only identity is an anonymous per-tab
+`clientID` (echo suppression + presence/lock keying), and WebSocket subscriptions
+and mutations are open to anyone who reaches the endpoint.
 
 ---
 
 ## 1. Problem
 
-We want to move from "anonymous shared canvas" to "named users with their own
-boards", without throwing away the collaboration model that already works.
+Move from "anonymous shared canvas" to "named users with their own boards",
+without breaking the collaboration model that already works.
 
 Two distinct concerns, often conflated:
 
 - **Authentication (authn)** — *who are you*. Sign up / sign in, a durable user
-  identity, a credential the server can verify on every request and every socket.
+  identity, a credential the server verifies on every request and every socket.
 - **Authorization (authz)** — *what may you touch*. Which boards a user owns or is
   invited to, and read-vs-edit rights.
 
-Both depend on a prerequisite the project doesn't have yet: **persistent
-storage**. You can't have durable users or board ownership on an in-memory server.
-
 ---
 
-## 2. Chosen strategy
+## 2. Chosen strategy — JWT
 
-**Introduce persistence first, then session-based authn, then per-board authz —
-in that order.** Each phase is shippable on its own and de-risks the next.
+**Server-issued JWT (access + refresh) over email + password.** On login the
+server returns a short-lived **access token** and a longer-lived **refresh
+token**. The client attaches the access token to every GraphQL request (HTTP
+header) and to the subscription handshake (`connectionParams`). The server
+verifies the signature — no session lookup needed.
 
-- **Storage:** Postgres (users, boards, memberships; shapes can migrate off
-  in-memory later). Chosen over embedding auth in a third-party provider so the
-  backend stays self-contained and the schema is ours.
-- **Authn:** server-issued **session cookie** (httpOnly, SameSite) backed by a
-  session table, over email + password to start. A JWT alternative is noted in
-  Open questions; a cookie is simpler to revoke and to attach to the WS handshake.
-- **Authz:** board **ownership + membership** rows; a resolver-level guard checks
-  membership before any board read/write or subscription.
-
-Why this order:
-
-| Order | Why |
+| Concern | How JWT handles it here |
 |---|---|
-| Storage → Authn → Authz | Authn needs a place to store users; authz needs boards to own. Each layer sits on the one below. |
-| Authz → Authn → Storage | Backwards — nothing to authorize against, nowhere to persist it. |
+| Per-request proof | Signed token in the `Authorization` header; verified by signature. |
+| WebSocket proof | Same token passed in Apollo's `connectionParams` on connect. |
+| Expiry / rotation | Short access TTL (15 min) + refresh token (7 days) → `refresh` mutation mints a new access token. |
+| Password safety | bcrypt hash, never plaintext (already implemented). |
 
-The guiding principle mirrors the locks work: **the client is never the source of
-truth**. `clientID` stays as a transport/echo detail, but trust decisions move to
-the server, keyed off the verified session — never off a value the client sends.
+Trade-offs we accept (reasonable for this project, data is non-sensitive and
+storage is in-memory):
 
-### Relationship to `clientID` and presence
+- **Revocation is not instant** — a token stays valid until it expires. Mitigated
+  by the short access TTL; a refresh-token denylist can come later if needed.
+- **Token storage on the client** — keep the **access token in memory** (not
+  localStorage) to limit XSS exposure; the refresh token can live in memory too
+  and be re-obtained by re-login, or in an httpOnly cookie later.
 
-`clientID` does **not** go away. It keeps doing its job (echo suppression,
-presence/lock keying) as an anonymous *connection* id. What changes:
-
-- A signed-in connection is **associated** with a `userId` server-side.
-- Presence can then carry a **display name** (see the cursor-labels feature,
-  which is the first, auth-light step toward this — a name typed in, no password).
-- Once accounts exist, the display name and cursor color come from the user
-  record instead of being derived from a throwaway id.
+`clientID` does **not** go away — it stays as the anonymous *connection* id for
+echo suppression and presence/lock keying. Once a connection is authenticated it
+is associated with a `userID` server-side, and the presence display name (shipped
+already as an editable label) starts coming from the user record instead of being
+typed in.
 
 ---
 
 ## 3. Design
 
-### Data model (Postgres)
+### Packages (server)
 
-```sql
-users        (id, email UNIQUE, password_hash, display_name, created_at)
-sessions     (id, user_id, expires_at, created_at)       -- opaque token in cookie
-boards       (id, owner_id, title, created_at)
-memberships  (board_id, user_id, role)                   -- role: 'owner' | 'editor' | 'viewer'
+```
+server/users  — user store + bcrypt (done)
+server/auth   — JWT generate/parse (done)
 ```
 
-Shapes stay in-memory for now (out of scope here); persisting them is a separate
-follow-up that this storage layer unblocks.
+### GraphQL (P1)
 
-### Server
+```graphql
+type AuthPayload {
+  accessToken: String!
+  refreshToken: String!
+  user: User!
+}
 
-- **Auth mutations:** `signup`, `login`, `logout`. `login` sets an httpOnly
-  session cookie; `logout` deletes the session row.
-- **Context middleware:** resolve the session cookie → `currentUser` on the
-  gqlgen resolver context (nil if anonymous).
-- **WebSocket handshake:** validate the session cookie on the subscription
-  `InitPayload` / upgrade, so live channels are authenticated too — not just HTTP
-  mutations. This is the easy-to-miss part: today subscriptions are wide open.
-- **Authz guard:** a helper (`requireMember(ctx, boardId, minRole)`) called at the
-  top of every board-scoped resolver and subscription.
+type User {
+  id: ID!
+  email: String!
+}
 
-### Client
+extend type Mutation {
+  signup(email: String!, password: String!): AuthPayload!
+  login(email: String!, password: String!): AuthPayload!
+  refresh(refreshToken: String!): AuthPayload!
+}
 
-- **Auth UI:** minimal sign-in / sign-up screen; an auth gate around the board.
-- **Apollo:** send cookies (`credentials: 'include'`), pass the session on the WS
-  link's `connectionParams`, and handle 401 → redirect to sign-in.
-- **Board list:** "my boards" once boards are per-user (replaces the single
-  hardcoded board id).
+extend type Query {
+  me: User          # null when unauthenticated
+}
+```
 
-### Protocol additions
+### Request context (P2)
 
-- `signup` / `login` / `logout` mutations; `me: User` query.
-- `board`/`boards` become user-scoped; creating a board sets `owner_id`.
-- Presence `CursorPresence` gains an optional `name` (already useful pre-auth for
-  cursor labels; becomes the user's `display_name` post-auth).
+- HTTP middleware reads `Authorization: Bearer <token>`, calls `auth.ParseToken`,
+  loads the user, and puts `currentUser` on the resolver context (nil if absent
+  or invalid). A `requireUser(ctx)` helper guards protected resolvers.
+
+### WebSocket auth (P3)
+
+- On the subscription `InitPayload`, read the token from `connectionParams`,
+  verify it, and reject the connection if missing/invalid. This closes today's
+  open-subscription hole. gqlgen's `websocket.Upgrader` + `InitFunc` is the hook.
+
+### Client (P4)
+
+- Sign-in / sign-up screens; an auth gate around the board.
+- Apollo: an auth link that adds the `Authorization` header; the WS link passes
+  the token via `connectionParams`; a 401 / expired path that calls `refresh`
+  (or redirects to sign-in).
+- The presence display name comes from the signed-in user.
+
+### Boards per user (P5)
+
+- `boards` become owned; `memberships` (role: owner/editor/viewer); a
+  `requireMember(ctx, boardId, minRole)` guard on every board-scoped resolver and
+  subscription.
 
 ---
 
 ## 4. Testing strategy
 
-1. **Unit** — password hashing/verify, session issue/expire/revoke, and the
-   `requireMember` guard as a pure decision (role × action → allow/deny).
-2. **Integration** — resolver-level: anonymous request is rejected on a
-   protected field; a member passes; a non-member is denied; an expired session
-   is treated as anonymous.
-3. **WS auth** — a subscription without a valid session is refused at handshake;
-   a valid one receives events; logout mid-session stops delivery.
-4. **E2E smoke (Playwright)** — sign up, create a board, sign out, confirm the
-   board is not reachable while signed out.
+1. **Unit** — password hashing/verify (done-ish, add cases), token
+   generate/parse/expire, and the `requireUser` / `requireMember` guards as pure
+   decisions.
+2. **Integration** — resolver-level: anonymous request rejected on a protected
+   field; valid token passes; expired token treated as anonymous; `refresh`
+   issues a working new access token.
+3. **WS auth** — a subscription without a valid token is refused at handshake; a
+   valid one receives events.
+4. **E2E smoke (Playwright)** — sign up, create a board, reload keeps you in,
+   sign out blocks access.
 
 ### Invariants to assert
 
-- [ ] **No anonymous write** — every board mutation requires a valid session.
+- [ ] **No anonymous write** — every board mutation requires a valid token.
 - [ ] **No anonymous subscribe** — live channels reject unauthenticated sockets.
+- [ ] **Expiry respected** — an expired access token is rejected; refresh works.
 - [ ] **Ownership** — a non-member can neither read nor write another user's board.
-- [ ] **Revocation** — logout / expiry immediately ends access on HTTP *and* WS.
 
 ---
 
 ## 5. Phased plan
 
-- [ ] **P0 — Decide & spec.** Confirm Postgres + session-cookie authn; lock the
-      data model above; decide the migration tool.
-- [ ] **P1 — Storage.** Postgres + migrations; `users` / `sessions` tables; wire
-      a DB pool into the server. No behavior change yet.
-- [ ] **P2 — Authn.** `signup` / `login` / `logout` + password hashing + session
-      cookie + `currentUser` in resolver context. HTTP only.
-- [ ] **P3 — WS auth.** Validate the session on the subscription handshake; reject
-      unauthenticated sockets. Closes the open-subscription hole.
-- [ ] **P4 — Boards per user.** `boards` / `memberships`; `requireMember` guard on
-      every board-scoped resolver; "my boards" list on the client.
-- [ ] **P5 — Auth UI.** Sign-in / sign-up screens; Apollo cookie + WS param wiring;
-      401 handling; auth gate around the board.
+- [x] **P0 — Decide & spec.** JWT over email+password; access 15 min + refresh
+      7 days; bcrypt; tokens on HTTP header and WS `connectionParams`.
+- [x] **P0.5 — Primitives.** `server/users` (bcrypt store) + `server/auth` (JWT).
+- [ ] **P1 — Auth mutations.** `signup` / `login` / `refresh` + `me`; resolvers
+      wired to `users` + `auth`. Move the JWT secret to an env var.
+- [ ] **P2 — Request context.** HTTP middleware → `currentUser` in context;
+      `requireUser` guard.
+- [ ] **P3 — WebSocket auth.** Verify the token on the subscription handshake;
+      reject unauthenticated sockets.
+- [ ] **P4 — Client.** Sign-in / sign-up UI; Apollo header + WS `connectionParams`
+      wiring; refresh/401 handling; name from the user record.
+- [ ] **P5 — Boards per user.** Ownership + memberships + `requireMember` guard;
+      "my boards" list.
 - [ ] **P6 — Tests & E2E smoke.** The invariants above.
 
-Cursor labels (a name in presence, no password) ship **before** P0 as a
-standalone feature — it's the low-cost first taste of identity and slots cleanly
-into P2 later, when the name starts coming from the user record.
+Persistence (Postgres) is intentionally deferred — the whole flow runs on the
+in-memory store first; swapping storage later does not change the plan.
 
 ---
 
 ## 6. Open questions
 
-- **Session cookie vs JWT?** Cookie is simpler to revoke and attach to the WS
-  handshake; JWT is stateless but harder to invalidate. Leaning cookie.
-- **Roll our own authn vs a provider** (e.g. an OAuth/OIDC service)? Own keeps the
-  backend self-contained and is a better portfolio story; a provider is faster but
-  externalizes the interesting part.
+- **Refresh-token storage** — memory (re-login on reload) vs httpOnly cookie
+  (survives reload, needs cookie plumbing)? Start with memory, revisit in P4.
+- **Revocation** — do we need a refresh-token denylist / logout-everywhere, or is
+  short-TTL access enough for this project? Likely enough for now.
 - **Guest / anonymous boards** — keep a "no sign-in, shareable link" mode
   alongside accounts, or require sign-in for everything?
-- **Persist shapes now or later?** Storage lands in P1; migrating shapes off
-  in-memory is tempting to fold in but is arguably a separate effort.
-- **Share model** — invite by email, or shareable link with an embedded role?
+- **Persist users now or later?** Storage swap (Postgres) is unblocked any time;
+  fold in with P5 or keep separate.
 
 ---
 
