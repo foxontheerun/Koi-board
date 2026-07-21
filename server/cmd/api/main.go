@@ -11,8 +11,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
 
+	"server/auth"
 	"server/graph"
-   "server/resolvers"
+	"server/resolvers"
 )
 
 func main() {
@@ -50,7 +51,7 @@ func main() {
 
 	// Маршруты
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", c.Handler(srv))
+	http.Handle("/query", c.Handler(auth.Middleware(srv)))
 
 	log.Println("🚀 server started at http://localhost:8080/")
 	log.Fatal(http.ListenAndServe(":8080", nil))
