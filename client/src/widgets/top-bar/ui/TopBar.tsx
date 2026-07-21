@@ -1,10 +1,19 @@
-import { Undo2, Redo2, Share2, ZoomIn, ZoomOut } from "lucide-react";
+import { Undo2, Redo2, Share2, ZoomIn, ZoomOut, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCamera } from "../../../entities/Board/CameraContext";
 import { MAX_ZOOM, MIN_ZOOM } from "../../../entities/Board/BoardCanvasNew";
+import { useAuth } from "../../../features/auth/model/AuthContext";
 
 export function TopBar() {
   const camera = useCamera();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   const [zoomPercent, setZoomPercent] = useState(
     Math.round(camera.state.zoom * 100),
@@ -85,17 +94,25 @@ export function TopBar() {
           <Share2 className="w-4 h-4" />
           <span>Share</span>
         </button>
-        <div className="flex items-center -space-x-2">
-          <div className="w-8 h-8 rounded-full bg-[#FF6B6B] border-2 border-white flex items-center justify-center">
-            <span className="text-white">А</span>
+        {user && (
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#4ECDC4]">
+              <span className="text-white uppercase">
+                {user.email.charAt(0)}
+              </span>
+            </div>
+            <span className="max-w-40 truncate text-sm text-[#666666]">
+              {user.email}
+            </span>
+            <button
+              onClick={handleLogout}
+              title="Log out"
+              className="rounded-lg p-2 text-[#666666] transition-colors hover:bg-[#F5F5F5]"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[#4ECDC4] border-2 border-white flex items-center justify-center">
-            <span className="text-white">М</span>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-[#FFE66D] border-2 border-white flex items-center justify-center">
-            <span className="text-[#666666]">+2</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
