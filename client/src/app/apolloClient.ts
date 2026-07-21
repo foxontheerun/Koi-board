@@ -5,8 +5,11 @@ import { createClient } from "graphql-ws";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { getAccessToken } from "../features/auth/lib/authStore";
 
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/query";
+const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/query";
+
 const httpLink = new HttpLink({
-  uri: "http://localhost:8080/query",
+  uri: API_URL,
 });
 
 const authLink = new SetContextLink((prevContext) => {
@@ -23,7 +26,7 @@ const wsLink =
   typeof window !== "undefined"
     ? new GraphQLWsLink(
         createClient({
-          url: "ws://localhost:8080/query",
+          url: WS_URL,
           connectionParams: () => {
             const token = getAccessToken();
             return token ? { authToken: token } : {};
