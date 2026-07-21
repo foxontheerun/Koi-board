@@ -20,8 +20,13 @@ func Middleware(next http.Handler) http.Handler {
 }
 
 func bearerToken(r *http.Request) string {
-	h := r.Header.Get("Authorization")
-	parts := strings.SplitN(h, " ", 2)
+	return StripBearer(r.Header.Get("Authorization"))
+}
+
+// StripBearer returns the token from a "Bearer <token>" header value, or "" if
+// the value isn't a well-formed bearer credential.
+func StripBearer(header string) string {
+	parts := strings.SplitN(header, " ", 2)
 	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
 		return strings.TrimSpace(parts[1])
 	}

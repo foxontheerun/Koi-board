@@ -30,6 +30,8 @@ func main() {
 				return true
 			},
 		},
+		// Authenticate the socket from connectionParams; reject anonymous ones.
+		InitFunc:              auth.WebsocketInit,
 		KeepAlivePingInterval: 10 * time.Second,
 	})
 
