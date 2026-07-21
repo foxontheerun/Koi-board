@@ -1,8 +1,3 @@
-// Token storage for auth. The access token lives in memory only (limits XSS
-// exposure); the refresh token is persisted so a reload can restore the session.
-// Apollo's links read the access token here at request time, so it must be a
-// plain module singleton, not React state.
-
 const REFRESH_KEY = "koi:refreshToken";
 
 let accessToken: string | null = null;
@@ -28,17 +23,15 @@ export function setRefreshToken(token: string | null): void {
     if (token) localStorage.setItem(REFRESH_KEY, token);
     else localStorage.removeItem(REFRESH_KEY);
   } catch {
-    // localStorage unavailable — the session simply won't survive a reload.
+    return;
   }
 }
 
-// Stores both tokens after a successful login/signup/refresh.
 export function setSession(access: string, refresh: string): void {
   setAccessToken(access);
   setRefreshToken(refresh);
 }
 
-// Wipes both tokens on logout.
 export function clearSession(): void {
   setAccessToken(null);
   setRefreshToken(null);

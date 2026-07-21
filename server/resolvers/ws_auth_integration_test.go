@@ -17,9 +17,6 @@ import (
 	"server/users"
 )
 
-// Spins up the real gqlgen handler with the WS InitFunc wired, then drives the
-// graphql-transport-ws handshake to prove unauthenticated sockets are refused
-// and authenticated ones are accepted.
 func newWSTestServer() *httptest.Server {
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &resolvers.Resolver{}}))
 	srv.AddTransport(&transport.Websocket{
@@ -39,8 +36,6 @@ func dialWS(t *testing.T, url string) *websocket.Conn {
 	return conn
 }
 
-// initAck sends connection_init with the given params and reports whether the
-// server replied with connection_ack (true) or closed the socket (false).
 func initAck(t *testing.T, conn *websocket.Conn, params map[string]any) bool {
 	t.Helper()
 	if err := conn.WriteJSON(map[string]any{"type": "connection_init", "payload": params}); err != nil {
@@ -51,7 +46,8 @@ func initAck(t *testing.T, conn *websocket.Conn, params map[string]any) bool {
 		Type string `json:"type"`
 	}
 	if err := conn.ReadJSON(&msg); err != nil {
-		return false // socket closed → rejected
+		return false
+
 	}
 	return msg.Type == "connection_ack"
 }

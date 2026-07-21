@@ -13,8 +13,6 @@ import (
 	"server/users"
 )
 
-// Login/signup failures are reported generically so we never leak whether an
-// email is registered.
 var errBadCredentials = errors.New("invalid email or password")
 
 // Signup is the resolver for the signup field.
@@ -64,8 +62,6 @@ func (r *queryResolver) Me(ctx context.Context) (*graph.User, error) {
 	return &graph.User{ID: u.ID, Email: u.Email}, nil
 }
 
-// authPayload mints an access + refresh token pair for a user and shapes the
-// GraphQL response.
 func authPayload(u *users.User) (*graph.AuthPayload, error) {
 	access, err := auth.GenerateAccessToken(u.ID)
 	if err != nil {

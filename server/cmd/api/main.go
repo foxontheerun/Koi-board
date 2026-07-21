@@ -19,8 +19,8 @@ import (
 func main() {
 	// Создаём gqlgen-сервер
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
-    Resolvers: &resolvers.Resolver{},
-}))
+		Resolvers: &resolvers.Resolver{},
+	}))
 
 	// Включаем WebSocket-транспорт с CheckOrigin = true
 	srv.AddTransport(&transport.Websocket{
@@ -30,7 +30,6 @@ func main() {
 				return true
 			},
 		},
-		// Authenticate the socket from connectionParams; reject anonymous ones.
 		InitFunc:              auth.WebsocketInit,
 		KeepAlivePingInterval: 10 * time.Second,
 	})

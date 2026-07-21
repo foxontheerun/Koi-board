@@ -9,8 +9,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Signing key comes from JWT_SECRET. A dev fallback keeps local runs working,
-// but it must never be relied on in production — set the env var there.
 var jwtSecret = loadSecret()
 
 func loadSecret() []byte {

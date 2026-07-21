@@ -5,12 +5,10 @@ import { createClient } from "graphql-ws";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { getAccessToken } from "../features/auth/lib/authStore";
 
-// HTTP линк для query/mutation
 const httpLink = new HttpLink({
   uri: "http://localhost:8080/query",
 });
 
-// Attaches the access token (if any) to every HTTP request.
 const authLink = new SetContextLink((prevContext) => {
   const token = getAccessToken();
   return {
@@ -21,8 +19,6 @@ const authLink = new SetContextLink((prevContext) => {
   };
 });
 
-// WS линк для subscriptions — токен уезжает в connectionParams при каждом
-// (пере)подключении, поэтому это функция, а не статичный объект.
 const wsLink =
   typeof window !== "undefined"
     ? new GraphQLWsLink(
@@ -38,7 +34,6 @@ const wsLink =
 
 const httpChain = authLink.concat(httpLink);
 
-// split: какие операции по ws, какие по http
 const splitLink =
   wsLink != null
     ? split(

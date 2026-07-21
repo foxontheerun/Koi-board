@@ -1,5 +1,3 @@
-# Authentication: email + password, JWT (access + refresh). See docs/AUTH_PLAN.md.
-
 type User {
   id: ID!
   email: String!
@@ -12,7 +10,6 @@ type AuthPayload {
 }
 
 extend type Query {
-  # The signed-in user, or null when the request carries no valid token.
   me: User
 }
 

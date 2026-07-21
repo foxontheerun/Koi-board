@@ -19,7 +19,6 @@ export function AuthForm({ mode }: AuthFormProps) {
   const from = (location.state as { from?: string } | null)?.from ?? "/1";
   const isLogin = mode === "login";
 
-  // Already signed in — skip the form.
   if (status === "authed") return <Navigate to={from} replace />;
 
   const handleSubmit = async (e: FormEvent) => {

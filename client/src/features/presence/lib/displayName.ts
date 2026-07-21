@@ -39,8 +39,6 @@ export function generateDisplayName(): string {
   return `${pick(ADJECTIVES)} ${pick(ANIMALS)}`;
 }
 
-// Returns a previously saved name, or null if the user has never set one.
-// Unlike loadOrCreateDisplayName it never generates or persists.
 export function loadSavedDisplayName(): string | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);

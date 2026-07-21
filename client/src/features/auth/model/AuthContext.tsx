@@ -53,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("authed");
   }, []);
 
-  // On load, try to restore the session from the stored refresh token.
   useEffect(() => {
     const refreshToken = getRefreshToken();
     if (!refreshToken) {

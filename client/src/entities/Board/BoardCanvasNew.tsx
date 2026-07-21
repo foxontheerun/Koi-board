@@ -82,8 +82,6 @@ export const BoardCanvasNew = forwardRef<
   const { user } = useAuth();
   const [cursors, setCursors] = useState<RemoteCursor[]>([]);
   const [camera, setLocalCamera] = useState<CameraController | null>(null);
-  // Prefer a name the user has typed before; otherwise default to the account's
-  // email local-part, falling back to a generated name when signed out.
   const [displayName, setDisplayName] = useState(
     () =>
       loadSavedDisplayName() ??
