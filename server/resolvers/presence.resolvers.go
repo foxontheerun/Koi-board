@@ -34,11 +34,7 @@ func (r *subscriptionResolver) CursorsMoved(ctx context.Context, boardID string)
 	return ch, nil
 }
 
-// Mutation returns graph.MutationResolver implementation.
-func (r *Resolver) Mutation() graph.MutationResolver { return &mutationResolver{r} }
-
 // Subscription returns graph.SubscriptionResolver implementation.
 func (r *Resolver) Subscription() graph.SubscriptionResolver { return &subscriptionResolver{r} }
 
-type mutationResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }

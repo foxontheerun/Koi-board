@@ -11,15 +11,16 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
 
+	"server/auth"
 	"server/graph"
-   "server/resolvers"
+	"server/resolvers"
 )
 
 func main() {
 	// Создаём gqlgen-сервер
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
-    Resolvers: &resolvers.Resolver{},
-}))
+		Resolvers: &resolvers.Resolver{},
+	}))
 
 	// Включаем WebSocket-транспорт с CheckOrigin = true
 	srv.AddTransport(&transport.Websocket{
@@ -29,6 +30,7 @@ func main() {
 				return true
 			},
 		},
+		InitFunc:              auth.WebsocketInit,
 		KeepAlivePingInterval: 10 * time.Second,
 	})
 
@@ -50,7 +52,7 @@ func main() {
 
 	// Маршруты
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", c.Handler(srv))
+	http.Handle("/query", c.Handler(auth.Middleware(srv)))
 
 	log.Println("🚀 server started at http://localhost:8080/")
 	log.Fatal(http.ListenAndServe(":8080", nil))

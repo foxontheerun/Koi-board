@@ -14,10 +14,12 @@ import type { EditingContextValue } from "./EditingContext";
 import { SelectionToolbar } from "../../features/shape-context-menu/ui/SelectionToolbar";
 import { RemoteCursorsLayer } from "../../features/presence/ui/RemoteCursorsLayer";
 import {
-  loadOrCreateDisplayName,
+  generateDisplayName,
+  loadSavedDisplayName,
   saveDisplayName,
 } from "../../features/presence/lib/displayName";
 import { NamePlate } from "../../features/presence/ui/NamePlate";
+import { useAuth } from "../../features/auth/model/AuthContext";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
@@ -77,9 +79,14 @@ export const BoardCanvasNew = forwardRef<
     y: number;
     visible: boolean;
   } | null>(null);
+  const { user } = useAuth();
   const [cursors, setCursors] = useState<RemoteCursor[]>([]);
   const [camera, setLocalCamera] = useState<CameraController | null>(null);
-  const [displayName, setDisplayName] = useState(loadOrCreateDisplayName);
+  const [displayName, setDisplayName] = useState(
+    () =>
+      loadSavedDisplayName() ??
+      (user ? user.email.split("@")[0] : generateDisplayName()),
+  );
   const pointerDownRef = useRef(false);
 
   const handleNameChange = useCallback((name: string) => {

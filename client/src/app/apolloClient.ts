@@ -1,24 +1,42 @@
 import { ApolloClient, InMemoryCache, split, HttpLink } from "@apollo/client";
+import { SetContextLink } from "@apollo/client/link/context";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { createClient } from "graphql-ws";
 import { getMainDefinition } from "@apollo/client/utilities";
+import { getAccessToken } from "../features/auth/lib/authStore";
 
-// HTTP линк для query/mutation
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/query";
+const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/query";
+
 const httpLink = new HttpLink({
-  uri: "http://localhost:8080/query",
+  uri: API_URL,
 });
 
-// WS линк для subscriptions
+const authLink = new SetContextLink((prevContext) => {
+  const token = getAccessToken();
+  return {
+    headers: {
+      ...prevContext.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  };
+});
+
 const wsLink =
   typeof window !== "undefined"
     ? new GraphQLWsLink(
         createClient({
-          url: "ws://localhost:8080/query",
-        })
+          url: WS_URL,
+          connectionParams: () => {
+            const token = getAccessToken();
+            return token ? { authToken: token } : {};
+          },
+        }),
       )
     : null;
 
-// split: какие операции по ws, какие по http
+const httpChain = authLink.concat(httpLink);
+
 const splitLink =
   wsLink != null
     ? split(
@@ -30,9 +48,9 @@ const splitLink =
           );
         },
         wsLink,
-        httpLink
+        httpChain,
       )
-    : httpLink;
+    : httpChain;
 
 export const apolloClient = new ApolloClient({
   link: splitLink,

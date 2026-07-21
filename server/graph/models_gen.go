@@ -9,6 +9,12 @@ import (
 	"strconv"
 )
 
+type AuthPayload struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	User         *User  `json:"user"`
+}
+
 type Board struct {
 	ID     string   `json:"id"`
 	Title  string   `json:"title"`
@@ -96,6 +102,11 @@ type TransientShapeInput struct {
 type TransientShapesBatch struct {
 	Shapes   []*TransientShape `json:"shapes"`
 	ClientID string            `json:"clientID"`
+}
+
+type User struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
 }
 
 type LockAction string

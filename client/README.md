@@ -59,6 +59,9 @@ npm install
 npm run dev
 ```
 
+The backend URL is read from `VITE_API_URL` / `VITE_WS_URL` (see `.env.example`);
+both default to `localhost:8080`, so no `.env` is needed for local dev.
+
 ---
 
 ## Testing

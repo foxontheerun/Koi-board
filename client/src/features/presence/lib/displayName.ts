@@ -39,6 +39,15 @@ export function generateDisplayName(): string {
   return `${pick(ADJECTIVES)} ${pick(ANIMALS)}`;
 }
 
+export function loadSavedDisplayName(): string | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved && saved.trim() ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
 // Returns the saved name, or generates and persists a fresh one on first visit.
 export function loadOrCreateDisplayName(): string {
   try {
