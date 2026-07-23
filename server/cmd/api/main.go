@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -12,14 +14,31 @@ import (
 	"github.com/rs/cors"
 
 	"server/auth"
+	"server/db"
 	"server/graph"
 	"server/resolvers"
 )
 
 func main() {
+	resolver := &resolvers.Resolver{}
+	if url := os.Getenv("DATABASE_URL"); url != "" {
+		if err := db.Migrate(url); err != nil {
+			log.Fatalf("db migrate: %v", err)
+		}
+		pool, err := db.Connect(context.Background(), url)
+		if err != nil {
+			log.Fatalf("db connect: %v", err)
+		}
+		defer pool.Close()
+		resolver.DB = pool
+		log.Println("📦 connected to Postgres")
+	} else {
+		log.Println("⚠️  DATABASE_URL not set — using in-memory storage")
+	}
+
 	// Создаём gqlgen-сервер
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
-		Resolvers: &resolvers.Resolver{},
+		Resolvers: resolver,
 	}))
 
 	// Включаем WebSocket-транспорт с CheckOrigin = true

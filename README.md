@@ -133,6 +133,11 @@ koi/
 
 - **Frontend:** see [client/README.md](client/README.md)
 - **Backend:** `cd server && go run ./cmd/api`
+- **Database (optional):** `docker compose up -d db` starts Postgres, then run the
+  backend with `DATABASE_URL=postgres://koi:koi@localhost:5432/koi?sslmode=disable`
+  (see `server/.env.example`). Migrations apply automatically on boot. Without
+  `DATABASE_URL` the backend falls back to in-memory storage. Override the host
+  port with `DB_PORT` if 5432 is taken.
 
 ## Testing
 
