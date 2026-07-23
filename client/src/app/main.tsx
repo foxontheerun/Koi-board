@@ -5,6 +5,7 @@ import "./index.css";
 import { ApolloProvider } from "@apollo/client/react";
 import { apolloClient } from "./apolloClient";
 import { BoardPage } from "../pages/board/ui/BoardPage";
+import { BoardsListPage } from "../pages/boards/ui/BoardsListPage";
 import { LoginPage } from "../pages/auth/ui/LoginPage";
 import { SignupPage } from "../pages/auth/ui/SignupPage";
 import { AuthProvider } from "../features/auth/model/AuthContext";
@@ -22,7 +23,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
               path="/"
               element={
                 <RequireAuth>
-                  <BoardPage />
+                  <BoardsListPage />
                 </RequireAuth>
               }
             />

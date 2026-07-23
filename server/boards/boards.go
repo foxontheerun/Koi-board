@@ -10,7 +10,9 @@ import (
 var ErrBoardNotFound = errors.New("board not found")
 
 type Store interface {
-	Get(ctx context.Context, boardID, ownerID string) (*graph.Board, error)
+	Create(ctx context.Context, ownerID, title string) (*graph.Board, error)
+	Get(ctx context.Context, boardID, userID string) (*graph.Board, error)
+	ListForUser(ctx context.Context, userID string) ([]*graph.Board, error)
 	UpsertShape(ctx context.Context, boardID string, input graph.ShapeInput) (*graph.Shape, bool, error)
 	DeleteShape(ctx context.Context, boardID, shapeID string) (*graph.Shape, error)
 }

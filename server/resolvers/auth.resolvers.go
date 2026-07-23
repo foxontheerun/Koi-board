@@ -7,13 +7,10 @@ package resolvers
 import (
 	"context"
 	"errors"
-
 	"server/auth"
 	"server/graph"
 	"server/users"
 )
-
-var errBadCredentials = errors.New("invalid email or password")
 
 // Signup is the resolver for the signup field.
 func (r *mutationResolver) Signup(ctx context.Context, email string, password string) (*graph.AuthPayload, error) {
@@ -60,22 +57,6 @@ func (r *queryResolver) Me(ctx context.Context) (*graph.User, error) {
 		return nil, nil
 	}
 	return &graph.User{ID: u.ID, Email: u.Email}, nil
-}
-
-func authPayload(u *users.User) (*graph.AuthPayload, error) {
-	access, err := auth.GenerateAccessToken(u.ID)
-	if err != nil {
-		return nil, err
-	}
-	refresh, err := auth.GenerateRefreshToken(u.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &graph.AuthPayload{
-		AccessToken:  access,
-		RefreshToken: refresh,
-		User:         &graph.User{ID: u.ID, Email: u.Email},
-	}, nil
 }
 
 // Mutation returns graph.MutationResolver implementation.

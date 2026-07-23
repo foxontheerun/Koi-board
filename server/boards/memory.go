@@ -4,38 +4,80 @@ import (
 	"context"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"server/graph"
 )
 
 type MemoryStore struct {
-	mu     sync.RWMutex
-	boards map[string]*graph.Board
+	mu      sync.RWMutex
+	boards  map[string]*graph.Board
+	members map[string]map[string]bool
 }
 
 func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{boards: map[string]*graph.Board{}}
-}
-
-func (s *MemoryStore) getOrCreate(boardID string) *graph.Board {
-	board, ok := s.boards[boardID]
-	if !ok {
-		board = &graph.Board{ID: boardID, Title: "New Board", Shapes: []*graph.Shape{}}
-		s.boards[boardID] = board
+	return &MemoryStore{
+		boards:  map[string]*graph.Board{},
+		members: map[string]map[string]bool{},
 	}
-	return board
 }
 
-func (s *MemoryStore) Get(_ context.Context, boardID, _ string) (*graph.Board, error) {
+func (s *MemoryStore) addMember(boardID, userID string) {
+	if userID == "" {
+		return
+	}
+	if s.members[boardID] == nil {
+		s.members[boardID] = map[string]bool{}
+	}
+	s.members[boardID][userID] = true
+}
+
+func (s *MemoryStore) Create(_ context.Context, ownerID, title string) (*graph.Board, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.getOrCreate(boardID), nil
+
+	if title == "" {
+		title = "New Board"
+	}
+	board := &graph.Board{ID: uuid.NewString(), Title: title, Shapes: []*graph.Shape{}}
+	s.boards[board.ID] = board
+	s.addMember(board.ID, ownerID)
+	return board, nil
+}
+
+func (s *MemoryStore) Get(_ context.Context, boardID, userID string) (*graph.Board, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	board, ok := s.boards[boardID]
+	if !ok {
+		return nil, ErrBoardNotFound
+	}
+	s.addMember(boardID, userID)
+	return board, nil
+}
+
+func (s *MemoryStore) ListForUser(_ context.Context, userID string) ([]*graph.Board, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := []*graph.Board{}
+	for id, board := range s.boards {
+		if s.members[id][userID] {
+			out = append(out, &graph.Board{ID: board.ID, Title: board.Title})
+		}
+	}
+	return out, nil
 }
 
 func (s *MemoryStore) UpsertShape(_ context.Context, boardID string, input graph.ShapeInput) (*graph.Shape, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	board := s.getOrCreate(boardID)
+	board, ok := s.boards[boardID]
+	if !ok {
+		return nil, false, ErrBoardNotFound
+	}
 
 	for _, sh := range board.Shapes {
 		if sh.ID == input.ID {

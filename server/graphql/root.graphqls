@@ -6,10 +6,12 @@ schema {
 
 type Query {
   board(id: ID!): Board
+  myBoards: [Board!]!
   hello: String!
 }
 
 extend type Mutation {
+  createBoard(title: String): Board!
   updateShape(boardId: ID!, shape: ShapeInput!, clientID: ID!): Shape!
   moveShapeTransient(
     boardId: ID!

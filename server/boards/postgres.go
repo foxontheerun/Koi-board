@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -33,16 +34,64 @@ func scanShape(row pgx.Row) (*graph.Shape, error) {
 	return &sh, nil
 }
 
-func (s *PostgresStore) Get(ctx context.Context, boardID, ownerID string) (*graph.Board, error) {
-	if ownerID != "" {
-		if _, err := s.pool.Exec(ctx,
-			`INSERT INTO boards (id, owner_id) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
-			boardID, ownerID,
-		); err != nil {
-			return nil, err
-		}
+func (s *PostgresStore) Create(ctx context.Context, ownerID, title string) (*graph.Board, error) {
+	if title == "" {
+		title = "New Board"
+	}
+	id := uuid.NewString()
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO boards (id, title, owner_id) VALUES ($1, $2, $3)`,
+		id, title, ownerID,
+	); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, 'owner')`,
+		id, ownerID,
+	); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
 	}
 
+	return &graph.Board{ID: id, Title: title, Shapes: []*graph.Shape{}}, nil
+}
+
+func (s *PostgresStore) ListForUser(ctx context.Context, userID string) ([]*graph.Board, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT b.id, b.title
+		 FROM boards b
+		 JOIN board_members m ON m.board_id = b.id
+		 WHERE m.user_id = $1
+		 ORDER BY b.updated_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []*graph.Board{}
+	for rows.Next() {
+		var b graph.Board
+		if err := rows.Scan(&b.ID, &b.Title); err != nil {
+			return nil, err
+		}
+		b.Shapes = []*graph.Shape{}
+		out = append(out, &b)
+	}
+	return out, rows.Err()
+}
+
+func (s *PostgresStore) Get(ctx context.Context, boardID, userID string) (*graph.Board, error) {
 	var board graph.Board
 	err := s.pool.QueryRow(ctx,
 		`SELECT id, title FROM boards WHERE id = $1`, boardID,
@@ -52,6 +101,15 @@ func (s *PostgresStore) Get(ctx context.Context, boardID, ownerID string) (*grap
 			return nil, ErrBoardNotFound
 		}
 		return nil, err
+	}
+
+	if userID != "" {
+		if _, err := s.pool.Exec(ctx,
+			`INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, 'editor') ON CONFLICT DO NOTHING`,
+			boardID, userID,
+		); err != nil {
+			return nil, err
+		}
 	}
 
 	rows, err := s.pool.Query(ctx,

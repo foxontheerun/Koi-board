@@ -185,3 +185,21 @@ export const CURSORS_MOVED_SUBSCRIPTION = gql`
     }
   }
 `;
+
+export const MY_BOARDS_QUERY = gql`
+  query MyBoards {
+    myBoards {
+      id
+      title
+    }
+  }
+`;
+
+export const CREATE_BOARD_MUTATION = gql`
+  mutation CreateBoard($title: String) {
+    createBoard(title: $title) {
+      id
+      title
+    }
+  }
+`;

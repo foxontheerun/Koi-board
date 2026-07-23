@@ -7,15 +7,31 @@ package resolvers
 import (
 	"context"
 
-	"server/auth"
 	"server/graph"
 	"server/locks"
 	"server/subscriptions"
 	"server/transient"
 )
 
+// CreateBoard is the resolver for the createBoard field.
+func (r *mutationResolver) CreateBoard(ctx context.Context, title *string) (*graph.Board, error) {
+	userID, err := requireUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	t := ""
+	if title != nil {
+		t = *title
+	}
+	return r.Boards.Create(ctx, userID, t)
+}
+
 // UpdateShape is the resolver for the updateShape field.
 func (r *mutationResolver) UpdateShape(ctx context.Context, boardID string, shape graph.ShapeInput, clientID string) (*graph.Shape, error) {
+	if _, err := requireUser(ctx); err != nil {
+		return nil, err
+	}
+
 	stored, created, err := r.Boards.UpsertShape(ctx, boardID, shape)
 	if err != nil {
 		return nil, err
@@ -77,6 +93,10 @@ func (r *mutationResolver) MoveShapesTransient(ctx context.Context, boardID stri
 
 // DeleteShape is the resolver for the deleteShape field.
 func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shapeID string) (bool, error) {
+	if _, err := requireUser(ctx); err != nil {
+		return false, err
+	}
+
 	deleted, err := r.Boards.DeleteShape(ctx, boardID, shapeID)
 	if err != nil {
 		return false, err
@@ -106,8 +126,20 @@ func (r *mutationResolver) SetShapeLock(ctx context.Context, boardID string, sha
 
 // Board is the resolver for the board field.
 func (r *queryResolver) Board(ctx context.Context, id string) (*graph.Board, error) {
-	ownerID, _ := auth.UserIDFromContext(ctx)
-	return r.Boards.Get(ctx, id, ownerID)
+	userID, err := requireUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return r.Boards.Get(ctx, id, userID)
+}
+
+// MyBoards is the resolver for the myBoards field.
+func (r *queryResolver) MyBoards(ctx context.Context) ([]*graph.Board, error) {
+	userID, err := requireUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return r.Boards.ListForUser(ctx, userID)
 }
 
 // Hello is the resolver for the hello field.
