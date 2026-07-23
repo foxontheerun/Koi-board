@@ -17,6 +17,7 @@ import (
 	"server/db"
 	"server/graph"
 	"server/resolvers"
+	"server/users"
 )
 
 func main() {
@@ -31,8 +32,10 @@ func main() {
 		}
 		defer pool.Close()
 		resolver.DB = pool
+		resolver.Users = users.NewPostgresStore(pool)
 		log.Println("📦 connected to Postgres")
 	} else {
+		resolver.Users = users.NewMemoryStore()
 		log.Println("⚠️  DATABASE_URL not set — using in-memory storage")
 	}
 
