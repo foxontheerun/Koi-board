@@ -8,7 +8,7 @@ CREATE TABLE users (
 CREATE UNIQUE INDEX users_email_lower_idx ON users (lower(email));
 
 CREATE TABLE boards (
-    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id         text PRIMARY KEY,
     title      text NOT NULL DEFAULT 'New Board',
     owner_id   uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -18,7 +18,7 @@ CREATE TABLE boards (
 CREATE INDEX boards_owner_id_idx ON boards (owner_id);
 
 CREATE TABLE board_members (
-    board_id   uuid NOT NULL REFERENCES boards (id) ON DELETE CASCADE,
+    board_id   text NOT NULL REFERENCES boards (id) ON DELETE CASCADE,
     user_id    uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     role       text NOT NULL DEFAULT 'editor' CHECK (role IN ('owner', 'editor', 'viewer')),
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -28,8 +28,8 @@ CREATE TABLE board_members (
 CREATE INDEX board_members_user_id_idx ON board_members (user_id);
 
 CREATE TABLE shapes (
-    id           uuid PRIMARY KEY,
-    board_id     uuid NOT NULL REFERENCES boards (id) ON DELETE CASCADE,
+    id           text PRIMARY KEY,
+    board_id     text NOT NULL REFERENCES boards (id) ON DELETE CASCADE,
     type         text NOT NULL,
     x            double precision NOT NULL,
     y            double precision NOT NULL,

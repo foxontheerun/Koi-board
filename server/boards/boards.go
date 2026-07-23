@@ -1,8 +1,21 @@
-package storage
+package boards
 
-import "server/graph"
+import (
+	"context"
+	"errors"
 
-func ApplyShapePatch(shape *graph.Shape, input graph.ShapeInput) {
+	"server/graph"
+)
+
+var ErrBoardNotFound = errors.New("board not found")
+
+type Store interface {
+	Get(ctx context.Context, boardID, ownerID string) (*graph.Board, error)
+	UpsertShape(ctx context.Context, boardID string, input graph.ShapeInput) (*graph.Shape, bool, error)
+	DeleteShape(ctx context.Context, boardID, shapeID string) (*graph.Shape, error)
+}
+
+func applyShapePatch(shape *graph.Shape, input graph.ShapeInput) {
 	if input.Type != nil {
 		shape.Type = *input.Type
 	}

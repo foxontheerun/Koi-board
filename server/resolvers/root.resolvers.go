@@ -6,62 +6,33 @@ package resolvers
 
 import (
 	"context"
+
+	"server/auth"
 	"server/graph"
 	"server/locks"
-	"server/storage"
 	"server/subscriptions"
 	"server/transient"
 )
 
 // UpdateShape is the resolver for the updateShape field.
 func (r *mutationResolver) UpdateShape(ctx context.Context, boardID string, shape graph.ShapeInput, clientID string) (*graph.Shape, error) {
-	storage.BoardsMu.Lock()
-	defer storage.BoardsMu.Unlock()
-
-	board, exists := storage.Boards[boardID]
-	if !exists {
-		board = &graph.Board{
-			ID:     boardID,
-			Title:  "New Board",
-			Shapes: []*graph.Shape{},
-		}
-		storage.Boards[boardID] = board
-	}
-
-	var existing *graph.Shape
-	for _, s := range board.Shapes {
-		if s.ID == shape.ID {
-			existing = s
-			break
-		}
+	stored, created, err := r.Boards.UpsertShape(ctx, boardID, shape)
+	if err != nil {
+		return nil, err
 	}
 
 	eventType := graph.ShapeEventTypeUpdated
-
-	if existing == nil {
-		existing = &graph.Shape{
-			ID:       shape.ID,
-			BoardID:  boardID,
-			Rotation: 0,
-			ZIndex:   0,
-			Locked:   false,
-		}
-		board.Shapes = append(board.Shapes, existing)
-
+	if created {
 		eventType = graph.ShapeEventTypeCreated
 	}
 
-	// применяем PATCH (ShapeInput -> Shape)
-	storage.ApplyShapePatch(existing, shape)
-
-	// шлём событие
 	subscriptions.Publish(boardID, &graph.ShapeEvent{
 		Type:     eventType,
-		Shape:    existing,
+		Shape:    stored,
 		ClientID: clientID,
 	})
 
-	return existing, nil
+	return stored, nil
 }
 
 // MoveShapeTransient is the resolver for the moveShapeTransient field.
@@ -106,26 +77,10 @@ func (r *mutationResolver) MoveShapesTransient(ctx context.Context, boardID stri
 
 // DeleteShape is the resolver for the deleteShape field.
 func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shapeID string) (bool, error) {
-	storage.BoardsMu.Lock()
-	defer storage.BoardsMu.Unlock()
-
-	board, exists := storage.Boards[boardID]
-	if !exists {
-		return false, nil
+	deleted, err := r.Boards.DeleteShape(ctx, boardID, shapeID)
+	if err != nil {
+		return false, err
 	}
-
-	newShapes := make([]*graph.Shape, 0, len(board.Shapes))
-	var deleted *graph.Shape
-
-	for _, s := range board.Shapes {
-		if s.ID == shapeID {
-			deleted = s
-			continue
-		}
-		newShapes = append(newShapes, s)
-	}
-
-	board.Shapes = newShapes
 
 	if deleted != nil {
 		subscriptions.Publish(boardID, &graph.ShapeEvent{
@@ -151,20 +106,8 @@ func (r *mutationResolver) SetShapeLock(ctx context.Context, boardID string, sha
 
 // Board is the resolver for the board field.
 func (r *queryResolver) Board(ctx context.Context, id string) (*graph.Board, error) {
-	storage.BoardsMu.RLock()
-	defer storage.BoardsMu.RUnlock()
-
-	if board, ok := storage.Boards[id]; ok {
-		return board, nil
-	}
-
-	board := &graph.Board{
-		ID:     id,
-		Title:  "New Board",
-		Shapes: []*graph.Shape{},
-	}
-	storage.Boards[id] = board
-	return board, nil
+	ownerID, _ := auth.UserIDFromContext(ctx)
+	return r.Boards.Get(ctx, id, ownerID)
 }
 
 // Hello is the resolver for the hello field.

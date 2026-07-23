@@ -14,6 +14,7 @@ import (
 	"github.com/rs/cors"
 
 	"server/auth"
+	"server/boards"
 	"server/db"
 	"server/graph"
 	"server/resolvers"
@@ -33,9 +34,11 @@ func main() {
 		defer pool.Close()
 		resolver.DB = pool
 		resolver.Users = users.NewPostgresStore(pool)
+		resolver.Boards = boards.NewPostgresStore(pool)
 		log.Println("📦 connected to Postgres")
 	} else {
 		resolver.Users = users.NewMemoryStore()
+		resolver.Boards = boards.NewMemoryStore()
 		log.Println("⚠️  DATABASE_URL not set — using in-memory storage")
 	}
 
