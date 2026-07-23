@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: koi
+      POSTGRES_PASSWORD: koi
+      POSTGRES_DB: koi
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - koi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U koi -d koi"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  koi_pgdata:

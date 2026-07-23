@@ -72,6 +72,7 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
+		CreateBoard         func(childComplexity int, title *string) int
 		DeleteShape         func(childComplexity int, boardID string, shapeID string) int
 		Login               func(childComplexity int, email string, password string) int
 		MoveShapeTransient  func(childComplexity int, boardID string, shape TransientShapeInput, clientID string) int
@@ -84,9 +85,10 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Board func(childComplexity int, id string) int
-		Hello func(childComplexity int) int
-		Me    func(childComplexity int) int
+		Board    func(childComplexity int, id string) int
+		Hello    func(childComplexity int) int
+		Me       func(childComplexity int) int
+		MyBoards func(childComplexity int) int
 	}
 
 	Shape struct {
@@ -145,6 +147,7 @@ type MutationResolver interface {
 	Login(ctx context.Context, email string, password string) (*AuthPayload, error)
 	Refresh(ctx context.Context, refreshToken string) (*AuthPayload, error)
 	UpdateCursor(ctx context.Context, boardID string, clientID string, x float64, y float64, name *string) (bool, error)
+	CreateBoard(ctx context.Context, title *string) (*Board, error)
 	UpdateShape(ctx context.Context, boardID string, shape ShapeInput, clientID string) (*Shape, error)
 	MoveShapeTransient(ctx context.Context, boardID string, shape TransientShapeInput, clientID string) (bool, error)
 	MoveShapesTransient(ctx context.Context, boardID string, shapes []*TransientShapeInput, clientID string) (bool, error)
@@ -153,6 +156,7 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	Board(ctx context.Context, id string) (*Board, error)
+	MyBoards(ctx context.Context) ([]*Board, error)
 	Hello(ctx context.Context) (string, error)
 	Me(ctx context.Context) (*User, error)
 }
@@ -265,6 +269,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.LockEvent.ShapeID(childComplexity), true
 
+	case "Mutation.createBoard":
+		if e.complexity.Mutation.CreateBoard == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createBoard_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateBoard(childComplexity, args["title"].(*string)), true
 	case "Mutation.deleteShape":
 		if e.complexity.Mutation.DeleteShape == nil {
 			break
@@ -388,6 +403,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Me(childComplexity), true
+	case "Query.myBoards":
+		if e.complexity.Query.MyBoards == nil {
+			break
+		}
+
+		return e.complexity.Query.MyBoards(childComplexity), true
 
 	case "Shape.boardId":
 		if e.complexity.Shape.BoardID == nil {
@@ -736,9 +757,7 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var sources = []*ast.Source{
-	{Name: "../graphql/auth.graphqls", Input: `# Authentication: email + password, JWT (access + refresh). See docs/AUTH_PLAN.md.
-
-type User {
+	{Name: "../graphql/auth.graphqls", Input: `type User {
   id: ID!
   email: String!
 }
@@ -750,7 +769,6 @@ type AuthPayload {
 }
 
 extend type Query {
-  # The signed-in user, or null when the request carries no valid token.
   me: User
 }
 
@@ -809,10 +827,12 @@ extend type Subscription {
 
 type Query {
   board(id: ID!): Board
+  myBoards: [Board!]!
   hello: String!
 }
 
 extend type Mutation {
+  createBoard(title: String): Board!
   updateShape(boardId: ID!, shape: ShapeInput!, clientID: ID!): Shape!
   moveShapeTransient(
     boardId: ID!
@@ -926,6 +946,17 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
+
+func (ec *executionContext) field_Mutation_createBoard_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "title", ec.unmarshalOString2ᚖstring)
+	if err != nil {
+		return nil, err
+	}
+	args["title"] = arg0
+	return args, nil
+}
 
 func (ec *executionContext) field_Mutation_deleteShape_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -1836,6 +1867,55 @@ func (ec *executionContext) fieldContext_Mutation_updateCursor(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createBoard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_createBoard,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().CreateBoard(ctx, fc.Args["title"].(*string))
+		},
+		nil,
+		ec.marshalNBoard2ᚖserverᚋgraphᚐBoard,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createBoard(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Board_id(ctx, field)
+			case "title":
+				return ec.fieldContext_Board_title(ctx, field)
+			case "shapes":
+				return ec.fieldContext_Board_shapes(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Board", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createBoard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_updateShape(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2116,6 +2196,43 @@ func (ec *executionContext) fieldContext_Query_board(ctx context.Context, field 
 	if fc.Args, err = ec.field_Query_board_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_myBoards(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_myBoards,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Query().MyBoards(ctx)
+		},
+		nil,
+		ec.marshalNBoard2ᚕᚖserverᚋgraphᚐBoardᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_myBoards(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Board_id(ctx, field)
+			case "title":
+				return ec.fieldContext_Board_title(ctx, field)
+			case "shapes":
+				return ec.fieldContext_Board_shapes(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Board", field.Name)
+		},
 	}
 	return fc, nil
 }
@@ -5235,6 +5352,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "createBoard":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createBoard(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "updateShape":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_updateShape(ctx, field)
@@ -5322,6 +5446,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_board(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "myBoards":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_myBoards(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
 				return res
 			}
 
@@ -6059,6 +6205,64 @@ func (ec *executionContext) marshalNAuthPayload2ᚖserverᚋgraphᚐAuthPayload(
 		return graphql.Null
 	}
 	return ec._AuthPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNBoard2serverᚋgraphᚐBoard(ctx context.Context, sel ast.SelectionSet, v Board) graphql.Marshaler {
+	return ec._Board(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNBoard2ᚕᚖserverᚋgraphᚐBoardᚄ(ctx context.Context, sel ast.SelectionSet, v []*Board) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNBoard2ᚖserverᚋgraphᚐBoard(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNBoard2ᚖserverᚋgraphᚐBoard(ctx context.Context, sel ast.SelectionSet, v *Board) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Board(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (bool, error) {

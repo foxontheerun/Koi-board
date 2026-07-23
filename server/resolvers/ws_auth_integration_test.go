@@ -1,6 +1,7 @@
 package resolvers_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -57,7 +58,7 @@ func TestWebsocketAuthHandshake(t *testing.T) {
 	defer ts.Close()
 	url := "ws" + strings.TrimPrefix(ts.URL, "http")
 
-	u, err := users.Register("ws-int@koi.dev", "secret123")
+	u, err := users.NewMemoryStore().Register(context.Background(), "ws-int@koi.dev", "secret123")
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}

@@ -16,7 +16,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const from = (location.state as { from?: string } | null)?.from ?? "/1";
+  const from = (location.state as { from?: string } | null)?.from ?? "/";
   const isLogin = mode === "login";
 
   if (status === "authed") return <Navigate to={from} replace />;

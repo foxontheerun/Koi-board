@@ -7,17 +7,14 @@ package resolvers
 import (
 	"context"
 	"errors"
-
 	"server/auth"
 	"server/graph"
 	"server/users"
 )
 
-var errBadCredentials = errors.New("invalid email or password")
-
 // Signup is the resolver for the signup field.
 func (r *mutationResolver) Signup(ctx context.Context, email string, password string) (*graph.AuthPayload, error) {
-	u, err := users.Register(email, password)
+	u, err := r.Users.Register(ctx, email, password)
 	if err != nil {
 		if errors.Is(err, users.ErrAlreadyExists) {
 			return nil, errors.New("email already registered")
@@ -29,7 +26,7 @@ func (r *mutationResolver) Signup(ctx context.Context, email string, password st
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, email string, password string) (*graph.AuthPayload, error) {
-	u, err := users.GetByEmail(email, password)
+	u, err := r.Users.GetByEmail(ctx, email, password)
 	if err != nil {
 		return nil, errBadCredentials
 	}
@@ -42,7 +39,7 @@ func (r *mutationResolver) Refresh(ctx context.Context, refreshToken string) (*g
 	if err != nil {
 		return nil, err
 	}
-	u, err := users.GetByID(claims.UserID)
+	u, err := r.Users.GetByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -55,27 +52,11 @@ func (r *queryResolver) Me(ctx context.Context) (*graph.User, error) {
 	if !ok {
 		return nil, nil
 	}
-	u, err := users.GetByID(userID)
+	u, err := r.Users.GetByID(ctx, userID)
 	if err != nil {
 		return nil, nil
 	}
 	return &graph.User{ID: u.ID, Email: u.Email}, nil
-}
-
-func authPayload(u *users.User) (*graph.AuthPayload, error) {
-	access, err := auth.GenerateAccessToken(u.ID)
-	if err != nil {
-		return nil, err
-	}
-	refresh, err := auth.GenerateRefreshToken(u.ID)
-	if err != nil {
-		return nil, err
-	}
-	return &graph.AuthPayload{
-		AccessToken:  access,
-		RefreshToken: refresh,
-		User:         &graph.User{ID: u.ID, Email: u.Email},
-	}, nil
 }
 
 // Mutation returns graph.MutationResolver implementation.
