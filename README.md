@@ -8,9 +8,9 @@ selection, layers — with live cursors and conflict handling, rendered on a
 hand-written Canvas engine (no rendering library).
 
 Frontend: React + Vite + TypeScript. Backend: Go + GraphQL (gqlgen) with
-WebSocket subscriptions.
+WebSocket subscriptions and Postgres persistence.
 
-> ⚠️ Under active development — API and structure may change.
+> Under active development — API and structure may change.
 
 ---
 
@@ -24,6 +24,9 @@ WebSocket subscriptions.
   **group resize** (scale the whole selection proportionally)
 - Layer order (front / back / forward / backward), lock / unlock
 - Right-click context menu + floating selection toolbar
+- **Accounts** — email + password sign-in (JWT), verified on both HTTP and the WebSocket
+- **Boards per user** — your own boards, shared by link (open a board's URL to join)
+- **Persistence** — users, boards and shapes stored in Postgres
 
 ---
 
@@ -69,6 +72,21 @@ deterministically unit-tested.
 Changes sync over GraphQL subscriptions (WebSocket). The server keeps per-board
 pub/sub channels for shape events, transient moves, locks and cursors; each client
 ignores its own echoes via a `clientID` guard.
+
+### Accounts, storage & access
+
+- **Auth** — email + password with **JWT** (short access token + refresh). The
+  token is verified by HTTP middleware and on the WebSocket handshake
+  (`connectionParams`), so live channels aren't open to anonymous clients.
+  Passwords are stored as **bcrypt** hashes.
+- **Persistence** — **Postgres** holds users, boards, memberships and shapes.
+  Persisted shape writes happen on release; transient moves, locks and cursors
+  stay in-memory pub/sub (they're realtime, not durable state). Storage sits
+  behind a `Store` interface with in-memory and Postgres implementations, so the
+  server runs without a database (falling back to in-memory) — handy for tests.
+- **Boards per user & sharing** — a board has an owner; opening a board's link
+  joins you as a member (open-by-link collaboration). "My boards" lists what you
+  can access.
 
 ---
 
@@ -117,7 +135,11 @@ canvas, smoothed with a CSS transition between throttled updates.
 Tailwind CSS, Vitest, Playwright.
 
 **Backend:** Go, [gqlgen](https://github.com/99designs/gqlgen), GraphQL
-subscriptions over WebSocket. Storage is currently in-memory (resets on restart).
+subscriptions over WebSocket, JWT auth (bcrypt), Postgres via
+[pgx](https://github.com/jackc/pgx) with
+[golang-migrate](https://github.com/golang-migrate/migrate) migrations. Falls
+back to in-memory storage when no database is configured. See
+[server/README.md](server/README.md).
 
 ---
 
@@ -147,4 +169,8 @@ koi/
 - **End-to-end** ([Playwright](https://playwright.dev/)): board load, persistence,
   and real-time broadcast across two browser contexts (events, locks, movement),
   plus a canvas snapshot. Details: [client/README.md](client/README.md#-testing).
+- **Backend** (Go `testing`): store conformance suites run the same scenarios
+  against both the in-memory and Postgres implementations (users, boards); the
+  Postgres integration tests run when `TEST_DATABASE_URL` is set. Plus JWT and
+  WebSocket-auth unit and handshake tests. See [server/README.md](server/README.md).
   </content>
