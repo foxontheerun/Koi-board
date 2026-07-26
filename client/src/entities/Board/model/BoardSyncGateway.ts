@@ -61,6 +61,7 @@ export class BoardSyncGateway {
   private readonly runtime: BoardRuntime;
   private readonly clientId: string;
   private displayName: string;
+  private readonly onBoardNotFound?: () => void;
 
   // Accumulates the latest position of each shape between flush calls.
   // Map key is shape id — later updates overwrite earlier ones.
@@ -76,11 +77,13 @@ export class BoardSyncGateway {
     runtime: BoardRuntime,
     clientId: string,
     displayName: string,
+    onBoardNotFound?: () => void,
   ) {
     this.boardId = boardId;
     this.runtime = runtime;
     this.clientId = clientId;
     this.displayName = displayName;
+    this.onBoardNotFound = onBoardNotFound;
 
     this.flushTransient = throttle(() => {
       const shapes = Array.from(this.pendingTransient.values());
@@ -102,9 +105,15 @@ export class BoardSyncGateway {
       query: BOARD_QUERY,
       variables: { id: this.boardId },
       fetchPolicy: "network-only",
+      errorPolicy: "all",
     });
 
-    this.runtime.replaceAllShapes(queryResult.data?.board?.shapes ?? []);
+    if (!queryResult.data?.board) {
+      this.onBoardNotFound?.();
+      return;
+    }
+
+    this.runtime.replaceAllShapes(queryResult.data.board.shapes ?? []);
 
     const movedSub = apolloClient
       .subscribe<ShapesMovedResponse>({

@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useRef, useState } from "react";
 import type { StickyColorId, Tool } from "../../../entities/Shape";
 import { TopBar, Toolbar } from "../../../widgets";
@@ -16,6 +16,7 @@ import {
 
 export function BoardPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [activeTool, setActiveTool] = useState<Tool>("pointer");
   const [activeStickyColorId, setActiveStickyColorId] =
     useState<StickyColorId>("yellow");
@@ -54,6 +55,7 @@ export function BoardPage() {
             activeTool={activeTool}
             activeStickyColor={activeStickyColorId}
             onToolComplete={() => setActiveTool("pointer")}
+            onBoardNotFound={() => navigate("/", { replace: true })}
             editingContextRef={editing.ref}
           />
 
