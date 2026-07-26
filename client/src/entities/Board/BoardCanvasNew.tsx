@@ -44,6 +44,7 @@ interface BoardCanvasNewProps {
   activeTool: Tool;
   activeStickyColor: StickyColorId;
   onToolComplete: () => void;
+  onBoardNotFound?: () => void;
   editingContextRef: React.MutableRefObject<EditingContextValue>;
 }
 
@@ -57,6 +58,7 @@ export const BoardCanvasNew = forwardRef<
     activeTool,
     activeStickyColor,
     onToolComplete,
+    onBoardNotFound,
     editingContextRef,
   },
   ref,
@@ -154,6 +156,7 @@ export const BoardCanvasNew = forwardRef<
       runtimeRef.current,
       clientIdRef.current,
       displayName,
+      onBoardNotFound,
     );
 
     runtimeRef.current.setSyncCallbacks({
