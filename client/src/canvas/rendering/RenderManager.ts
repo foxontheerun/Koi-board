@@ -9,9 +9,20 @@ import {
   type Rect,
   clearDirtyRect,
   computeShapesBoundingRect,
+  rectsIntersect,
   selectionBoxToRect,
   unionRects,
 } from "../utils/dirtyRect";
+
+const MOVING_STATES = ["dragging", "resizing", "remote-dragging"];
+
+function sameIds(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const id of a) {
+    if (!b.has(id)) return false;
+  }
+  return true;
+}
 
 export class RenderManager {
   private gridCtx: CanvasRenderingContext2D;
@@ -33,6 +44,10 @@ export class RenderManager {
   private prevOverlayRect: Rect | null = null;
 
   private prevMovingShapeRects = new Map<string, Rect>();
+
+  // Shapes handed over to the drag canvas; the static layer must skip them so
+  // nothing is painted on both canvases at once.
+  private liftedIds = new Set<string>();
 
   constructor(
     gridCanvas: HTMLCanvasElement,
@@ -71,6 +86,45 @@ export class RenderManager {
     this.prevMovingShapeRects.clear();
   }
 
+  private liftShapes(camera: CameraController, candidates: _Shape[]): {
+    lifted: Set<string>;
+    dirtyRect: Rect | null;
+  } {
+    const moving = candidates.filter((s) => MOVING_STATES.includes(s.state));
+    const lifted = new Set(moving.map((s) => s.id));
+
+    let dirtyRect: Rect | null = null;
+
+    for (const s of moving) {
+      const nextRect = computeShapesBoundingRect(camera, [s]);
+      const prevRect = this.prevMovingShapeRects.get(s.id) ?? nextRect;
+      const united = unionRects(prevRect, nextRect);
+      dirtyRect = dirtyRect ? unionRects(dirtyRect, united) : united;
+      this.prevMovingShapeRects.set(s.id, nextRect);
+    }
+
+    for (const id of this.prevMovingShapeRects.keys()) {
+      if (!lifted.has(id)) this.prevMovingShapeRects.delete(id);
+    }
+
+    // A clipped shape must never be drawn partially, so every neighbour the
+    // rect touches joins the drag layer and widens it, until it stops growing.
+    let grown = dirtyRect !== null;
+    while (grown) {
+      grown = false;
+      for (const s of candidates) {
+        if (lifted.has(s.id)) continue;
+        const rect = computeShapesBoundingRect(camera, [s]);
+        if (!rectsIntersect(rect, dirtyRect!)) continue;
+        dirtyRect = unionRects(dirtyRect!, rect);
+        lifted.add(s.id);
+        grown = true;
+      }
+    }
+
+    return { lifted, dirtyRect };
+  }
+
   getMainCanvas(): HTMLCanvasElement {
     return this.mainCanvas;
   }
@@ -101,35 +155,25 @@ export class RenderManager {
 
     this.mainCtx.save();
     camera.applyTransform(this.mainCtx);
-    this.staticLayer.draw(this.mainCtx, entityManager.getShapes());
+    this.staticLayer.draw(
+      this.mainCtx,
+      entityManager.getShapes().filter((s) => !this.liftedIds.has(s.id)),
+    );
     this.mainCtx.restore();
   }
 
   drawDrag(camera: CameraController, entityManager: EntityManager) {
-    const dragging = entityManager.getShapesOnDragLayer();
-    const movingShapes = dragging.filter(
-      (s) => s.state === "dragging" || s.state === "resizing",
-    );
+    const candidates = entityManager.getShapesOnDragLayer();
+    const { lifted, dirtyRect } = this.liftShapes(camera, candidates);
 
-    let dirtyRect: Rect | null = null;
-
-    for (const s of movingShapes) {
-      const nextRect = computeShapesBoundingRect(camera, [s]);
-      const prevRect = this.prevMovingShapeRects.get(s.id) ?? nextRect;
-      const united = unionRects(prevRect, nextRect);
-      dirtyRect = dirtyRect ? unionRects(dirtyRect, united) : united;
-      this.prevMovingShapeRects.set(s.id, nextRect);
-    }
-
-    for (const id of this.prevMovingShapeRects.keys()) {
-      if (!movingShapes.find((s) => s.id === id)) {
-        this.prevMovingShapeRects.delete(id);
-      }
+    if (!sameIds(lifted, this.liftedIds)) {
+      this.liftedIds = lifted;
+      this.drawStatic(camera, entityManager);
     }
 
     clearDirtyRect(this.dragCtx, this.dragCanvas, this.prevDragRect);
 
-    if (dragging.length === 0) {
+    if (lifted.size === 0) {
       this.prevDragRect = null;
       return;
     }
@@ -145,7 +189,10 @@ export class RenderManager {
     }
 
     camera.applyTransform(this.dragCtx);
-    this.dragLayer.draw(this.dragCtx, dragging);
+    this.dragLayer.draw(
+      this.dragCtx,
+      candidates.filter((s) => lifted.has(s.id)),
+    );
 
     this.dragCtx.restore();
   }

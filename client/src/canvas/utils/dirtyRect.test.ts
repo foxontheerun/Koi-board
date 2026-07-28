@@ -1,11 +1,38 @@
 import { describe, it, expect } from "vitest";
 import {
   computeShapesBoundingRect,
+  rectsIntersect,
   selectionBoxToRect,
   unionRects,
 } from "./dirtyRect";
 import type { CameraController } from "../camera/CameraController";
 import type { _Shape } from "../entities";
+
+describe("rectsIntersect", () => {
+  const base = { x: 0, y: 0, w: 100, h: 100 };
+
+  it("is true when rects overlap", () => {
+    expect(rectsIntersect(base, { x: 50, y: 50, w: 100, h: 100 })).toBe(true);
+  });
+
+  it("is true when one contains the other", () => {
+    expect(rectsIntersect(base, { x: 20, y: 20, w: 10, h: 10 })).toBe(true);
+  });
+
+  it("is false when rects are apart on either axis", () => {
+    expect(rectsIntersect(base, { x: 200, y: 0, w: 10, h: 10 })).toBe(false);
+    expect(rectsIntersect(base, { x: 0, y: 200, w: 10, h: 10 })).toBe(false);
+  });
+
+  it("is false when rects only share an edge", () => {
+    expect(rectsIntersect(base, { x: 100, y: 0, w: 10, h: 100 })).toBe(false);
+  });
+
+  it("is symmetric", () => {
+    const other = { x: 90, y: 90, w: 50, h: 50 };
+    expect(rectsIntersect(base, other)).toBe(rectsIntersect(other, base));
+  });
+});
 
 describe("unionRects", () => {
   it("covers two disjoint rectangles", () => {

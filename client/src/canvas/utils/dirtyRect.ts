@@ -67,6 +67,15 @@ export function clearDirtyRect(
   }
 }
 
+export function rectsIntersect(a: Rect, b: Rect): boolean {
+  return (
+    a.x < b.x + b.w &&
+    b.x < a.x + a.w &&
+    a.y < b.y + b.h &&
+    b.y < a.y + a.h
+  );
+}
+
 export function unionRects(a: Rect, b: Rect): Rect {
   const x = Math.ceil(Math.min(a.x, b.x));
   const y = Math.ceil(Math.min(a.y, b.y));
