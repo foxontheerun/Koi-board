@@ -9,9 +9,13 @@ export interface Rect {
   h: number;
 }
 
+// Shadows are drawn in screen pixels and ignore the context transform, so their
+// reach cannot be scaled by zoom: blur 8 + offsetY 4, rounded up.
+const SHADOW_PADDING = 16;
+
 // Covers: overlay bounds padding (30 world units → screen) + handle radius + stroke overhang.
 function computePadding(zoom: number): number {
-  return 30 * zoom + RESIZE_HANDLE_SIZE + 4;
+  return 30 * zoom + RESIZE_HANDLE_SIZE + 4 + SHADOW_PADDING;
 }
 
 export function computeShapesBoundingRect(
@@ -61,6 +65,15 @@ export function clearDirtyRect(
   } else {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
+}
+
+export function rectsIntersect(a: Rect, b: Rect): boolean {
+  return (
+    a.x < b.x + b.w &&
+    b.x < a.x + a.w &&
+    a.y < b.y + b.h &&
+    b.y < a.y + a.h
+  );
 }
 
 export function unionRects(a: Rect, b: Rect): Rect {
