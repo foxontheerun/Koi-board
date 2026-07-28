@@ -9,9 +9,13 @@ export interface Rect {
   h: number;
 }
 
+// Shadows are drawn in screen pixels and ignore the context transform, so their
+// reach cannot be scaled by zoom: blur 8 + offsetY 4, rounded up.
+const SHADOW_PADDING = 16;
+
 // Covers: overlay bounds padding (30 world units → screen) + handle radius + stroke overhang.
 function computePadding(zoom: number): number {
-  return 30 * zoom + RESIZE_HANDLE_SIZE + 4;
+  return 30 * zoom + RESIZE_HANDLE_SIZE + 4 + SHADOW_PADDING;
 }
 
 export function computeShapesBoundingRect(
