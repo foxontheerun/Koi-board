@@ -34,16 +34,23 @@ Backend: `Go + gqlgen` with WebSocket streaming.
   - Send to back
   - Move one layer up
   - Move one layer down
+- Text:
+  - Standalone text blocks and text inside stickers, wrapped by width
+  - Editing in place through a DOM overlay that follows the camera and matches
+    the canvas metrics
+  - Side handles reflow the text, corner handles scale the font with the block;
+    height can be given slack but never crops the text
 - Realtime collaboration between clients:
   - **Live cursors** (presence) rendered as a smoothed DOM overlay, each with an
     editable **display name** (auto-generated, persisted in localStorage)
-  - **Soft-locks** so two clients don't fight over the same shape
+  - **Soft-locks** so two clients don't fight over the same shape, including
+    while text is being edited
   - **Transient updates** (fast x/y/width/height patches sent while dragging)
-  - **Persisted updates** (final save after user releases the mouse)
+  - **Live text updates** while typing, and a **persisted update** on commit
 
 ### Planned / TODO
 
-- Standalone text shape tool (`TEXT` type exists, no creation UI yet)
+- Text styling (size, colour, alignment) beyond the font size a corner drag sets
 - More shape types (image, line, arrow)
 - Undo/Redo history
 - Keyboard shortcuts
