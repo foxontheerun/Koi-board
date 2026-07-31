@@ -58,6 +58,7 @@ export interface ShapeInput {
   width?: number;
   height?: number;
   text?: string | null;
+  fontSize?: number | null;
   rotation?: number | null;
   zIndex?: number | null;
   locked?: boolean | null;

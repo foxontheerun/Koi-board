@@ -13,8 +13,10 @@ import {
   selectionBoxToRect,
   unionRects,
 } from "../utils/dirtyRect";
+import { BRAND } from "../../shared/theme";
 
 const MOVING_STATES = ["dragging", "resizing", "remote-dragging"];
+const TEXT_PREVIEW_COLOR = BRAND.aqua;
 
 function sameIds(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -49,6 +51,10 @@ export class RenderManager {
   // nothing is painted on both canvases at once.
   private liftedIds = new Set<string>();
 
+  // While a shape is being edited its text lives in the DOM overlay; painting
+  // it here as well would show both copies at once.
+  private editingShapeId: string | null = null;
+
   constructor(
     gridCanvas: HTMLCanvasElement,
     mainCanvas: HTMLCanvasElement,
@@ -78,6 +84,10 @@ export class RenderManager {
     });
 
     this.invalidateDirtyRects();
+  }
+
+  setEditingShape(id: string | null) {
+    this.editingShapeId = id;
   }
 
   invalidateDirtyRects() {
@@ -158,6 +168,7 @@ export class RenderManager {
     this.staticLayer.draw(
       this.mainCtx,
       entityManager.getShapes().filter((s) => !this.liftedIds.has(s.id)),
+      this.editingShapeId,
     );
     this.mainCtx.restore();
   }
@@ -211,7 +222,9 @@ export class RenderManager {
   ) {
     clearDirtyRect(this.overlayCtx, this.overlayCanvas, this.prevOverlayRect);
 
+    // The editor draws its own outline, and handles cannot be used mid-typing.
     const selectedShapes = (selectedIds ?? [])
+      .filter((id) => id !== this.editingShapeId)
       .map((id) => entityManager.getById(id))
       .filter((s): s is _Shape => s !== null);
 
@@ -290,6 +303,14 @@ export class RenderManager {
     ctx.strokeStyle = shape.stroke;
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
+
+    // Text has no fill of its own, so its preview is the outline alone.
+    if (shape.type === "TEXT") {
+      ctx.strokeStyle = TEXT_PREVIEW_COLOR;
+      ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+      ctx.restore();
+      return;
+    }
 
     if (shape.type === "RECT" || shape.type === "STICKER") {
       if (shape.radius) {

@@ -3,6 +3,11 @@ import {
   type ShapeType,
   type StickyColorId,
 } from "../../entities/Shape";
+import {
+  DEFAULT_FONT_SIZE,
+  DEFAULT_TEXT_WIDTH,
+  textBlockHeight,
+} from "../entities/shapes/text";
 import type { EntityManager, _Shape } from "../entities";
 import type { RenderOrchestrator } from "../rendering/RenderOrchestrator";
 import type { Point } from "../types";
@@ -17,6 +22,7 @@ const MIN_DRAG_SIZE = 10;
 const DEFAULT_SHAPE_SIZE = 100;
 const RECT_CORNER_RADIUS = 8;
 const DEFAULT_SHAPE_COLOR = { fill: "#DBEAFE", stroke: "#93C5FD" };
+const TEXT_SHAPE_COLOR = { fill: "transparent", stroke: "transparent" };
 
 export class ShapeCreationController {
   private activeStickyColor: StickyColorId = "yellow";
@@ -63,10 +69,7 @@ export class ShapeCreationController {
   begin(worldPoint: Point) {
     this.tool.startPoint = worldPoint;
 
-    const isSticky = this.tool.type === "STICKER";
-    const color = isSticky
-      ? STICKY_PRESETS[this.activeStickyColor]
-      : this.activeShapeColor;
+    const color = this.colorForTool();
 
     this.tool.previewShape = {
       id: crypto.randomUUID(),
@@ -80,7 +83,16 @@ export class ShapeCreationController {
       state: "static",
       radius: this.tool.type === "RECT" ? RECT_CORNER_RADIUS : 0,
       zIndex: this.entityManager.getMaxZIndex() + 1,
+      fontSize: this.tool.type === "TEXT" ? DEFAULT_FONT_SIZE : undefined,
     };
+  }
+
+  private colorForTool() {
+    if (this.tool.type === "TEXT") return TEXT_SHAPE_COLOR;
+    if (this.tool.type === "STICKER") {
+      return STICKY_PRESETS[this.activeStickyColor];
+    }
+    return this.activeShapeColor;
   }
 
   updatePreview(worldPoint: Point) {
@@ -106,7 +118,10 @@ export class ShapeCreationController {
 
     const shape = this.tool.previewShape;
 
-    if (shape.width < MIN_DRAG_SIZE || shape.height < MIN_DRAG_SIZE) {
+    if (shape.type === "TEXT") {
+      if (shape.width < MIN_DRAG_SIZE) shape.width = DEFAULT_TEXT_WIDTH;
+      shape.height = textBlockHeight("", shape.width, shape.fontSize);
+    } else if (shape.width < MIN_DRAG_SIZE || shape.height < MIN_DRAG_SIZE) {
       shape.width = Math.max(shape.width, DEFAULT_SHAPE_SIZE);
       shape.height = Math.max(shape.height, DEFAULT_SHAPE_SIZE);
     }

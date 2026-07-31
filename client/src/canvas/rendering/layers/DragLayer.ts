@@ -16,6 +16,9 @@ export class DragLayer {
         case "RECT":
           CanvasPainter.drawRectShape(ctx, s as unknown as Shape);
           break;
+        case "TEXT":
+          CanvasPainter.drawText(ctx, s as unknown as Shape);
+          break;
         default:
           CanvasPainter.drawRectShape(ctx, s as unknown as Shape);
           break;

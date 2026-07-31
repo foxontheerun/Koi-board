@@ -1,9 +1,30 @@
+import { ResizeHandles, type ResizeHandle } from "../entities/shapes/types";
+import type { _Shape, ManipulationBounds } from "../entities";
 import {
-  ResizeHandles,
-  type _Shape,
-  type ManipulationBounds,
-  type ResizeHandle,
-} from "../entities";
+  DEFAULT_FONT_SIZE,
+  MIN_TEXT_WIDTH,
+  clampFontSize,
+  textBlockHeight,
+} from "../entities/shapes/text";
+
+const LEFT_HANDLES: ResizeHandle[] = [
+  ResizeHandles.Left,
+  ResizeHandles.TopLeft,
+  ResizeHandles.BottomLeft,
+];
+
+const TOP_HANDLES: ResizeHandle[] = [
+  ResizeHandles.Top,
+  ResizeHandles.TopLeft,
+  ResizeHandles.TopRight,
+];
+
+const CORNER_HANDLES: ResizeHandle[] = [
+  ResizeHandles.TopLeft,
+  ResizeHandles.TopRight,
+  ResizeHandles.BottomLeft,
+  ResizeHandles.BottomRight,
+];
 
 export class ResizeCalculator {
   static getShapeManipulationBounds(shape: _Shape): ManipulationBounds {
@@ -43,10 +64,72 @@ export class ResizeCalculator {
     worldPoint: { x: number; y: number },
   ): _Shape {
     switch (shape.type) {
+      case "TEXT":
+        return this.resizeTextShape(shape, handle, worldPoint);
       case "RECT":
       default:
         return this.resizeSimpleShape(shape, handle, worldPoint);
     }
+  }
+
+  // Width reflows the text, corners scale the font with the box, and height is
+  // free above the text: a block can be given slack, never cropped.
+  private static resizeTextShape(
+    shape: _Shape,
+    handle: ResizeHandle,
+    delta: { x: number; y: number },
+  ): _Shape {
+    const text = shape.text ?? "";
+    const startFontSize = shape.fontSize ?? DEFAULT_FONT_SIZE;
+    const anchorRight = LEFT_HANDLES.includes(handle);
+    const anchorBottom = TOP_HANDLES.includes(handle);
+    const isCorner = CORNER_HANDLES.includes(handle);
+
+    const widthChanges =
+      handle !== ResizeHandles.Top && handle !== ResizeHandles.Bottom;
+
+    const width = widthChanges
+      ? Math.max(
+          MIN_TEXT_WIDTH,
+          anchorRight ? shape.width - delta.x : shape.width + delta.x,
+        )
+      : shape.width;
+
+    const fontSize = isCorner
+      ? clampFontSize((startFontSize * width) / shape.width)
+      : startFontSize;
+
+    const fitted = textBlockHeight(text, width, fontSize, shape.fontWeight);
+
+    // A block whose height still matches its text is treated as following it;
+    // once it has been given slack by hand, that slack is kept.
+    const wasFitted =
+      Math.abs(
+        shape.height -
+          textBlockHeight(text, shape.width, startFontSize, shape.fontWeight),
+      ) < 1;
+
+    const dragged = anchorBottom
+      ? shape.height - delta.y
+      : shape.height + delta.y;
+
+    // Corners and edges drag height directly; a side handle only reflows, so
+    // there the height either follows the text or keeps the slack it was given.
+    const height =
+      isCorner || !widthChanges
+        ? Math.max(fitted, dragged)
+        : wasFitted
+          ? fitted
+          : Math.max(fitted, shape.height);
+
+    return {
+      ...shape,
+      width,
+      height,
+      fontSize,
+      x: anchorRight ? shape.x + shape.width - width : shape.x,
+      y: anchorBottom ? shape.y + shape.height - height : shape.y,
+    };
   }
 
   private static resizeSimpleShape(
@@ -54,7 +137,7 @@ export class ResizeCalculator {
     handle: ResizeHandle,
     worldPoint: { x: number; y: number },
   ): _Shape {
-    let newShape = { ...shape };
+    const newShape = { ...shape };
     switch (handle) {
       case ResizeHandles.Right: {
         newShape.width = newShape.width + worldPoint.x;
