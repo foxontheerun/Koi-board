@@ -41,20 +41,24 @@ type Query struct {
 }
 
 type Shape struct {
-	ID          string    `json:"id"`
-	BoardID     string    `json:"boardId"`
-	Type        ShapeType `json:"type"`
-	X           float64   `json:"x"`
-	Y           float64   `json:"y"`
-	Width       float64   `json:"width"`
-	Height      float64   `json:"height"`
-	Text        *string   `json:"text,omitempty"`
-	Rotation    float64   `json:"rotation"`
-	ZIndex      int       `json:"zIndex"`
-	Locked      bool      `json:"locked"`
-	Fill        *string   `json:"fill,omitempty"`
-	Stroke      *string   `json:"stroke,omitempty"`
-	StrokeWidth *float64  `json:"strokeWidth,omitempty"`
+	ID          string     `json:"id"`
+	BoardID     string     `json:"boardId"`
+	Type        ShapeType  `json:"type"`
+	X           float64    `json:"x"`
+	Y           float64    `json:"y"`
+	Width       float64    `json:"width"`
+	Height      float64    `json:"height"`
+	Text        *string    `json:"text,omitempty"`
+	FontSize    *float64   `json:"fontSize,omitempty"`
+	FontWeight  *int       `json:"fontWeight,omitempty"`
+	TextAlign   *TextAlign `json:"textAlign,omitempty"`
+	TextColor   *string    `json:"textColor,omitempty"`
+	Rotation    float64    `json:"rotation"`
+	ZIndex      int        `json:"zIndex"`
+	Locked      bool       `json:"locked"`
+	Fill        *string    `json:"fill,omitempty"`
+	Stroke      *string    `json:"stroke,omitempty"`
+	StrokeWidth *float64   `json:"strokeWidth,omitempty"`
 }
 
 type ShapeEvent struct {
@@ -71,6 +75,10 @@ type ShapeInput struct {
 	Width       *float64   `json:"width,omitempty"`
 	Height      *float64   `json:"height,omitempty"`
 	Text        *string    `json:"text,omitempty"`
+	FontSize    *float64   `json:"fontSize,omitempty"`
+	FontWeight  *int       `json:"fontWeight,omitempty"`
+	TextAlign   *TextAlign `json:"textAlign,omitempty"`
+	TextColor   *string    `json:"textColor,omitempty"`
 	Rotation    *float64   `json:"rotation,omitempty"`
 	ZIndex      *int       `json:"zIndex,omitempty"`
 	Locked      *bool      `json:"locked,omitempty"`
@@ -275,6 +283,63 @@ func (e *ShapeType) UnmarshalJSON(b []byte) error {
 }
 
 func (e ShapeType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type TextAlign string
+
+const (
+	TextAlignLeft   TextAlign = "LEFT"
+	TextAlignCenter TextAlign = "CENTER"
+	TextAlignRight  TextAlign = "RIGHT"
+)
+
+var AllTextAlign = []TextAlign{
+	TextAlignLeft,
+	TextAlignCenter,
+	TextAlignRight,
+}
+
+func (e TextAlign) IsValid() bool {
+	switch e {
+	case TextAlignLeft, TextAlignCenter, TextAlignRight:
+		return true
+	}
+	return false
+}
+
+func (e TextAlign) String() string {
+	return string(e)
+}
+
+func (e *TextAlign) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = TextAlign(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid TextAlign", str)
+	}
+	return nil
+}
+
+func (e TextAlign) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *TextAlign) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e TextAlign) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

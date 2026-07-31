@@ -42,6 +42,15 @@ func main() {
 		log.Println("⚠️  DATABASE_URL not set — using in-memory storage")
 	}
 
+	if os.Getenv("DEV_NO_AUTH") == "1" {
+		id, err := ensureDevUser(context.Background(), resolver.Users)
+		if err != nil {
+			log.Fatalf("dev user: %v", err)
+		}
+		auth.EnableDevUser(id)
+		log.Printf("⚠️  DEV_NO_AUTH=1 — every request without a token acts as %s", devUserEmail)
+	}
+
 	// Создаём gqlgen-сервер
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
 		Resolvers: resolver,
@@ -81,4 +90,21 @@ func main() {
 
 	log.Println("🚀 server started at http://localhost:8080/")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+const (
+	devUserEmail    = "dev@local"
+	devUserPassword = "dev-password"
+)
+
+func ensureDevUser(ctx context.Context, store users.Store) (string, error) {
+	if user, err := store.GetByEmail(ctx, devUserEmail, devUserPassword); err == nil {
+		return user.ID, nil
+	}
+
+	user, err := store.Register(ctx, devUserEmail, devUserPassword)
+	if err != nil {
+		return "", err
+	}
+	return user.ID, nil
 }

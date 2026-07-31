@@ -1,6 +1,19 @@
 import type { Shape } from "../../entities/Shape";
 import type { _Shape } from "../entities";
 import { adjustHexBrightness } from "./colorUtils";
+import {
+  DEFAULT_FONT_SIZE,
+  DEFAULT_FONT_WEIGHT,
+  STICKER_TEXT_COLOR,
+  TEXT_COLOR,
+  TEXT_PADDING,
+  contentWidth,
+  fontMetricsFor,
+  fontString,
+  layoutFor,
+  lineHeightFor,
+  measurerFor,
+} from "../entities/shapes/text";
 
 export class CanvasPainter {
   public static drawRectShape(ctx: CanvasRenderingContext2D, shape: Shape) {
@@ -121,17 +134,71 @@ export class CanvasPainter {
   public static drawSticker(
     ctx: CanvasRenderingContext2D,
     shape: Shape,
-    options?: { shadowColor?: string; showShadow?: boolean },
+    options?: {
+      shadowColor?: string;
+      showShadow?: boolean;
+      showText?: boolean;
+    },
   ) {
-    const { shadowColor = "rgba(90, 112, 145, 0.36)", showShadow = true } =
-      options || {};
+    const {
+      shadowColor = "rgba(90, 112, 145, 0.36)",
+      showShadow = true,
+      showText = true,
+    } = options || {};
+
     ctx.save();
     this.drawStickerWithShadow(ctx, shape, shadowColor, showShadow);
-    if (shape.text) {
-      ctx.fillStyle = "#333";
-      ctx.font = "14px sans-serif";
-      ctx.fillText(shape.text, shape.x + 8, shape.y + 20);
+    if (showText) this.drawWrappedText(ctx, shape, STICKER_TEXT_COLOR, true);
+    ctx.restore();
+  }
+
+  public static drawText(ctx: CanvasRenderingContext2D, shape: Shape) {
+    this.drawWrappedText(ctx, shape, TEXT_COLOR, false);
+  }
+
+  public static drawWrappedText(
+    ctx: CanvasRenderingContext2D,
+    shape: Shape,
+    color: string,
+    clipToShape: boolean,
+  ) {
+    if (!shape.text) return;
+
+    const fontSize = shape.fontSize ?? DEFAULT_FONT_SIZE;
+    const fontWeight = shape.fontWeight ?? DEFAULT_FONT_WEIGHT;
+    const font = fontString(fontSize, fontWeight);
+    const lineHeight = lineHeightFor(fontSize);
+    const layout = layoutFor(shape.text, shape.width, fontSize, fontWeight);
+    const boxWidth = contentWidth(shape.width);
+    const align = shape.textAlign ?? "LEFT";
+
+    ctx.save();
+
+    if (clipToShape) {
+      ctx.beginPath();
+      ctx.rect(shape.x, shape.y, shape.width, shape.height);
+      ctx.clip();
     }
+
+    const { ascent, halfLeading } = fontMetricsFor(font, fontSize);
+    const measure = measurerFor(font);
+
+    ctx.fillStyle = shape.textColor ?? color;
+    ctx.font = font;
+    ctx.textBaseline = "alphabetic";
+
+    layout.lines.forEach((line, index) => {
+      const slack = boxWidth - measure(line);
+      const indent =
+        align === "CENTER" ? slack / 2 : align === "RIGHT" ? slack : 0;
+
+      ctx.fillText(
+        line,
+        shape.x + TEXT_PADDING + Math.max(0, indent),
+        shape.y + TEXT_PADDING + index * lineHeight + halfLeading + ascent,
+      );
+    });
+
     ctx.restore();
   }
 

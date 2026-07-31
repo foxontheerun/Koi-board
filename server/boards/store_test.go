@@ -14,6 +14,8 @@ import (
 
 func ptrType(t graph.ShapeType) *graph.ShapeType { return &t }
 func ptrF(v float64) *float64                    { return &v }
+func ptrS(v string) *string                      { return &v }
+func ptrI(v int) *int                            { return &v }
 
 func newShape(id string) graph.ShapeInput {
 	return graph.ShapeInput{
@@ -80,6 +82,53 @@ func runBoardStoreSuite(t *testing.T, s Store, ownerID, otherID string) {
 	}
 	if board.Shapes[0].X != 99 || board.Shapes[0].Y != 20 {
 		t.Fatalf("partial patch should move x and keep y, got x=%v y=%v", board.Shapes[0].X, board.Shapes[0].Y)
+	}
+
+	align := graph.TextAlignCenter
+	if _, _, err := s.UpsertShape(ctx, b.ID, graph.ShapeInput{
+		ID:         "s1",
+		Text:       ptrS("hello"),
+		FontSize:   ptrF(24),
+		FontWeight: ptrI(700),
+		TextAlign:  &align,
+		TextColor:  ptrS("#FF0000"),
+	}); err != nil {
+		t.Fatalf("patch text: %v", err)
+	}
+	if _, _, err := s.UpsertShape(ctx, b.ID, moveX("s1", 42)); err != nil {
+		t.Fatalf("move after text: %v", err)
+	}
+
+	board, err = s.Get(ctx, b.ID, ownerID)
+	if err != nil {
+		t.Fatalf("reload after text: %v", err)
+	}
+	textShape := board.Shapes[0]
+	if textShape.Text == nil || *textShape.Text != "hello" {
+		t.Fatalf("text should survive an unrelated patch, got %v", textShape.Text)
+	}
+	if textShape.FontSize == nil || *textShape.FontSize != 24 {
+		t.Fatalf("font size should survive an unrelated patch, got %v", textShape.FontSize)
+	}
+	if textShape.FontWeight == nil || *textShape.FontWeight != 700 {
+		t.Fatalf("font weight should survive an unrelated patch, got %v", textShape.FontWeight)
+	}
+	if textShape.TextAlign == nil || *textShape.TextAlign != graph.TextAlignCenter {
+		t.Fatalf("text align should survive an unrelated patch, got %v", textShape.TextAlign)
+	}
+	if textShape.TextColor == nil || *textShape.TextColor != "#FF0000" {
+		t.Fatalf("text colour should survive an unrelated patch, got %v", textShape.TextColor)
+	}
+
+	if _, _, err := s.UpsertShape(ctx, b.ID, graph.ShapeInput{
+		ID:   "s1",
+		Text: ptrS(""),
+	}); err != nil {
+		t.Fatalf("clear text: %v", err)
+	}
+	board, _ = s.Get(ctx, b.ID, ownerID)
+	if cleared := board.Shapes[0].Text; cleared == nil || *cleared != "" {
+		t.Fatalf("empty text should be stored, got %v", cleared)
 	}
 
 	del, err := s.DeleteShape(ctx, b.ID, "s1")

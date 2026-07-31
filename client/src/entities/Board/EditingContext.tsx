@@ -1,12 +1,13 @@
 import { createContext, useContext, useRef, useState } from "react";
 
+// Position is derived from the live shape and camera on every render, so the
+// editor keeps tracking the shape while the board is panned or zoomed.
 export interface EditingShape {
   id: string;
-  screenX: number;
-  screenY: number;
-  screenW: number;
-  screenH: number;
   text: string;
+  // Viewport point of the click that opened the editor, so the caret can land
+  // where the pointer did rather than at the end of the text.
+  caretAt?: { x: number; y: number };
 }
 
 export interface EditingContextValue {

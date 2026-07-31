@@ -9,6 +9,8 @@ export type Tool =
 
 export type ShapeType = "RECT" | "ELLIPSE" | "TEXT" | "STICKER";
 
+export type TextAlign = "LEFT" | "CENTER" | "RIGHT";
+
 export interface Shape {
   id: string;
   boardId: string;
@@ -20,6 +22,10 @@ export interface Shape {
   height: number;
 
   text?: string | null;
+  fontSize?: number | null;
+  fontWeight?: number | null;
+  textAlign?: TextAlign | null;
+  textColor?: string | null;
 
   rotation?: number;
   zIndex?: number;

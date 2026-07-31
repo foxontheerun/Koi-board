@@ -6,7 +6,6 @@ package resolvers
 
 import (
 	"context"
-
 	"server/graph"
 	"server/locks"
 	"server/subscriptions"

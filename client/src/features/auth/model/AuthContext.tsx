@@ -37,6 +37,12 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Mirrors DEV_NO_AUTH on the server: it treats tokenless requests as dev@local,
+// so the client can skip the login screen instead of holding a session.
+const DEV_NO_AUTH = import.meta.env.VITE_DEV_NO_AUTH === "1";
+
+const DEV_USER: AuthUser = { id: "dev", email: "dev@local" };
+
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
@@ -44,8 +50,12 @@ export function useAuth(): AuthContextValue {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [status, setStatus] = useState<Status>("loading");
+  const [user, setUser] = useState<AuthUser | null>(
+    DEV_NO_AUTH ? DEV_USER : null,
+  );
+  const [status, setStatus] = useState<Status>(
+    DEV_NO_AUTH ? "authed" : "loading",
+  );
 
   const applyPayload = useCallback((p: AuthPayload) => {
     setSession(p.accessToken, p.refreshToken);
@@ -54,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (DEV_NO_AUTH) return;
+
     const refreshToken = getRefreshToken();
     if (!refreshToken) {
       setStatus("anon");
@@ -109,9 +121,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearSession();
+    void apolloClient.clearStore();
+
+    if (DEV_NO_AUTH) return;
+
     setUser(null);
     setStatus("anon");
-    void apolloClient.clearStore();
   }, []);
 
   return (

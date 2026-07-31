@@ -1,4 +1,4 @@
-import type { ShapeType } from "../../entities/Shape";
+import type { ShapeType, TextAlign } from "../../entities/Shape";
 import { ResizeCalculator } from "../interaction";
 import type { _Shape } from "./shapes";
 
@@ -89,6 +89,11 @@ export interface RemoteShape {
   y: number;
   width: number;
   height: number;
+  text?: string | null;
+  fontSize?: number | null;
+  fontWeight?: number | null;
+  textAlign?: TextAlign | null;
+  textColor?: string | null;
   fill?: string | null;
   stroke?: string | null;
   strokeWidth?: number | null;
@@ -133,6 +138,11 @@ export class EntityManager {
       y: shape.y,
       width: shape.width,
       height: shape.height,
+      text: shape.text ?? undefined,
+      fontSize: shape.fontSize ?? undefined,
+      fontWeight: shape.fontWeight ?? undefined,
+      textAlign: shape.textAlign ?? undefined,
+      textColor: shape.textColor ?? undefined,
       fill: shape.fill ?? "#c5ff5b",
       stroke: shape.stroke ?? "#c5ff5b",
       strokeWidth: shape.strokeWidth ? String(shape.strokeWidth) : undefined,

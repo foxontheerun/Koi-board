@@ -9,11 +9,19 @@ import {
   Trash2,
   MoreHorizontal,
 } from "lucide-react";
+import type {
+  TextStyle,
+  TextStylePatch,
+} from "../../../canvas/core/ShapeCommands";
+import { TextStyleControls } from "./TextStyleControls";
+import { iconButton, popover } from "./toolbarStyles";
 
 export interface SelectionToolbarProps {
   x: number;
   y: number;
   isLocked: boolean;
+  textStyle?: TextStyle | null;
+  onTextStyleChange?: (patch: TextStylePatch) => void;
   onBringToFront: () => void;
   onMoveForward: () => void;
   onMoveBackward: () => void;
@@ -22,13 +30,12 @@ export interface SelectionToolbarProps {
   onDelete: () => void;
 }
 
-const iconButton =
-  "p-2 rounded-md hover:bg-[#F5F5F5] text-[#1A1A1A] transition-colors";
-
 export function SelectionToolbar({
   x,
   y,
   isLocked,
+  textStyle,
+  onTextStyleChange,
   onBringToFront,
   onMoveForward,
   onMoveBackward,
@@ -51,10 +58,26 @@ export function SelectionToolbar({
   }, [overflowOpen]);
 
   const layerItems = [
-    { icon: <ChevronsUp className="w-4 h-4" />, label: "Bring to front", onClick: onBringToFront },
-    { icon: <ChevronUp className="w-4 h-4" />, label: "Move forward", onClick: onMoveForward },
-    { icon: <ChevronDown className="w-4 h-4" />, label: "Move backward", onClick: onMoveBackward },
-    { icon: <ChevronsDown className="w-4 h-4" />, label: "Send to back", onClick: onSendToBack },
+    {
+      icon: <ChevronsUp className="w-4 h-4" />,
+      label: "Bring to front",
+      onClick: onBringToFront,
+    },
+    {
+      icon: <ChevronUp className="w-4 h-4" />,
+      label: "Move forward",
+      onClick: onMoveForward,
+    },
+    {
+      icon: <ChevronDown className="w-4 h-4" />,
+      label: "Move backward",
+      onClick: onMoveBackward,
+    },
+    {
+      icon: <ChevronsDown className="w-4 h-4" />,
+      label: "Send to back",
+      onClick: onSendToBack,
+    },
   ];
 
   return (
@@ -64,6 +87,10 @@ export function SelectionToolbar({
       style={{ left: x, top: y }}
     >
       <div className="flex items-center gap-0.5 bg-white rounded-lg shadow-xl border border-[#E5E5E5] px-1 py-1">
+        {textStyle && onTextStyleChange && !isLocked && (
+          <TextStyleControls style={textStyle} onChange={onTextStyleChange} />
+        )}
+
         {isLocked ? (
           <button className={iconButton} title="Unlock" onClick={onToggleLock}>
             <LockOpen className="w-4 h-4" />
@@ -93,7 +120,7 @@ export function SelectionToolbar({
       </div>
 
       {overflowOpen && !isLocked && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-xl border border-[#E5E5E5] py-1 min-w-44">
+        <div className={`${popover} right-0 py-1 min-w-44`}>
           {layerItems.map((item) => (
             <button
               key={item.label}

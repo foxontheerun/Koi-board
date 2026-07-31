@@ -5,6 +5,12 @@ enum ShapeType {
   STICKER
 }
 
+enum TextAlign {
+  LEFT
+  CENTER
+  RIGHT
+}
+
 type Shape {
   id: ID!
   boardId: ID!
@@ -16,6 +22,10 @@ type Shape {
   height: Float!
 
   text: String
+  fontSize: Float
+  fontWeight: Int
+  textAlign: TextAlign
+  textColor: String
   rotation: Float!
   zIndex: Int!
   locked: Boolean!
@@ -36,6 +46,10 @@ input ShapeInput {
   height: Float
 
   text: String
+  fontSize: Float
+  fontWeight: Int
+  textAlign: TextAlign
+  textColor: String
   rotation: Float
   zIndex: Int
   locked: Boolean

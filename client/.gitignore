@@ -28,3 +28,7 @@ playwright-report
 *.sln
 *.sw?
 CLAUDE.md
+
+# Local env
+.env
+.env.local

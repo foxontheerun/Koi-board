@@ -8,7 +8,6 @@ import {
   BoardCanvasNew,
   type BoardCanvasHandle,
 } from "../../../entities/Board/BoardCanvasNew";
-import { BoardOverlayLayer } from "../../../entities/Board/BoardOverlayLayer";
 import {
   EditingContext,
   useEditingProvider,
@@ -57,12 +56,6 @@ export function BoardPage() {
             onToolComplete={() => setActiveTool("pointer")}
             onBoardNotFound={() => navigate("/", { replace: true })}
             editingContextRef={editing.ref}
-          />
-
-          <BoardOverlayLayer
-            onCommit={(shapeId, text) => {
-              canvasRef.current?.commitText?.(shapeId, text);
-            }}
           />
         </div>
       </div>

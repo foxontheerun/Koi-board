@@ -18,6 +18,9 @@ func WebsocketInit(ctx context.Context, initPayload transport.InitPayload) (cont
 		token = initPayload.GetString("authToken")
 	}
 	if token == "" {
+		if devID := DevUserID(); devID != "" {
+			return WithUserID(ctx, devID), nil, nil
+		}
 		return ctx, nil, ErrMissingToken
 	}
 
