@@ -36,6 +36,18 @@ func applyShapePatch(shape *graph.Shape, input graph.ShapeInput) {
 	if input.Text != nil {
 		shape.Text = input.Text
 	}
+	if input.FontSize != nil {
+		shape.FontSize = input.FontSize
+	}
+	if input.FontWeight != nil {
+		shape.FontWeight = input.FontWeight
+	}
+	if input.TextAlign != nil {
+		shape.TextAlign = input.TextAlign
+	}
+	if input.TextColor != nil {
+		shape.TextColor = input.TextColor
+	}
 	if input.Rotation != nil {
 		shape.Rotation = *input.Rotation
 	}

@@ -19,19 +19,38 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool}
 }
 
-const shapeColumns = `id, board_id, type, x, y, width, height, rotation, z_index, locked, text, fill, stroke, stroke_width`
+const shapeColumns = `id, board_id, type, x, y, width, height, rotation, z_index, locked, text, font_size, font_weight, text_align, text_color, fill, stroke, stroke_width`
 
 func scanShape(row pgx.Row) (*graph.Shape, error) {
 	var sh graph.Shape
 	var shapeType string
+	var textAlign *string
 	if err := row.Scan(
 		&sh.ID, &sh.BoardID, &shapeType, &sh.X, &sh.Y, &sh.Width, &sh.Height,
-		&sh.Rotation, &sh.ZIndex, &sh.Locked, &sh.Text, &sh.Fill, &sh.Stroke, &sh.StrokeWidth,
+		&sh.Rotation, &sh.ZIndex, &sh.Locked, &sh.Text, &sh.FontSize, &sh.FontWeight,
+		&textAlign, &sh.TextColor, &sh.Fill, &sh.Stroke, &sh.StrokeWidth,
 	); err != nil {
 		return nil, err
 	}
 	sh.Type = graph.ShapeType(shapeType)
+	sh.TextAlign = toTextAlign(textAlign)
 	return &sh, nil
+}
+
+func toTextAlign(value *string) *graph.TextAlign {
+	if value == nil {
+		return nil
+	}
+	align := graph.TextAlign(*value)
+	return &align
+}
+
+func fromTextAlign(value *graph.TextAlign) *string {
+	if value == nil {
+		return nil
+	}
+	text := string(*value)
+	return &text
 }
 
 func (s *PostgresStore) Create(ctx context.Context, ownerID, title string) (*graph.Board, error) {
@@ -143,11 +162,12 @@ func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input g
 
 	var sh graph.Shape
 	var outType string
+	var outAlign *string
 	var created bool
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO shapes (id, board_id, type, x, y, width, height, rotation, z_index, locked, text, fill, stroke, stroke_width)
+		`INSERT INTO shapes (id, board_id, type, x, y, width, height, rotation, z_index, locked, text, font_size, font_weight, text_align, text_color, fill, stroke, stroke_width)
 		 VALUES ($1, $2, COALESCE($3, ''), COALESCE($4, 0), COALESCE($5, 0), COALESCE($6, 0), COALESCE($7, 0),
-		         COALESCE($8, 0), COALESCE($9, 0), COALESCE($10, false), $11, $12, $13, $14)
+		         COALESCE($8, 0), COALESCE($9, 0), COALESCE($10, false), $11, $12, $13, $14, $15, $16, $17, $18)
 		 ON CONFLICT (id) DO UPDATE SET
 		     type = COALESCE($3, shapes.type),
 		     x = COALESCE($4, shapes.x),
@@ -158,21 +178,29 @@ func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input g
 		     z_index = COALESCE($9, shapes.z_index),
 		     locked = COALESCE($10, shapes.locked),
 		     text = COALESCE($11, shapes.text),
-		     fill = COALESCE($12, shapes.fill),
-		     stroke = COALESCE($13, shapes.stroke),
-		     stroke_width = COALESCE($14, shapes.stroke_width),
+		     font_size = COALESCE($12, shapes.font_size),
+		     font_weight = COALESCE($13, shapes.font_weight),
+		     text_align = COALESCE($14, shapes.text_align),
+		     text_color = COALESCE($15, shapes.text_color),
+		     fill = COALESCE($16, shapes.fill),
+		     stroke = COALESCE($17, shapes.stroke),
+		     stroke_width = COALESCE($18, shapes.stroke_width),
 		     updated_at = now()
 		 RETURNING `+shapeColumns+`, (xmax = 0)`,
 		input.ID, boardID, shapeType, input.X, input.Y, input.Width, input.Height,
-		input.Rotation, input.ZIndex, input.Locked, input.Text, input.Fill, input.Stroke, input.StrokeWidth,
+		input.Rotation, input.ZIndex, input.Locked, input.Text, input.FontSize,
+		input.FontWeight, fromTextAlign(input.TextAlign), input.TextColor,
+		input.Fill, input.Stroke, input.StrokeWidth,
 	).Scan(
 		&sh.ID, &sh.BoardID, &outType, &sh.X, &sh.Y, &sh.Width, &sh.Height,
-		&sh.Rotation, &sh.ZIndex, &sh.Locked, &sh.Text, &sh.Fill, &sh.Stroke, &sh.StrokeWidth, &created,
+		&sh.Rotation, &sh.ZIndex, &sh.Locked, &sh.Text, &sh.FontSize, &sh.FontWeight,
+		&outAlign, &sh.TextColor, &sh.Fill, &sh.Stroke, &sh.StrokeWidth, &created,
 	)
 	if err != nil {
 		return nil, false, err
 	}
 	sh.Type = graph.ShapeType(outType)
+	sh.TextAlign = toTextAlign(outAlign)
 	return &sh, created, nil
 }
 
