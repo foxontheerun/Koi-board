@@ -11,6 +11,8 @@ func Middleware(next http.Handler) http.Handler {
 			if claims, err := ParseToken(token); err == nil {
 				r = r.WithContext(WithUserID(r.Context(), claims.UserID))
 			}
+		} else if devID := DevUserID(); devID != "" {
+			r = r.WithContext(WithUserID(r.Context(), devID))
 		}
 		next.ServeHTTP(w, r)
 	})
