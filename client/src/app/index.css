@@ -164,3 +164,9 @@ body {
     color: var(--foreground);
   }
 }
+
+[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: #9aa4ad;
+  pointer-events: none;
+}
