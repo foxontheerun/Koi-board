@@ -17,6 +17,7 @@ import { RenderOrchestrator } from "../rendering/RenderOrchestrator";
 import { CollabController } from "../collab/CollabController";
 import { ShapeCreationController } from "../interaction/ShapeCreationController";
 import { ShapeCommands } from "./ShapeCommands";
+import type { TextStyle, TextStylePatch } from "./ShapeCommands";
 import { PointerController } from "../interaction/PointerController";
 
 export class BoardRuntime {
@@ -88,6 +89,7 @@ export class BoardRuntime {
       this.interactionManager,
       {
         onPersist: (shape) => this.syncCallbacks.onLocalShapePersisted?.(shape),
+        onLiveEdit: (shape) => this.syncCallbacks.onLocalShapeLiveEdit?.(shape),
         onDelete: (id) => this.syncCallbacks.onLocalShapeDeleted?.(id),
         onSelectionChange: (ids) => this.syncCallbacks.onSelectionChange?.(ids),
       },
@@ -166,6 +168,7 @@ export class BoardRuntime {
   private syncCallbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
+    onLocalShapeLiveEdit?: (shape: _Shape) => void;
     onLocalLock?: (shapeId: string, action: LockAction) => void;
     onLocalShapeDeleted?: (shapeId: string) => void;
     onSelectionChange?: (ids: string[]) => void;
@@ -176,6 +179,7 @@ export class BoardRuntime {
   setSyncCallbacks(callbacks: {
     onLocalShapeTransient?: (shape: _Shape) => void;
     onLocalShapePersisted?: (shape: _Shape) => void;
+    onLocalShapeLiveEdit?: (shape: _Shape) => void;
     onLocalLock?: (shapeId: string, action: LockAction) => void;
     onLocalShapeDeleted?: (shapeId: string) => void;
     onSelectionChange?: (ids: string[]) => void;
@@ -239,29 +243,64 @@ export class BoardRuntime {
     return this.entityManager.findShapeAt(worldPoint);
   }
 
-  getShapeScreenRect(
+  setEditingShape(id: string | null) {
+    this.renderManager.setEditingShape(id);
+    this.renderOrchestrator.staticLayer();
+    this.renderOrchestrator.overlay();
+  }
+
+  // Editing holds the same soft lock as dragging, so two people cannot type
+  // into one shape and silently overwrite each other on commit.
+  canEditShape(id: string): boolean {
+    return !this.collab.isLockedByOther(id);
+  }
+
+  beginTextEditing(id: string) {
+    this.collab.acquire([id]);
+  }
+
+  endTextEditing(id: string) {
+    this.collab.release([id]);
+  }
+
+  setTextStyle(ids: string[], patch: TextStylePatch) {
+    this.shapeCommands.setTextStyle(ids, patch);
+  }
+
+  getTextStyle(ids: string[]): TextStyle | null {
+    return this.shapeCommands.textStyleOf(ids);
+  }
+
+  previewShapeText(id: string, text: string) {
+    this.collab.renew([id]);
+    this.shapeCommands.previewShapeText(id, text);
+  }
+
+  commitShapeText(id: string, text: string) {
+    this.shapeCommands.commitShapeText(id, text);
+  }
+
+  getShape(id: string): _Shape | null {
+    return this.entityManager.getById(id);
+  }
+
+  // Screen coordinates relative to the canvas element, for DOM overlays that
+  // live inside it.
+  getShapeCanvasRect(
     shape: _Shape,
-  ): { x: number; y: number; w: number; h: number } | null {
+  ): { x: number; y: number; w: number; h: number } {
     const topLeft = this.camera.worldToScreen(shape.x, shape.y);
     const bottomRight = this.camera.worldToScreen(
       shape.x + shape.width,
       shape.y + shape.height,
     );
 
-    const canvasRect = this.renderManager
-      .getMainCanvas()
-      .getBoundingClientRect();
-
     return {
-      x: topLeft.x + canvasRect.left,
-      y: topLeft.y + canvasRect.top,
+      x: topLeft.x,
+      y: topLeft.y,
       w: bottomRight.x - topLeft.x,
       h: bottomRight.y - topLeft.y,
     };
-  }
-
-  updateShapeText(id: string, text: string) {
-    this.shapeCommands.updateShapeText(id, text);
   }
 
   getSelectedIds(): string[] {

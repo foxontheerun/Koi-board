@@ -6,8 +6,11 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
+import { throttle } from "lodash";
 import { type CameraController, BoardRuntime } from "../../canvas";
 import type { RemoteCursor } from "../../canvas/types";
+import type { _Shape } from "../../canvas/entities";
+import type { TextStyle } from "../../canvas/core/ShapeCommands";
 import { BoardSyncGateway } from "./model/BoardSyncGateway";
 import type { ShapeType, StickyColorId, Tool } from "../Shape";
 import type { EditingContextValue } from "./EditingContext";
@@ -20,6 +23,7 @@ import {
 } from "../../features/presence/lib/displayName";
 import { NamePlate } from "../../features/presence/ui/NamePlate";
 import { useAuth } from "../../features/auth/model/AuthContext";
+import { TextEditor } from "./TextEditor";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
@@ -27,15 +31,17 @@ export const MAX_ZOOM = 400;
 // Constant screen-space gap between a shape and its floating toolbar.
 const TOOLBAR_GAP = 12;
 
+const LIVE_EDIT_INTERVAL = 300;
+
 const toolToShapeType: Partial<Record<Tool, ShapeType>> = {
   sticker: "STICKER",
   rectangle: "RECT",
   ellipse: "ELLIPSE",
+  text: "TEXT",
 };
 
 export interface BoardCanvasHandle {
   setShapeColor: (fill: string, stroke: string) => void;
-  commitText: (shapeId: string, text: string) => void;
 }
 
 interface BoardCanvasNewProps {
@@ -75,6 +81,7 @@ export const BoardCanvasNew = forwardRef<
   const [selection, setSelection] = useState<{
     ids: string[];
     isLocked: boolean;
+    textStyle: TextStyle | null;
   } | null>(null);
   const [toolbar, setToolbar] = useState<{
     x: number;
@@ -84,6 +91,7 @@ export const BoardCanvasNew = forwardRef<
   const { user } = useAuth();
   const [cursors, setCursors] = useState<RemoteCursor[]>([]);
   const [camera, setLocalCamera] = useState<CameraController | null>(null);
+  const [runtime, setRuntime] = useState<BoardRuntime | null>(null);
   const [displayName, setDisplayName] = useState(
     () =>
       loadSavedDisplayName() ??
@@ -119,9 +127,6 @@ export const BoardCanvasNew = forwardRef<
     setShapeColor: (fill: string, stroke: string) => {
       runtimeRef.current?.setActiveShapeColor(fill, stroke);
     },
-    commitText: (shapeId: string, text: string) => {
-      runtimeRef.current?.updateShapeText(shapeId, text);
-    },
   }));
 
   useEffect(() => {
@@ -151,6 +156,7 @@ export const BoardCanvasNew = forwardRef<
     runtimeRef.current.setClientId(clientIdRef.current);
     setCamera(runtimeRef.current.camera);
     setLocalCamera(runtimeRef.current.camera);
+    setRuntime(runtimeRef.current);
     gatewayRef.current = new BoardSyncGateway(
       boardId,
       runtimeRef.current,
@@ -159,13 +165,27 @@ export const BoardCanvasNew = forwardRef<
       onBoardNotFound,
     );
 
+    // Typing reaches the other clients as it happens, not only on commit.
+    const sendLiveEdit = throttle((shape: _Shape) => {
+      gatewayRef.current?.sendPersisted(shape);
+    }, LIVE_EDIT_INTERVAL);
+
     runtimeRef.current.setSyncCallbacks({
       onLocalShapeTransient: (shape) => {
         gatewayRef.current?.sendTransient(shape);
       },
+      onLocalShapeLiveEdit: (shape) => {
+        sendLiveEdit(shape);
+      },
       onLocalShapePersisted: (shape) => {
+        sendLiveEdit.cancel();
         gatewayRef.current?.sendPersisted(shape);
         onToolComplete?.();
+
+        // A new text block is empty, so it is only visible once you type.
+        if (shape.type === "TEXT" && !shape.text) {
+          editingContextRef.current.startEditing({ id: shape.id, text: "" });
+        }
       },
       onLocalLock: (shapeId, action) => {
         gatewayRef.current?.sendLock(shapeId, action);
@@ -176,7 +196,11 @@ export const BoardCanvasNew = forwardRef<
       onSelectionChange: (ids) => {
         setSelection(
           ids.length > 0
-            ? { ids, isLocked: runtimeRef.current?.areAllLocked(ids) ?? false }
+            ? {
+                ids,
+                isLocked: runtimeRef.current?.areAllLocked(ids) ?? false,
+                textStyle: runtimeRef.current?.getTextStyle(ids) ?? null,
+              }
             : null,
         );
       },
@@ -200,9 +224,11 @@ export const BoardCanvasNew = forwardRef<
 
     return () => {
       observer.disconnect();
+      sendLiveEdit.cancel();
       gatewayRef.current?.dispose();
       gatewayRef.current = null;
       runtimeRef.current = null;
+      setRuntime(null);
     };
   }, [boardId, setCamera]);
 
@@ -250,19 +276,13 @@ export const BoardCanvasNew = forwardRef<
     if (!runtime) return;
 
     const shape = runtime.findShapeAtScreen(e.clientX, e.clientY);
-    if (!shape) return;
-
-    const rect = runtime.getShapeScreenRect(shape);
-    if (!rect) return;
+    if (!shape || shape.locked || !runtime.canEditShape(shape.id)) return;
 
     // Write to editing context via stable ref — does not cause re-render of this component.
     editingContextRef.current.startEditing({
       id: shape.id,
-      screenX: rect.x,
-      screenY: rect.y,
-      screenW: rect.w,
-      screenH: rect.h,
       text: shape.text ?? "",
+      caretAt: { x: e.clientX, y: e.clientY },
     });
   };
 
@@ -284,6 +304,7 @@ export const BoardCanvasNew = forwardRef<
           showToolbar();
         }}
         className="absolute inset-0 touch-none w-full h-full"
+        style={{ cursor: activeTool === "text" ? "text" : undefined }}
         onWheel={handleWheel}
         onDoubleClick={handleDblClick}
         onMouseDown={(e) => {
@@ -308,6 +329,8 @@ export const BoardCanvasNew = forwardRef<
         className="absolute inset-0 pointer-events-none w-full h-full"
       />
 
+      {camera && runtime && <TextEditor runtime={runtime} camera={camera} />}
+
       {camera && <RemoteCursorsLayer cursors={cursors} camera={camera} />}
 
       <NamePlate name={displayName} onChange={handleNameChange} />
@@ -317,6 +340,19 @@ export const BoardCanvasNew = forwardRef<
           x={toolbar.x}
           y={toolbar.y}
           isLocked={selection.isLocked}
+          textStyle={selection.textStyle}
+          onTextStyleChange={(patch) => {
+            runtimeRef.current?.setTextStyle(selection.ids, patch);
+            setSelection((current) =>
+              current
+                ? {
+                    ...current,
+                    textStyle:
+                      runtimeRef.current?.getTextStyle(current.ids) ?? null,
+                  }
+                : current,
+            );
+          }}
           onBringToFront={() => runtimeRef.current?.bringToFront(selection.ids)}
           onMoveForward={() => runtimeRef.current?.moveForward(selection.ids)}
           onMoveBackward={() => runtimeRef.current?.moveBackward(selection.ids)}

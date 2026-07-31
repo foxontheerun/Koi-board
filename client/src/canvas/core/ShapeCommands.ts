@@ -1,9 +1,27 @@
 import type { _Shape, EntityManager } from "../entities";
 import type { InteractionManager } from "../interaction/InteractionManager";
 import type { RenderOrchestrator } from "../rendering/RenderOrchestrator";
+import {
+  DEFAULT_FONT_SIZE,
+  DEFAULT_FONT_WEIGHT,
+  STICKER_TEXT_COLOR,
+  TEXT_COLOR,
+  textBlockHeight,
+} from "../entities/shapes/text";
+import type { TextAlign } from "../../entities/Shape";
+
+export interface TextStyle {
+  fontSize: number;
+  fontWeight: number;
+  textAlign: TextAlign;
+  textColor: string;
+}
+
+export type TextStylePatch = Partial<TextStyle>;
 
 interface ShapeCommandCallbacks {
   onPersist: (shape: _Shape) => void;
+  onLiveEdit: (shape: _Shape) => void;
   onDelete: (id: string) => void;
   onSelectionChange: (ids: string[]) => void;
 }
@@ -49,13 +67,100 @@ export class ShapeCommands {
     this.notifySelection();
   }
 
-  updateShapeText(id: string, text: string) {
+  previewShapeText(id: string, text: string) {
+    const shape = this.applyText(id, text);
+    if (shape) this.callbacks.onLiveEdit(shape);
+  }
+
+  commitShapeText(id: string, text: string) {
     const shape = this.entityManager.getById(id);
     if (!shape) return;
 
+    if (shape.type === "TEXT" && text.trim() === "") {
+      this.deleteShapes([id]);
+      return;
+    }
+
+    const updated = this.applyText(id, text);
+    if (updated) this.callbacks.onPersist(updated);
+  }
+
+  private applyText(id: string, text: string): _Shape | null {
+    const shape = this.entityManager.getById(id);
+    if (!shape) return null;
+
+    if (shape.type === "TEXT") {
+      shape.height = this.refitHeight(shape, text);
+    }
+
     shape.text = text;
+
     this.render.staticLayer();
-    this.callbacks.onPersist(shape);
+    this.render.overlay();
+
+    return shape;
+  }
+
+  // Slack added by hand survives; a block still sized to its text keeps
+  // following it.
+  private refitHeight(shape: _Shape, text = shape.text ?? ""): number {
+    const before = textBlockHeight(
+      shape.text ?? "",
+      shape.width,
+      shape.fontSize,
+      shape.fontWeight,
+    );
+    const after = textBlockHeight(
+      text,
+      shape.width,
+      shape.fontSize,
+      shape.fontWeight,
+    );
+
+    return Math.abs(shape.height - before) < 1
+      ? after
+      : Math.max(after, shape.height);
+  }
+
+  setTextStyle(ids: string[], patch: TextStylePatch) {
+    const changed = this.unlockedIds(ids)
+      .map((id) => this.entityManager.getById(id))
+      .filter((shape): shape is _Shape => shape !== null);
+
+    if (changed.length === 0) return;
+
+    changed.forEach((shape) => {
+      Object.assign(shape, patch);
+      if (shape.type === "TEXT") {
+        // The block was measured with the old style; re-fit it to the new one.
+        shape.height = textBlockHeight(
+          shape.text ?? "",
+          shape.width,
+          shape.fontSize,
+          shape.fontWeight,
+        );
+      }
+    });
+
+    this.render.all();
+    changed.forEach((shape) => this.callbacks.onPersist(shape));
+  }
+
+  textStyleOf(ids: string[]): TextStyle | null {
+    const shape = ids
+      .map((id) => this.entityManager.getById(id))
+      .find((s) => s?.type === "TEXT" || s?.type === "STICKER");
+
+    if (!shape) return null;
+
+    return {
+      fontSize: shape.fontSize ?? DEFAULT_FONT_SIZE,
+      fontWeight: shape.fontWeight ?? DEFAULT_FONT_WEIGHT,
+      textAlign: shape.textAlign ?? "LEFT",
+      textColor:
+        shape.textColor ??
+        (shape.type === "TEXT" ? TEXT_COLOR : STICKER_TEXT_COLOR),
+    };
   }
 
   areAllLocked(ids: string[]): boolean {
@@ -74,8 +179,6 @@ export class ShapeCommands {
   }
 
   private notifySelection() {
-    this.callbacks.onSelectionChange(
-      this.interactionManager.getSelectedIds(),
-    );
+    this.callbacks.onSelectionChange(this.interactionManager.getSelectedIds());
   }
 }

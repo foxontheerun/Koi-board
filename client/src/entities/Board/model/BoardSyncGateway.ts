@@ -57,6 +57,7 @@ type CursorsMovedResponse = {
 
 export class BoardSyncGateway {
   private subscriptions: Array<{ unsubscribe: () => void }> = [];
+  private disposed = false;
   private readonly boardId: string;
   private readonly runtime: BoardRuntime;
   private readonly clientId: string;
@@ -107,6 +108,8 @@ export class BoardSyncGateway {
       fetchPolicy: "network-only",
       errorPolicy: "all",
     });
+
+    if (this.disposed) return;
 
     if (!queryResult.data?.board) {
       this.onBoardNotFound?.();
@@ -242,6 +245,11 @@ export class BoardSyncGateway {
             y: shape.y,
             width: shape.width,
             height: shape.height,
+            text: shape.text ?? null,
+            fontSize: shape.fontSize ?? null,
+            fontWeight: shape.fontWeight ?? null,
+            textAlign: shape.textAlign ?? null,
+            textColor: shape.textColor ?? null,
             zIndex: shape.zIndex ?? 0,
             locked: shape.locked ?? false,
             fill: shape.fill,
@@ -256,6 +264,7 @@ export class BoardSyncGateway {
   }
 
   dispose() {
+    this.disposed = true;
     this.flushTransient.cancel();
     this.pendingTransient.clear();
     this.flushCursor.cancel();
