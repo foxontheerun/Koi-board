@@ -250,6 +250,7 @@ export class BoardSyncGateway {
             fontWeight: shape.fontWeight ?? null,
             textAlign: shape.textAlign ?? null,
             textColor: shape.textColor ?? null,
+            textFormats: shape.textFormats ?? null,
             zIndex: shape.zIndex ?? 0,
             locked: shape.locked ?? false,
             fill: shape.fill,

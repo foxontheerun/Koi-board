@@ -13,6 +13,7 @@ export interface RemoteShape {
   fontWeight?: number | null;
   textAlign?: TextAlign | null;
   textColor?: string | null;
+  textFormats?: string | null;
   fill?: string | null;
   stroke?: string | null;
   strokeWidth?: number | null;
@@ -62,6 +63,7 @@ export class EntityManager {
       fontWeight: shape.fontWeight ?? undefined,
       textAlign: shape.textAlign ?? undefined,
       textColor: shape.textColor ?? undefined,
+      textFormats: shape.textFormats ?? undefined,
       fill: shape.fill ?? "#c5ff5b",
       stroke: shape.stroke ?? "#c5ff5b",
       strokeWidth: shape.strokeWidth ? String(shape.strokeWidth) : undefined,

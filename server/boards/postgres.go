@@ -19,7 +19,7 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool}
 }
 
-const shapeColumns = `id, board_id, type, x, y, width, height, rotation, z_index, locked, text, font_size, font_weight, text_align, text_color, fill, stroke, stroke_width`
+const shapeColumns = `id, board_id, type, x, y, width, height, rotation, z_index, locked, text, font_size, font_weight, text_align, text_color, text_formats, fill, stroke, stroke_width`
 
 func scanShape(row pgx.Row) (*graph.Shape, error) {
 	var sh graph.Shape
@@ -28,7 +28,7 @@ func scanShape(row pgx.Row) (*graph.Shape, error) {
 	if err := row.Scan(
 		&sh.ID, &sh.BoardID, &shapeType, &sh.X, &sh.Y, &sh.Width, &sh.Height,
 		&sh.Rotation, &sh.ZIndex, &sh.Locked, &sh.Text, &sh.FontSize, &sh.FontWeight,
-		&textAlign, &sh.TextColor, &sh.Fill, &sh.Stroke, &sh.StrokeWidth,
+		&textAlign, &sh.TextColor, &sh.TextFormats, &sh.Fill, &sh.Stroke, &sh.StrokeWidth,
 	); err != nil {
 		return nil, err
 	}
@@ -165,9 +165,9 @@ func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input g
 	var outAlign *string
 	var created bool
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO shapes (id, board_id, type, x, y, width, height, rotation, z_index, locked, text, font_size, font_weight, text_align, text_color, fill, stroke, stroke_width)
+		`INSERT INTO shapes (id, board_id, type, x, y, width, height, rotation, z_index, locked, text, font_size, font_weight, text_align, text_color, text_formats, fill, stroke, stroke_width)
 		 VALUES ($1, $2, COALESCE($3, ''), COALESCE($4, 0), COALESCE($5, 0), COALESCE($6, 0), COALESCE($7, 0),
-		         COALESCE($8, 0), COALESCE($9, 0), COALESCE($10, false), $11, $12, $13, $14, $15, $16, $17, $18)
+		         COALESCE($8, 0), COALESCE($9, 0), COALESCE($10, false), $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		 ON CONFLICT (id) DO UPDATE SET
 		     type = COALESCE($3, shapes.type),
 		     x = COALESCE($4, shapes.x),
@@ -182,19 +182,20 @@ func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input g
 		     font_weight = COALESCE($13, shapes.font_weight),
 		     text_align = COALESCE($14, shapes.text_align),
 		     text_color = COALESCE($15, shapes.text_color),
-		     fill = COALESCE($16, shapes.fill),
-		     stroke = COALESCE($17, shapes.stroke),
-		     stroke_width = COALESCE($18, shapes.stroke_width),
+		     text_formats = COALESCE($16, shapes.text_formats),
+		     fill = COALESCE($17, shapes.fill),
+		     stroke = COALESCE($18, shapes.stroke),
+		     stroke_width = COALESCE($19, shapes.stroke_width),
 		     updated_at = now()
 		 RETURNING `+shapeColumns+`, (xmax = 0)`,
 		input.ID, boardID, shapeType, input.X, input.Y, input.Width, input.Height,
 		input.Rotation, input.ZIndex, input.Locked, input.Text, input.FontSize,
 		input.FontWeight, fromTextAlign(input.TextAlign), input.TextColor,
-		input.Fill, input.Stroke, input.StrokeWidth,
+		input.TextFormats, input.Fill, input.Stroke, input.StrokeWidth,
 	).Scan(
 		&sh.ID, &sh.BoardID, &outType, &sh.X, &sh.Y, &sh.Width, &sh.Height,
 		&sh.Rotation, &sh.ZIndex, &sh.Locked, &sh.Text, &sh.FontSize, &sh.FontWeight,
-		&outAlign, &sh.TextColor, &sh.Fill, &sh.Stroke, &sh.StrokeWidth, &created,
+		&outAlign, &sh.TextColor, &sh.TextFormats, &sh.Fill, &sh.Stroke, &sh.StrokeWidth, &created,
 	)
 	if err != nil {
 		return nil, false, err

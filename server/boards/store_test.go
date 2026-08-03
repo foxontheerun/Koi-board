@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -92,6 +93,9 @@ func runBoardStoreSuite(t *testing.T, s Store, ownerID, otherID string) {
 		FontWeight: ptrI(700),
 		TextAlign:  &align,
 		TextColor:  ptrS("#FF0000"),
+		TextFormats: ptrS(
+			`[{"index":0,"length":2,"attributes":{"bold":true}}]`,
+		),
 	}); err != nil {
 		t.Fatalf("patch text: %v", err)
 	}
@@ -118,6 +122,9 @@ func runBoardStoreSuite(t *testing.T, s Store, ownerID, otherID string) {
 	}
 	if textShape.TextColor == nil || *textShape.TextColor != "#FF0000" {
 		t.Fatalf("text colour should survive an unrelated patch, got %v", textShape.TextColor)
+	}
+	if textShape.TextFormats == nil || !strings.Contains(*textShape.TextFormats, `"bold":true`) {
+		t.Fatalf("text formats should survive an unrelated patch, got %v", textShape.TextFormats)
 	}
 
 	if _, _, err := s.UpsertShape(ctx, b.ID, graph.ShapeInput{
