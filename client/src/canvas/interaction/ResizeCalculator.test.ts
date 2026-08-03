@@ -11,6 +11,7 @@ const baseShape = (): _Shape => ({
   y: 100,
   width: 200,
   height: 100,
+  orderKey: "V",
   fill: "#ffffff",
   stroke: "#000000",
   state: "static",

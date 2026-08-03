@@ -20,8 +20,8 @@ const managerWith = (shapes: RemoteShape[]) => {
 describe("EntityManager.findShapeAt", () => {
   it("returns the topmost shape when shapes overlap", () => {
     const em = managerWith([
-      remote({ id: "low", x: 0, y: 0, width: 100, height: 100, zIndex: 0 }),
-      remote({ id: "high", x: 0, y: 0, width: 100, height: 100, zIndex: 5 }),
+      remote({ id: "low", x: 0, y: 0, width: 100, height: 100, orderKey: "A" }),
+      remote({ id: "high", x: 0, y: 0, width: 100, height: 100, orderKey: "F" }),
     ]);
 
     expect(em.findShapeAt({ x: 50, y: 50 })?.id).toBe("high");
@@ -165,25 +165,42 @@ describe("EntityManager.applyTransientPatch", () => {
   });
 });
 
-describe("EntityManager z-index", () => {
-  it("getMaxZIndex returns the highest zIndex", () => {
-    const em = managerWith([
-      remote({ id: "a", zIndex: 2 }),
-      remote({ id: "b", zIndex: 7 }),
-      remote({ id: "c", zIndex: 4 }),
-    ]);
+describe("EntityManager.nextOrderKey", () => {
+  it("puts a new shape above its siblings", () => {
+    const em = managerWith([remote({ id: "a" }), remote({ id: "b", orderKey: "H" })]);
 
-    expect(em.getMaxZIndex()).toBe(7);
+    expect(em.nextOrderKey() > "H").toBe(true);
   });
 
-  it("getMinZIndex returns the lowest zIndex", () => {
+  it("starts somewhere in the middle on an empty board", () => {
+    expect(new EntityManager().nextOrderKey()).toBeTruthy();
+  });
+
+  // Keys are only ever compared between siblings, so a child's key says
+  // nothing about where it sits relative to a shape outside its group - the
+  // tree does. A new member lands on top of the group, still under nothing else.
+  it("orders against the siblings inside a group, not the whole board", () => {
     const em = managerWith([
-      remote({ id: "a", zIndex: 2 }),
-      remote({ id: "b", zIndex: 7 }),
-      remote({ id: "c", zIndex: 4 }),
+      remote({ id: "g", orderKey: "A" }),
+      remote({ id: "top", orderKey: "Z" }),
+      remote({ id: "inside", parentId: "g", orderKey: "B" }),
     ]);
 
-    expect(em.getMinZIndex()).toBe(2);
+    const key = em.nextOrderKey("g");
+    expect(key > "B").toBe(true);
+
+    em.addShape({
+      ...em.getById("inside")!,
+      id: "newest",
+      parentId: "g",
+      orderKey: key,
+    });
+    expect(em.getShapes().map((s) => s.id)).toEqual([
+      "g",
+      "inside",
+      "newest",
+      "top",
+    ]);
   });
 });
 
@@ -196,8 +213,8 @@ describe("EntityManager.getShapesOnDragLayer", () => {
 
   it("lifts higher-z shapes onto the drag layer for a remote-dragged shape", () => {
     const em = managerWith([
-      remote({ id: "low", zIndex: 0 }),
-      remote({ id: "high", zIndex: 5 }),
+      remote({ id: "low", orderKey: "A" }),
+      remote({ id: "high", orderKey: "F" }),
     ]);
     em.applyTransientPatch({ id: "low", x: 10, y: 10 });
 
@@ -208,8 +225,8 @@ describe("EntityManager.getShapesOnDragLayer", () => {
 
   it("excludes lower-z shapes from the drag layer", () => {
     const em = managerWith([
-      remote({ id: "low", zIndex: 0 }),
-      remote({ id: "mid", zIndex: 5 }),
+      remote({ id: "low", orderKey: "A" }),
+      remote({ id: "mid", orderKey: "F" }),
     ]);
     em.applyTransientPatch({ id: "mid", x: 10, y: 10 });
 
@@ -230,9 +247,9 @@ describe("EntityManager.getShapesOnDragLayer", () => {
 describe("EntityManager z-order", () => {
   const threeShapes = () =>
     managerWith([
-      remote({ id: "a", zIndex: 0 }),
-      remote({ id: "b", zIndex: 1 }),
-      remote({ id: "c", zIndex: 2 }),
+      remote({ id: "a", orderKey: "A" }),
+      remote({ id: "b", orderKey: "B" }),
+      remote({ id: "c", orderKey: "C" }),
     ]);
   const order = (em: EntityManager) => em.getShapes().map((s) => s.id);
 
@@ -275,10 +292,10 @@ describe("EntityManager z-order", () => {
 describe("EntityManager z-order (multiple shapes)", () => {
   const fourShapes = () =>
     managerWith([
-      remote({ id: "a", zIndex: 0 }),
-      remote({ id: "b", zIndex: 1 }),
-      remote({ id: "c", zIndex: 2 }),
-      remote({ id: "d", zIndex: 3 }),
+      remote({ id: "a", orderKey: "A" }),
+      remote({ id: "b", orderKey: "B" }),
+      remote({ id: "c", orderKey: "C" }),
+      remote({ id: "d", orderKey: "D" }),
     ]);
   const order = (em: EntityManager) => em.getShapes().map((s) => s.id);
 
@@ -348,5 +365,146 @@ describe("EntityManager.setLocked", () => {
     const changed = em.setLocked(["a", "b"], true);
 
     expect(changed.map((s) => s.id)).toEqual(["b"]);
+  });
+});
+
+describe("EntityManager scene tree", () => {
+  const grouped = () =>
+    managerWith([
+      remote({ id: "under", orderKey: "A" }),
+      remote({ id: "group", orderKey: "B", type: "GROUP" }),
+      remote({ id: "second", parentId: "group", orderKey: "C" }),
+      remote({ id: "first", parentId: "group", orderKey: "B" }),
+      remote({ id: "over", orderKey: "C" }),
+    ]);
+  const order = (em: EntityManager) => em.getShapes().map((s) => s.id);
+
+  it("paints a group followed by what it owns, in key order", () => {
+    expect(order(grouped())).toEqual(["under", "group", "first", "second", "over"]);
+  });
+
+  it("lists the children of a group", () => {
+    expect(grouped().childrenOf("group").map((s) => s.id)).toEqual(["first", "second"]);
+  });
+
+  it("returns a shape with everything below it", () => {
+    const em = managerWith([
+      remote({ id: "outer", orderKey: "A" }),
+      remote({ id: "inner", parentId: "outer", orderKey: "A" }),
+      remote({ id: "leaf", parentId: "inner", orderKey: "A" }),
+      remote({ id: "elsewhere", orderKey: "B" }),
+    ]);
+
+    expect(em.subtreeOf("outer").map((s) => s.id).sort()).toEqual([
+      "inner",
+      "leaf",
+      "outer",
+    ]);
+  });
+
+  it("walks up to the outermost group, however deep the shape sits", () => {
+    const em = managerWith([
+      remote({ id: "outer", orderKey: "A" }),
+      remote({ id: "inner", parentId: "outer", orderKey: "A" }),
+      remote({ id: "leaf", parentId: "inner", orderKey: "A" }),
+    ]);
+
+    expect(em.outermostAncestorOf("leaf")?.id).toBe("outer");
+    expect(em.outermostAncestorOf("outer")?.id).toBe("outer");
+  });
+
+  // The board is never allowed to hide a shape: a parent that never arrived,
+  // or a cycle that slipped past the server, still has to be painted.
+  it("treats a shape whose parent never arrived as a root", () => {
+    const em = managerWith([
+      remote({ id: "orphan", parentId: "never-sent", orderKey: "A" }),
+      remote({ id: "plain", orderKey: "B" }),
+    ]);
+
+    expect(order(em)).toEqual(["orphan", "plain"]);
+  });
+
+  it("still paints shapes caught in a cycle", () => {
+    const em = managerWith([
+      remote({ id: "a", parentId: "b", orderKey: "A" }),
+      remote({ id: "b", parentId: "a", orderKey: "B" }),
+      remote({ id: "sane", orderKey: "C" }),
+    ]);
+
+    expect(order(em).sort()).toEqual(["a", "b", "sane"]);
+  });
+
+  it("reorders a child among its siblings, not against the whole board", () => {
+    const em = grouped();
+    em.bringToFront(["first"]);
+
+    expect(order(em)).toEqual(["under", "group", "second", "first", "over"]);
+  });
+
+  it("lifts a whole group onto the drag layer, never half of it", () => {
+    const em = grouped();
+    em.applyTransientPatch({ id: "group", x: 10, y: 10 });
+
+    const ids = em.getShapesOnDragLayer().map((s) => s.id);
+    expect(ids).toEqual(["group", "first", "second", "over"]);
+  });
+});
+
+// On the wire a child is positioned relative to its parent - that is what makes
+// dragging a group one message. The scene works in world coordinates, so the
+// conversion has to survive a load, an event and a transient move alike.
+describe("EntityManager child coordinates", () => {
+  const withGroup = () =>
+    managerWith([
+      remote({ id: "group", x: 100, y: 100, orderKey: "A", type: "GROUP" }),
+      remote({ id: "child", x: 10, y: 5, parentId: "group", orderKey: "A" }),
+    ]);
+
+  it("places a child relative to its parent on load", () => {
+    const child = withGroup().getById("child");
+
+    expect(child?.x).toBe(110);
+    expect(child?.y).toBe(105);
+  });
+
+  it("converts back to the parent's frame on the way out", () => {
+    const em = withGroup();
+
+    expect(em.localPositionOf(em.getById("child")!)).toEqual({ x: 10, y: 5 });
+  });
+
+  it("leaves a root shape's coordinates alone in both directions", () => {
+    const em = withGroup();
+
+    expect(em.localPositionOf(em.getById("group")!)).toEqual({ x: 100, y: 100 });
+  });
+
+  it("carries the members when a group is dragged by someone else", () => {
+    const em = withGroup();
+    em.applyTransientPatch({ id: "group", x: 150, y: 120 });
+
+    expect(em.getById("child")?.x).toBe(160);
+    expect(em.getById("child")?.y).toBe(125);
+  });
+
+  it("carries the members when a group move is persisted", () => {
+    const em = withGroup();
+    em.applyShapeEvent({
+      type: "UPDATED",
+      shape: remote({ id: "group", x: 200, y: 100, orderKey: "A" }),
+    });
+
+    expect(em.getById("child")?.x).toBe(210);
+    expect(em.getById("child")?.y).toBe(105);
+  });
+
+  it("places a newly created child relative to its parent", () => {
+    const em = withGroup();
+    em.applyShapeEvent({
+      type: "CREATED",
+      shape: remote({ id: "fresh", x: 20, y: 20, parentId: "group", orderKey: "B" }),
+    });
+
+    expect(em.getById("fresh")?.x).toBe(120);
   });
 });

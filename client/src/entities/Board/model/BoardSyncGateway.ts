@@ -233,6 +233,10 @@ export class BoardSyncGateway {
   }
 
   sendPersisted(shape: _Shape) {
+    // A child is stored relative to its parent, so dragging a group is one
+    // write for the group instead of one per member.
+    const { x, y } = this.runtime.entityManager.localPositionOf(shape);
+
     void apolloClient
       .mutate({
         mutation: UPDATE_SHAPE_MUTATION,
@@ -241,8 +245,8 @@ export class BoardSyncGateway {
           shape: {
             id: shape.id,
             type: shape.type,
-            x: shape.x,
-            y: shape.y,
+            x,
+            y,
             width: shape.width,
             height: shape.height,
             text: shape.text ?? null,
@@ -251,7 +255,8 @@ export class BoardSyncGateway {
             textAlign: shape.textAlign ?? null,
             textColor: shape.textColor ?? null,
             textFormats: shape.textFormats ?? null,
-            zIndex: shape.zIndex ?? 0,
+            parentId: shape.parentId ?? "",
+            orderKey: shape.orderKey,
             locked: shape.locked ?? false,
             fill: shape.fill,
             stroke: shape.stroke,

@@ -1,6 +1,7 @@
 import type { ShapeType, TextAlign } from "../../entities/Shape";
 import { ResizeCalculator } from "../interaction";
 import type { _Shape } from "./shapes";
+import { keyBetween, keysBetween } from "./shapes/orderKey";
 
 export interface RemoteShape {
   id: string;
@@ -18,7 +19,8 @@ export interface RemoteShape {
   stroke?: string | null;
   strokeWidth?: number | null;
   type?: ShapeType;
-  zIndex?: number | null;
+  parentId?: string | null;
+  orderKey?: string | null;
   locked?: boolean | null;
 }
 
@@ -35,10 +37,21 @@ export interface ShapeEventPayload {
   shape: RemoteShape;
 }
 
+const ROOT = "";
+
+function byOrderKey(a: _Shape, b: _Shape): number {
+  if (a.orderKey !== b.orderKey) return a.orderKey < b.orderKey ? -1 : 1;
+  return a.id < b.id ? -1 : 1;
+}
+
 export class EntityManager {
   private shapes: _Shape[] = [];
   private byId = new Map<string, _Shape>();
-  // getShapes() re-sorts only when z-order may have changed, not on every call.
+  // The scene is a tree, but everything that paints or hit-tests wants it flat
+  // and in paint order, so the walk is done once and cached until the tree or
+  // an order key changes.
+  private ordered: _Shape[] = [];
+  private childrenByParent = new Map<string, _Shape[]>();
   private sortDirty = true;
 
   constructor() {
@@ -49,6 +62,45 @@ export class EntityManager {
     this.byId.clear();
     for (const s of this.shapes) this.byId.set(s.id, s);
     this.sortDirty = true;
+  }
+
+  private rebuildOrder() {
+    const children = new Map<string, _Shape[]>();
+    for (const shape of this.shapes) {
+      // The client does not trust the data: a shape whose parent never arrived
+      // is treated as a root, so a desync cannot make a shape invisible.
+      const parent =
+        shape.parentId && this.byId.has(shape.parentId) ? shape.parentId : ROOT;
+      const siblings = children.get(parent);
+      if (siblings) siblings.push(shape);
+      else children.set(parent, [shape]);
+    }
+    for (const siblings of children.values()) siblings.sort(byOrderKey);
+
+    const ordered: _Shape[] = [];
+    const seen = new Set<string>();
+    const walk = (parent: string) => {
+      for (const shape of children.get(parent) ?? []) {
+        if (seen.has(shape.id)) continue;
+        seen.add(shape.id);
+        ordered.push(shape);
+        walk(shape.id);
+      }
+    };
+    walk(ROOT);
+
+    // A cycle would leave its members unreachable from the root. The server
+    // refuses to create one; if one arrives anyway, painting it at the root
+    // beats dropping it.
+    if (ordered.length !== this.shapes.length) {
+      for (const shape of [...this.shapes].sort(byOrderKey)) {
+        if (!seen.has(shape.id)) ordered.push(shape);
+      }
+    }
+
+    this.ordered = ordered;
+    this.childrenByParent = children;
+    this.sortDirty = false;
   }
 
   private mapRemoteShapeToCanvas(shape: RemoteShape): _Shape {
@@ -70,7 +122,8 @@ export class EntityManager {
       type: shape.type ?? "RECT",
       state: "static",
       radius: 8,
-      zIndex: shape.zIndex ?? 0,
+      parentId: shape.parentId ?? null,
+      orderKey: shape.orderKey ?? "V",
       locked: shape.locked ?? false,
     };
   }
@@ -88,6 +141,7 @@ export class EntityManager {
     const index = this.shapes.indexOf(shape);
     if (index !== -1) this.shapes.splice(index, 1);
     this.byId.delete(id);
+    this.sortDirty = true;
     return true;
   }
 
@@ -111,52 +165,61 @@ export class EntityManager {
     return changed;
   }
 
-  getMaxZIndex(shapes = this.shapes): number {
-    if (shapes.length === 0) return 0;
-    return Math.max(...shapes.map((s) => s.zIndex ?? 0));
+  childrenOf(id: string): _Shape[] {
+    if (this.sortDirty) this.rebuildOrder();
+    return this.childrenByParent.get(id) ?? [];
   }
 
-  getMinZIndex(shapes = this.shapes): number {
-    if (shapes.length === 0) return 0;
-    return Math.min(...shapes.map((s) => s.zIndex ?? 0));
+  siblingsOf(parentId: string | null | undefined): _Shape[] {
+    if (this.sortDirty) this.rebuildOrder();
+    return this.childrenByParent.get(parentId ?? ROOT) ?? [];
   }
 
-  // Move the selection above every other shape, keeping its internal order.
+  // A shape plus everything below it. Deleting, dragging and locking all act
+  // on a whole subtree - a group half-moved is not a state to show anyone.
+  subtreeOf(id: string): _Shape[] {
+    const root = this.byId.get(id);
+    if (!root) return [];
+
+    const subtree = [root];
+    for (let i = 0; i < subtree.length; i++) {
+      subtree.push(...this.childrenOf(subtree[i].id));
+    }
+    return subtree;
+  }
+
+  // Clicking a member of a group selects the group, however deep it sits.
+  outermostAncestorOf(id: string): _Shape | null {
+    let shape = this.byId.get(id) ?? null;
+    while (shape?.parentId) {
+      const parent = this.byId.get(shape.parentId);
+      if (!parent) break;
+      shape = parent;
+    }
+    return shape;
+  }
+
+  // The key a new shape takes to land on top of its siblings.
+  nextOrderKey(parentId: string | null = null): string {
+    const siblings = this.siblingsOf(parentId);
+    const last = siblings[siblings.length - 1];
+    return keyBetween(last?.orderKey ?? null, null);
+  }
+
+  // Move the selection above its siblings, keeping its internal order.
   bringToFront(ids: string[]): _Shape[] {
-    const selected = this.shapesByIds(ids);
-    if (selected.length === 0) return [];
-    selected.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-
-    let z = this.getMaxZIndex();
-    const changed: _Shape[] = [];
-    for (const shape of selected) {
-      z += 1;
-      if ((shape.zIndex ?? 0) !== z) {
-        shape.zIndex = z;
-        changed.push(shape);
-      }
-    }
-    if (changed.length > 0) this.sortDirty = true;
-    return changed;
+    return this.reorder(ids, (moving, others) => {
+      const last = others[others.length - 1];
+      return keysBetween(last?.orderKey ?? null, null, moving.length);
+    });
   }
 
-  // Move the selection below every other shape, keeping its internal order.
+  // Move the selection below its siblings, keeping its internal order.
   sendToBack(ids: string[]): _Shape[] {
-    const selected = this.shapesByIds(ids);
-    if (selected.length === 0) return [];
-    selected.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-
-    let z = this.getMinZIndex() - selected.length;
-    const changed: _Shape[] = [];
-    for (const shape of selected) {
-      if ((shape.zIndex ?? 0) !== z) {
-        shape.zIndex = z;
-        changed.push(shape);
-      }
-      z += 1;
-    }
-    if (changed.length > 0) this.sortDirty = true;
-    return changed;
+    return this.reorder(ids, (moving, others) => {
+      const first = others[0];
+      return keysBetween(null, first?.orderKey ?? null, moving.length);
+    });
   }
 
   moveForward(ids: string[]): _Shape[] {
@@ -167,60 +230,83 @@ export class EntityManager {
     return this.shiftLayer(ids, "down");
   }
 
-  // Reorder the stack so the selection moves one layer up/down, stepping over
-  // the nearest non-selected neighbour and never reordering within the group.
-  private shiftLayer(ids: string[], dir: "up" | "down"): _Shape[] {
-    const idSet = new Set(ids);
-    const ordered = this.getShapes().slice();
-    const zValues = this.getShapes().map((s) => s.zIndex ?? 0);
-    if (ordered.length === 0) return [];
+  // Z-order is per parent: a shape moves only among its own siblings, and a
+  // selection spanning two groups is reordered inside each of them.
+  private reorder(
+    ids: string[],
+    keysFor: (moving: _Shape[], others: _Shape[]) => string[],
+  ): _Shape[] {
+    const selected = new Set(ids);
+    const changed: _Shape[] = [];
 
-    const isSelected = (shape: _Shape) => idSet.has(shape.id);
+    for (const [parent, moving] of this.selectionByParent(ids)) {
+      const others = this.siblingsOf(parent).filter((s) => !selected.has(s.id));
+      if (others.length === 0) continue;
 
-    if (dir === "up") {
-      for (let i = ordered.length - 1; i >= 0; i--) {
-        if (
-          i + 1 < ordered.length &&
-          isSelected(ordered[i]) &&
-          !isSelected(ordered[i + 1])
-        ) {
-          [ordered[i], ordered[i + 1]] = [ordered[i + 1], ordered[i]];
-        }
-      }
-    } else {
-      for (let i = 0; i < ordered.length; i++) {
-        if (i > 0 && isSelected(ordered[i]) && !isSelected(ordered[i - 1])) {
-          [ordered[i], ordered[i - 1]] = [ordered[i - 1], ordered[i]];
-        }
-      }
+      const keys = keysFor(moving, others);
+      moving.forEach((shape, i) => {
+        if (shape.orderKey === keys[i]) return;
+        shape.orderKey = keys[i];
+        changed.push(shape);
+      });
     }
 
-    const changed: _Shape[] = [];
-    ordered.forEach((shape, i) => {
-      if ((shape.zIndex ?? 0) !== zValues[i]) {
-        shape.zIndex = zValues[i];
-        changed.push(shape);
-      }
-    });
     if (changed.length > 0) this.sortDirty = true;
     return changed;
   }
 
-  private shapesByIds(ids: string[]): _Shape[] {
-    const result: _Shape[] = [];
-    for (const id of ids) {
-      const shape = this.byId.get(id);
-      if (shape) result.push(shape);
+  // Step over the nearest neighbour that is not selected, so a selection moves
+  // as a block and never reorders within itself.
+  private shiftLayer(ids: string[], dir: "up" | "down"): _Shape[] {
+    const selected = new Set(ids);
+    const changed: _Shape[] = [];
+
+    for (const [parent, moving] of this.selectionByParent(ids)) {
+      const siblings = [...this.siblingsOf(parent)];
+      const ordered = dir === "up" ? [...moving].reverse() : moving;
+
+      for (const shape of ordered) {
+        const at = siblings.indexOf(shape);
+        const step = dir === "up" ? 1 : -1;
+
+        let neighbour = at + step;
+        while (siblings[neighbour] && selected.has(siblings[neighbour].id)) {
+          neighbour += step;
+        }
+        if (!siblings[neighbour]) continue;
+
+        const beyond = siblings[neighbour + step];
+        const key =
+          dir === "up"
+            ? keyBetween(siblings[neighbour].orderKey, beyond?.orderKey ?? null)
+            : keyBetween(beyond?.orderKey ?? null, siblings[neighbour].orderKey);
+
+        shape.orderKey = key;
+        changed.push(shape);
+        siblings.sort(byOrderKey);
+      }
     }
-    return result;
+
+    if (changed.length > 0) this.sortDirty = true;
+    return changed;
   }
 
-  getShapes() {
-    if (this.sortDirty) {
-      this.shapes.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
-      this.sortDirty = false;
+  private selectionByParent(ids: string[]): Map<string, _Shape[]> {
+    const wanted = new Set(ids);
+    const byParent = new Map<string, _Shape[]>();
+    for (const shape of this.getShapes()) {
+      if (!wanted.has(shape.id)) continue;
+      const parent = shape.parentId ?? ROOT;
+      const group = byParent.get(parent);
+      if (group) group.push(shape);
+      else byParent.set(parent, [shape]);
     }
-    return this.shapes;
+    return byParent;
+  }
+  // Paint order: depth first, so a shape is followed by everything it owns.
+  getShapes(): _Shape[] {
+    if (this.sortDirty) this.rebuildOrder();
+    return this.ordered;
   }
 
   getDraggedShape() {
@@ -237,8 +323,8 @@ export class EntityManager {
     );
     if (moving.length === 0) return [];
 
-    const minZ = Math.min(...moving.map((s) => s.zIndex ?? 0));
-    return shapes.filter((s) => (s.zIndex ?? 0) >= minZ);
+    const lowest = Math.min(...moving.map((s) => shapes.indexOf(s)));
+    return shapes.slice(lowest);
   }
 
   clearSelection() {
@@ -261,12 +347,48 @@ export class EntityManager {
     const idx = this.shapes.indexOf(existing);
     if (idx !== -1) this.shapes[idx] = newShape;
     this.byId.set(newShape.id, newShape);
-    if ((existing.zIndex ?? 0) !== (newShape.zIndex ?? 0)) this.sortDirty = true;
+    if (
+      existing.orderKey !== newShape.orderKey ||
+      (existing.parentId ?? null) !== (newShape.parentId ?? null)
+    ) {
+      this.sortDirty = true;
+    }
   }
 
   replaceAll(shapes: RemoteShape[]) {
     this.shapes = shapes.map((shape) => this.mapRemoteShapeToCanvas(shape));
     this.reindex();
+    this.toWorldCoordinates();
+  }
+
+  // On the wire a child is positioned relative to its parent, so moving a
+  // group is one message instead of one per member. The scene keeps world
+  // coordinates, so nothing that paints or hit-tests has to know about the
+  // tree; the conversion happens here, at the edge.
+  private toWorldCoordinates() {
+    for (const shape of this.getShapes()) {
+      const parent = shape.parentId ? this.byId.get(shape.parentId) : null;
+      if (!parent) continue;
+      shape.x += parent.x;
+      shape.y += parent.y;
+    }
+  }
+
+  localPositionOf(shape: _Shape): { x: number; y: number } {
+    const parent = shape.parentId ? this.byId.get(shape.parentId) : null;
+    if (!parent) return { x: shape.x, y: shape.y };
+    return { x: shape.x - parent.x, y: shape.y - parent.y };
+  }
+
+  // A group carries its members: they are positioned relative to it, so a
+  // move of the group is a move of everything below it.
+  private moveSubtree(shape: _Shape, dx: number, dy: number) {
+    if (dx === 0 && dy === 0) return;
+    for (const descendant of this.subtreeOf(shape.id)) {
+      if (descendant === shape) continue;
+      descendant.x += dx;
+      descendant.y += dy;
+    }
   }
 
   applyTransientPatch(patch: TransientShapePatch): { becameRemote: boolean } {
@@ -274,11 +396,14 @@ export class EntityManager {
     if (!shape) return { becameRemote: false };
 
     const wasRemote = shape.state === "remote-dragging";
+    const from = { x: shape.x, y: shape.y };
 
     if (patch.x !== undefined) shape.x = patch.x;
     if (patch.y !== undefined) shape.y = patch.y;
     if (patch.width !== undefined) shape.width = patch.width;
     if (patch.height !== undefined) shape.height = patch.height;
+
+    this.moveSubtree(shape, shape.x - from.x, shape.y - from.y);
 
     shape.state = "remote-dragging";
 
@@ -294,11 +419,20 @@ export class EntityManager {
         const index = this.shapes.indexOf(existing);
         if (index !== -1) this.shapes.splice(index, 1);
         this.byId.delete(shape.id);
+        this.sortDirty = true;
       }
       return;
     }
 
     const nextShape = this.mapRemoteShapeToCanvas(shape); // state будет "static"
+    const parent = nextShape.parentId
+      ? this.byId.get(nextShape.parentId)
+      : null;
+    if (parent) {
+      nextShape.x += parent.x;
+      nextShape.y += parent.y;
+    }
+
     const existing = this.byId.get(shape.id);
 
     if (!existing) {
@@ -308,7 +442,9 @@ export class EntityManager {
       return;
     }
 
+    const from = { x: existing.x, y: existing.y };
     Object.assign(existing, nextShape); // сбросит remote-dragging → static
+    this.moveSubtree(existing, existing.x - from.x, existing.y - from.y);
     this.sortDirty = true;
   }
 
@@ -320,7 +456,9 @@ export class EntityManager {
     const s = this.byId.get(id);
     if (!s) return;
     Object.assign(s, patch);
-    if (patch.zIndex !== undefined) this.sortDirty = true;
+    if (patch.orderKey !== undefined || patch.parentId !== undefined) {
+      this.sortDirty = true;
+    }
   }
 
   findShapeAt(worldPoint: { x: number; y: number }, margin = 0): _Shape | null {

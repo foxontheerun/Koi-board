@@ -10,6 +10,7 @@ const shape = (over: Partial<_Shape> & { id: string }): _Shape => ({
   y: 0,
   width: 100,
   height: 100,
+  orderKey: "V",
   fill: "#ffffff",
   stroke: "#000000",
   state: "static",
@@ -30,8 +31,8 @@ function setup(shapes: _Shape[]) {
 
 describe("InteractionManager — resize handle priority", () => {
   it("resizes a selected shape via its handle even when another shape covers it", () => {
-    const a = shape({ id: "a", x: 0, y: 0, width: 100, height: 100, zIndex: 0 });
-    const b = shape({ id: "b", x: -30, y: -30, width: 60, height: 60, zIndex: 1 });
+    const a = shape({ id: "a", x: 0, y: 0, width: 100, height: 100, orderKey: "V" });
+    const b = shape({ id: "b", x: -30, y: -30, width: 60, height: 60, orderKey: "k" });
     const { im } = setup([a, b]);
 
     im.selectById("a");

@@ -60,7 +60,8 @@ export interface ShapeInput {
   text?: string | null;
   fontSize?: number | null;
   rotation?: number | null;
-  zIndex?: number | null;
+  parentId?: string | null;
+  orderKey?: string | null;
   locked?: boolean | null;
   fill?: string | null;
   stroke?: string | null;

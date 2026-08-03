@@ -12,7 +12,8 @@ export interface _Shape {
   radius?: number;
   type?: ShapeType;
   state: "static" | "dragging" | "selected" | "remote-dragging" | "resizing";
-  zIndex?: number;
+  parentId?: string | null;
+  orderKey: string;
   text?: string;
   fontSize?: number;
   fontWeight?: number;

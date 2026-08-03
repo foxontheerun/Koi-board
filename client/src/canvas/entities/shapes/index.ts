@@ -1,4 +1,4 @@
 export * from './types';
+export * from './orderKey';
 export * from './shape.model';
-export * from './shapeState';
 export * from './text';

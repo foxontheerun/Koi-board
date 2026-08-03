@@ -11,6 +11,7 @@ const textShape = (): _Shape => ({
   y: 0,
   width: 200,
   height: 44,
+  orderKey: "V",
   fill: "transparent",
   stroke: "transparent",
   state: "static",

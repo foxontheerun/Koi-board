@@ -82,7 +82,7 @@ export class ShapeCreationController {
       stroke: color.stroke,
       state: "static",
       radius: this.tool.type === "RECT" ? RECT_CORNER_RADIUS : 0,
-      zIndex: this.entityManager.getMaxZIndex() + 1,
+      orderKey: this.entityManager.nextOrderKey(),
       fontSize: this.tool.type === "TEXT" ? DEFAULT_FONT_SIZE : undefined,
     };
   }

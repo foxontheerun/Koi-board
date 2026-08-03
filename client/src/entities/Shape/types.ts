@@ -7,7 +7,7 @@ export type Tool =
   | "hand"
   | "delete";
 
-export type ShapeType = "RECT" | "ELLIPSE" | "TEXT" | "STICKER";
+export type ShapeType = "RECT" | "ELLIPSE" | "TEXT" | "STICKER" | "GROUP";
 
 export type TextAlign = "LEFT" | "CENTER" | "RIGHT";
 
@@ -29,7 +29,8 @@ export interface Shape {
   textFormats?: string | null;
 
   rotation?: number;
-  zIndex?: number;
+  parentId?: string | null;
+  orderKey?: string;
   locked?: boolean;
 
   fill?: string | null;

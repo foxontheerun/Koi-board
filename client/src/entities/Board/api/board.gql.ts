@@ -22,7 +22,8 @@ export const BOARD_QUERY = gql`
         textColor
         textFormats
         rotation
-        zIndex
+        parentId
+        orderKey
         locked
         fill
         stroke
@@ -51,7 +52,8 @@ export const UPDATE_SHAPE_MUTATION = gql`
       textColor
       textFormats
       rotation
-      zIndex
+      parentId
+      orderKey
       locked
       fill
       stroke
@@ -105,7 +107,8 @@ export const SHAPE_EVENTS_SUBSCRIPTION = gql`
         textColor
         textFormats
         rotation
-        zIndex
+        parentId
+        orderKey
         locked
         fill
         stroke

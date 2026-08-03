@@ -7,6 +7,7 @@ const shape = (over: Partial<_Shape> & { id: string }): _Shape => ({
   y: 0,
   width: 100,
   height: 100,
+  orderKey: "V",
   fill: "#ffffff",
   stroke: "#000000",
   state: "static",
