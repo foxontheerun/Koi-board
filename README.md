@@ -18,7 +18,10 @@ WebSocket subscriptions and Postgres persistence.
 
 - **Custom Canvas rendering engine** — multi-layer, no rendering library
 - **Real-time collaboration** — multiple users on one board, live cursors, soft-locks
-- Shapes: rectangles, ellipses, sticky notes; inline text editing on a shape
+- Shapes: rectangles, ellipses, sticky notes, standalone text blocks
+- **Rich text** — wrapped and painted by a hand-written layout engine; size,
+  weight and colour apply to the selected range, or to the whole block when
+  nothing is selected
 - Move, resize (zoom-aware handles), pan, zoom-around-cursor
 - **Selection system** — click, drag-select, Shift to extend, single group frame,
   **group resize** (scale the whole selection proportionally)
@@ -47,6 +50,22 @@ The expensive layer (main) barely repaints; the cheap one (drag) repaints
 constantly but only the moving shapes. **Dirty-rect** clipping limits each redraw
 to the changed region (`computeShapesBoundingRect` + `ctx.clip`), so moving one
 shape among hundreds touches a few thousand pixels, not the whole canvas.
+
+Two rules keep that honest. **No shape is painted on two canvases at once**: a
+dragged shape and every neighbour the region touches are lifted onto the drag
+layer, and the static layer skips them — otherwise their semi-transparent
+shadows composite with themselves. And **a clipped shape is never drawn
+partially**, so the region is closed under intersection: any neighbour it touches
+joins and widens it until it stops growing.
+
+### Text
+
+Text is a shape, laid out by the same engine that draws it. Wrapping breaks on
+words, splits an oversized one by grapheme, and handles a line of mixed sizes:
+each line takes its height from its tallest segment and every segment sits on one
+shared baseline. Editing happens in a DOM overlay that scales with the camera and
+matches the canvas metrics exactly — the painter reproduces the half-leading CSS
+adds, or text would jump when editing ends.
 
 The camera uses **`DOMMatrix`** with a cached inverse for screen↔world transforms
 and zoom-around-cursor.
@@ -121,6 +140,12 @@ canvas, smoothed with a CSS transition between throttled updates.
 - **Soft-locks over hard locks** — hard locks strand shapes when a client
   disappears; a self-healing lease avoids that.
 - **GraphQL subscriptions over polling** — server-push realtime over a typed schema.
+- **Text stored as flat text plus formatted ranges** — the shape Quill calls a
+  Delta and Yjs stores natively. An array of styled runs would draw more
+  directly, but text is where this board's realtime story is weakest
+  (last-write-wins under a soft lock), and the way out is a CRDT. This model
+  moves there without restructuring; runs would not, and every insertion would
+  mean splitting and merging them rather than shifting an index.
 - **Facade + injected controllers** — `BoardRuntime` had grown into a ~640-line
   god-object; splitting it into a thin facade + single-responsibility controllers
   (down to ~356 lines) made each piece testable in isolation.
@@ -165,7 +190,10 @@ koi/
 
 - **Unit** ([Vitest](https://vitest.dev/)): pure canvas logic — coordinate/zoom
   math, dirty-rect geometry, resize, `EntityManager`, `LockManager`,
-  `PresenceManager`, `GroupResizeController`, resize-handle hit-testing.
+  `PresenceManager`, `GroupResizeController`, resize-handle hit-testing, and the
+  text engine (wrapping across styles, the format model, shape commands). The
+  text layout takes its measurement as a parameter, so it is tested without a
+  canvas; only the DOM bridge of the editor needs one.
 - **End-to-end** ([Playwright](https://playwright.dev/)): board load, persistence,
   and real-time broadcast across two browser contexts (events, locks, movement),
   plus a canvas snapshot. Details: [client/README.md](client/README.md#-testing).

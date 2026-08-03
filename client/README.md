@@ -74,13 +74,46 @@ npm run dev
 The backend URL is read from `VITE_API_URL` / `VITE_WS_URL` (see `.env.example`);
 both default to `localhost:8080`, so no `.env` is needed for local dev.
 
+Set `VITE_DEV_NO_AUTH=1` (with `DEV_NO_AUTH=1` on the server) to skip the login
+screen while working on the board itself. Both default to off and only work
+together.
+
+### Where things live
+
+```text
+src/
+  app/         Apollo client, providers, global styles
+  canvas/      the rendering engine - plain TypeScript, no React
+    camera/       world <-> screen, zoom, pan
+    core/         BoardRuntime (facade), ShapeCommands
+    entities/     the scene, the shape model, text layout
+    interaction/  pointer, drag, resize, creation
+    rendering/    the four layers and their dirty rects
+    collab/       soft locks, remote cursors
+  entities/    board and shape - domain models and their UI
+  features/    auth, presence, colour picker, selection menu
+  pages/       routed screens
+  shared/      primitives and design tokens
+  widgets/     toolbar, top bar
+```
+
+The canvas engine sits outside the feature-sliced hierarchy on purpose: it is a
+self-contained subsystem that React mounts and otherwise leaves alone, which is
+why dragging a shape across a crowded board re-renders no components.
+
 ---
 
 ## Testing
 
 **Unit** — [Vitest](https://vitest.dev/): canvas pure logic (coordinate/zoom
 math, colors, dirty-rect geometry, resizing), `EntityManager`, `LockManager`,
-`PresenceManager`.
+`PresenceManager`, and the text engine — wrapping across mixed styles, the
+format model, and `ShapeCommands`.
+
+Most of it runs without a DOM: the text layout takes its measurement function as
+a parameter, so tests supply arithmetic instead of a canvas. The editor's DOM
+bridge is the exception and runs under happy-dom, declared per file with
+`// @vitest-environment happy-dom`.
 
 ```bash
 npm test          # watch mode
