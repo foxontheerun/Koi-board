@@ -6,6 +6,9 @@ import {
   DEFAULT_FONT_WEIGHT,
   STICKER_TEXT_COLOR,
   TEXT_COLOR,
+  parseFormats,
+  serializeFormats,
+  type TextFormat,
   textBlockHeight,
 } from "../entities/shapes/text";
 import type { TextAlign } from "../../entities/Shape";
@@ -67,12 +70,12 @@ export class ShapeCommands {
     this.notifySelection();
   }
 
-  previewShapeText(id: string, text: string) {
-    const shape = this.applyText(id, text);
+  previewShapeText(id: string, text: string, formats?: TextFormat[]) {
+    const shape = this.applyText(id, text, formats);
     if (shape) this.callbacks.onLiveEdit(shape);
   }
 
-  commitShapeText(id: string, text: string) {
+  commitShapeText(id: string, text: string, formats?: TextFormat[]) {
     const shape = this.entityManager.getById(id);
     if (!shape) return;
 
@@ -81,13 +84,19 @@ export class ShapeCommands {
       return;
     }
 
-    const updated = this.applyText(id, text);
+    const updated = this.applyText(id, text, formats);
     if (updated) this.callbacks.onPersist(updated);
   }
 
-  private applyText(id: string, text: string): _Shape | null {
+  private applyText(
+    id: string,
+    text: string,
+    formats?: TextFormat[],
+  ): _Shape | null {
     const shape = this.entityManager.getById(id);
     if (!shape) return null;
+
+    if (formats) shape.textFormats = serializeFormats(formats) ?? undefined;
 
     if (shape.type === "TEXT") {
       shape.height = this.refitHeight(shape, text);
@@ -104,17 +113,20 @@ export class ShapeCommands {
   // Slack added by hand survives; a block still sized to its text keeps
   // following it.
   private refitHeight(shape: _Shape, text = shape.text ?? ""): number {
+    const formats = parseFormats(shape.textFormats);
     const before = textBlockHeight(
       shape.text ?? "",
       shape.width,
       shape.fontSize,
       shape.fontWeight,
+      formats,
     );
     const after = textBlockHeight(
       text,
       shape.width,
       shape.fontSize,
       shape.fontWeight,
+      formats,
     );
 
     return Math.abs(shape.height - before) < 1
@@ -138,6 +150,7 @@ export class ShapeCommands {
           shape.width,
           shape.fontSize,
           shape.fontWeight,
+          parseFormats(shape.textFormats),
         );
       }
     });
@@ -146,10 +159,16 @@ export class ShapeCommands {
     changed.forEach((shape) => this.callbacks.onPersist(shape));
   }
 
+  // A shape offers text styling when it is a text block, or when it is a
+  // sticker that actually carries text - an empty one is a shape, and styling
+  // controls on it are noise.
   textStyleOf(ids: string[]): TextStyle | null {
     const shape = ids
       .map((id) => this.entityManager.getById(id))
-      .find((s) => s?.type === "TEXT" || s?.type === "STICKER");
+      .find(
+        (s) =>
+          s?.type === "TEXT" || (s?.type === "STICKER" && Boolean(s.text)),
+      );
 
     if (!shape) return null;
 

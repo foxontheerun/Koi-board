@@ -2,17 +2,16 @@ import type { Shape } from "../../entities/Shape";
 import type { _Shape } from "../entities";
 import { adjustHexBrightness } from "./colorUtils";
 import {
+  BOLD_FONT_WEIGHT,
   DEFAULT_FONT_SIZE,
   DEFAULT_FONT_WEIGHT,
   STICKER_TEXT_COLOR,
   TEXT_COLOR,
   TEXT_PADDING,
   contentWidth,
-  fontMetricsFor,
   fontString,
-  layoutFor,
-  lineHeightFor,
-  measurerFor,
+  parseFormats,
+  richLayoutFor,
 } from "../entities/shapes/text";
 
 export class CanvasPainter {
@@ -164,13 +163,19 @@ export class CanvasPainter {
   ) {
     if (!shape.text) return;
 
-    const fontSize = shape.fontSize ?? DEFAULT_FONT_SIZE;
-    const fontWeight = shape.fontWeight ?? DEFAULT_FONT_WEIGHT;
-    const font = fontString(fontSize, fontWeight);
-    const lineHeight = lineHeightFor(fontSize);
-    const layout = layoutFor(shape.text, shape.width, fontSize, fontWeight);
+    const base = {
+      fontSize: shape.fontSize ?? DEFAULT_FONT_SIZE,
+      fontWeight: shape.fontWeight ?? DEFAULT_FONT_WEIGHT,
+    };
+    const layout = richLayoutFor(
+      shape.text,
+      parseFormats(shape.textFormats),
+      shape.width,
+      base,
+    );
     const boxWidth = contentWidth(shape.width);
     const align = shape.textAlign ?? "LEFT";
+    const blockColour = shape.textColor ?? color;
 
     ctx.save();
 
@@ -180,24 +185,31 @@ export class CanvasPainter {
       ctx.clip();
     }
 
-    const { ascent, halfLeading } = fontMetricsFor(font, fontSize);
-    const measure = measurerFor(font);
-
-    ctx.fillStyle = shape.textColor ?? color;
-    ctx.font = font;
     ctx.textBaseline = "alphabetic";
 
-    layout.lines.forEach((line, index) => {
-      const slack = boxWidth - measure(line);
+    let top = shape.y + TEXT_PADDING;
+
+    for (const line of layout.lines) {
+      const slack = boxWidth - line.width;
       const indent =
         align === "CENTER" ? slack / 2 : align === "RIGHT" ? slack : 0;
+      const left = shape.x + TEXT_PADDING + Math.max(0, indent);
 
-      ctx.fillText(
-        line,
-        shape.x + TEXT_PADDING + Math.max(0, indent),
-        shape.y + TEXT_PADDING + index * lineHeight + halfLeading + ascent,
-      );
-    });
+      for (const segment of line.segments) {
+        const fontSize = segment.attributes.fontSize ?? base.fontSize;
+        const fontWeight = segment.attributes.bold
+          ? BOLD_FONT_WEIGHT
+          : segment.attributes.bold === false
+            ? DEFAULT_FONT_WEIGHT
+            : base.fontWeight;
+
+        ctx.font = fontString(fontSize, fontWeight);
+        ctx.fillStyle = segment.attributes.color ?? blockColour;
+        ctx.fillText(segment.text, left + segment.x, top + line.baseline);
+      }
+
+      top += line.height;
+    }
 
     ctx.restore();
   }

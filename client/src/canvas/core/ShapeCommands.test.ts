@@ -136,6 +136,24 @@ describe("ShapeCommands text editing", () => {
     expect(commands.textStyleOf(["t1"])).toBeNull();
   });
 
+  it("offers no text styling on an empty sticker", () => {
+    const { commands } = setup({ ...textShape(), type: "STICKER", text: "" });
+
+    expect(commands.textStyleOf(["t1"])).toBeNull();
+  });
+
+  it("offers it once the sticker carries text", () => {
+    const { commands } = setup({ ...textShape(), type: "STICKER" });
+
+    expect(commands.textStyleOf(["t1"])).not.toBeNull();
+  });
+
+  it("offers it on an empty text block, which is only ever text", () => {
+    const { commands } = setup({ ...textShape(), text: "" });
+
+    expect(commands.textStyleOf(["t1"])).not.toBeNull();
+  });
+
   it("keeps slack given by hand", () => {
     const { commands, shape } = setup({ ...textShape(), height: 400 });
 
