@@ -7,7 +7,12 @@ import (
 	"server/graph"
 )
 
-var ErrBoardNotFound = errors.New("board not found")
+var (
+	ErrBoardNotFound = errors.New("board not found")
+	ErrShapeCycle    = errors.New("a shape cannot be its own ancestor")
+)
+
+const defaultOrderKey = "V"
 
 type Store interface {
 	Create(ctx context.Context, ownerID, title string) (*graph.Board, error)
@@ -18,7 +23,10 @@ type Store interface {
 	HasAccess(ctx context.Context, boardID, userID string) (bool, error)
 	ListForUser(ctx context.Context, userID string) ([]*graph.Board, error)
 	UpsertShape(ctx context.Context, boardID string, input graph.ShapeInput) (*graph.Shape, bool, error)
-	DeleteShape(ctx context.Context, boardID, shapeID string) (*graph.Shape, error)
+	// Returns every shape the delete took, not just the named one: deleting a
+	// group takes its subtree with it, and a client that hears about one of ten
+	// removals keeps painting the other nine.
+	DeleteShape(ctx context.Context, boardID, shapeID string) ([]*graph.Shape, error)
 }
 
 func applyShapePatch(shape *graph.Shape, input graph.ShapeInput) {
@@ -58,8 +66,15 @@ func applyShapePatch(shape *graph.Shape, input graph.ShapeInput) {
 	if input.Rotation != nil {
 		shape.Rotation = *input.Rotation
 	}
-	if input.ZIndex != nil {
-		shape.ZIndex = *input.ZIndex
+	if input.OrderKey != nil {
+		shape.OrderKey = *input.OrderKey
+	}
+	if input.ParentID != nil {
+		if *input.ParentID == "" {
+			shape.ParentID = nil
+		} else {
+			shape.ParentID = input.ParentID
+		}
 	}
 	if input.Locked != nil {
 		shape.Locked = *input.Locked

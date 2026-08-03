@@ -99,6 +99,8 @@ type ComplexityRoot struct {
 		Height      func(childComplexity int) int
 		ID          func(childComplexity int) int
 		Locked      func(childComplexity int) int
+		OrderKey    func(childComplexity int) int
+		ParentID    func(childComplexity int) int
 		Rotation    func(childComplexity int) int
 		Stroke      func(childComplexity int) int
 		StrokeWidth func(childComplexity int) int
@@ -110,7 +112,6 @@ type ComplexityRoot struct {
 		Width       func(childComplexity int) int
 		X           func(childComplexity int) int
 		Y           func(childComplexity int) int
-		ZIndex      func(childComplexity int) int
 	}
 
 	ShapeEvent struct {
@@ -457,6 +458,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Shape.Locked(childComplexity), true
+	case "Shape.orderKey":
+		if e.complexity.Shape.OrderKey == nil {
+			break
+		}
+
+		return e.complexity.Shape.OrderKey(childComplexity), true
+	case "Shape.parentId":
+		if e.complexity.Shape.ParentID == nil {
+			break
+		}
+
+		return e.complexity.Shape.ParentID(childComplexity), true
 	case "Shape.rotation":
 		if e.complexity.Shape.Rotation == nil {
 			break
@@ -523,12 +536,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Shape.Y(childComplexity), true
-	case "Shape.zIndex":
-		if e.complexity.Shape.ZIndex == nil {
-			break
-		}
-
-		return e.complexity.Shape.ZIndex(childComplexity), true
 
 	case "ShapeEvent.clientID":
 		if e.complexity.ShapeEvent.ClientID == nil {
@@ -900,6 +907,7 @@ extend type Subscription {
   ELLIPSE
   TEXT
   STICKER
+  GROUP
 }
 
 enum TextAlign {
@@ -925,8 +933,10 @@ type Shape {
   textColor: String
   textFormats: String
   rotation: Float!
-  zIndex: Int!
   locked: Boolean!
+
+  parentId: ID
+  orderKey: String!
 
   fill: String
   stroke: String
@@ -950,8 +960,12 @@ input ShapeInput {
   textColor: String
   textFormats: String
   rotation: Float
-  zIndex: Int
   locked: Boolean
+
+  # Empty string means the root, the way an emptied text is sent as "": null
+  # keeps its patch meaning of "leave this alone".
+  parentId: ID
+  orderKey: String
   fill: String
   stroke: String
   strokeWidth: Float
@@ -1520,10 +1534,12 @@ func (ec *executionContext) fieldContext_Board_shapes(_ context.Context, field g
 				return ec.fieldContext_Shape_textFormats(ctx, field)
 			case "rotation":
 				return ec.fieldContext_Shape_rotation(ctx, field)
-			case "zIndex":
-				return ec.fieldContext_Shape_zIndex(ctx, field)
 			case "locked":
 				return ec.fieldContext_Shape_locked(ctx, field)
+			case "parentId":
+				return ec.fieldContext_Shape_parentId(ctx, field)
+			case "orderKey":
+				return ec.fieldContext_Shape_orderKey(ctx, field)
 			case "fill":
 				return ec.fieldContext_Shape_fill(ctx, field)
 			case "stroke":
@@ -2030,10 +2046,12 @@ func (ec *executionContext) fieldContext_Mutation_updateShape(ctx context.Contex
 				return ec.fieldContext_Shape_textFormats(ctx, field)
 			case "rotation":
 				return ec.fieldContext_Shape_rotation(ctx, field)
-			case "zIndex":
-				return ec.fieldContext_Shape_zIndex(ctx, field)
 			case "locked":
 				return ec.fieldContext_Shape_locked(ctx, field)
+			case "parentId":
+				return ec.fieldContext_Shape_parentId(ctx, field)
+			case "orderKey":
+				return ec.fieldContext_Shape_orderKey(ctx, field)
 			case "fill":
 				return ec.fieldContext_Shape_fill(ctx, field)
 			case "stroke":
@@ -2886,35 +2904,6 @@ func (ec *executionContext) fieldContext_Shape_rotation(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _Shape_zIndex(ctx context.Context, field graphql.CollectedField, obj *Shape) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Shape_zIndex,
-		func(ctx context.Context) (any, error) {
-			return obj.ZIndex, nil
-		},
-		nil,
-		ec.marshalNInt2int,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Shape_zIndex(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Shape",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Shape_locked(ctx context.Context, field graphql.CollectedField, obj *Shape) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2939,6 +2928,64 @@ func (ec *executionContext) fieldContext_Shape_locked(_ context.Context, field g
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Shape_parentId(ctx context.Context, field graphql.CollectedField, obj *Shape) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Shape_parentId,
+		func(ctx context.Context) (any, error) {
+			return obj.ParentID, nil
+		},
+		nil,
+		ec.marshalOID2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Shape_parentId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Shape",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Shape_orderKey(ctx context.Context, field graphql.CollectedField, obj *Shape) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Shape_orderKey,
+		func(ctx context.Context) (any, error) {
+			return obj.OrderKey, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Shape_orderKey(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Shape",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3112,10 +3159,12 @@ func (ec *executionContext) fieldContext_ShapeEvent_shape(_ context.Context, fie
 				return ec.fieldContext_Shape_textFormats(ctx, field)
 			case "rotation":
 				return ec.fieldContext_Shape_rotation(ctx, field)
-			case "zIndex":
-				return ec.fieldContext_Shape_zIndex(ctx, field)
 			case "locked":
 				return ec.fieldContext_Shape_locked(ctx, field)
+			case "parentId":
+				return ec.fieldContext_Shape_parentId(ctx, field)
+			case "orderKey":
+				return ec.fieldContext_Shape_orderKey(ctx, field)
 			case "fill":
 				return ec.fieldContext_Shape_fill(ctx, field)
 			case "stroke":
@@ -5166,7 +5215,7 @@ func (ec *executionContext) unmarshalInputShapeInput(ctx context.Context, obj an
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "type", "x", "y", "width", "height", "text", "fontSize", "fontWeight", "textAlign", "textColor", "textFormats", "rotation", "zIndex", "locked", "fill", "stroke", "strokeWidth"}
+	fieldsInOrder := [...]string{"id", "type", "x", "y", "width", "height", "text", "fontSize", "fontWeight", "textAlign", "textColor", "textFormats", "rotation", "locked", "parentId", "orderKey", "fill", "stroke", "strokeWidth"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -5264,13 +5313,6 @@ func (ec *executionContext) unmarshalInputShapeInput(ctx context.Context, obj an
 				return it, err
 			}
 			it.Rotation = data
-		case "zIndex":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("zIndex"))
-			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.ZIndex = data
 		case "locked":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("locked"))
 			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
@@ -5278,6 +5320,20 @@ func (ec *executionContext) unmarshalInputShapeInput(ctx context.Context, obj an
 				return it, err
 			}
 			it.Locked = data
+		case "parentId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ParentID = data
+		case "orderKey":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("orderKey"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.OrderKey = data
 		case "fill":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fill"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -5873,13 +5929,15 @@ func (ec *executionContext) _Shape(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "zIndex":
-			out.Values[i] = ec._Shape_zIndex(ctx, field, obj)
+		case "locked":
+			out.Values[i] = ec._Shape_locked(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "locked":
-			out.Values[i] = ec._Shape_locked(ctx, field, obj)
+		case "parentId":
+			out.Values[i] = ec._Shape_parentId(ctx, field, obj)
+		case "orderKey":
+			out.Values[i] = ec._Shape_orderKey(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -6598,22 +6656,6 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 	return res
 }
 
-func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
-	res, err := graphql.UnmarshalInt(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
-	_ = sel
-	res := graphql.MarshalInt(v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-	}
-	return res
-}
-
 func (ec *executionContext) unmarshalNLockAction2serverᚋgraphᚐLockAction(ctx context.Context, v any) (LockAction, error) {
 	var res LockAction
 	err := res.UnmarshalGQL(v)
@@ -7163,6 +7205,24 @@ func (ec *executionContext) marshalOFloat2ᚖfloat64(ctx context.Context, sel as
 	_ = sel
 	res := graphql.MarshalFloatContext(*v)
 	return graphql.WrapContextMarshaler(ctx, res)
+}
+
+func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalID(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalID(*v)
+	return res
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v any) (*int, error) {

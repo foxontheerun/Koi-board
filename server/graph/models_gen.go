@@ -55,8 +55,9 @@ type Shape struct {
 	TextColor   *string    `json:"textColor,omitempty"`
 	TextFormats *string    `json:"textFormats,omitempty"`
 	Rotation    float64    `json:"rotation"`
-	ZIndex      int        `json:"zIndex"`
 	Locked      bool       `json:"locked"`
+	ParentID    *string    `json:"parentId,omitempty"`
+	OrderKey    string     `json:"orderKey"`
 	Fill        *string    `json:"fill,omitempty"`
 	Stroke      *string    `json:"stroke,omitempty"`
 	StrokeWidth *float64   `json:"strokeWidth,omitempty"`
@@ -82,8 +83,9 @@ type ShapeInput struct {
 	TextColor   *string    `json:"textColor,omitempty"`
 	TextFormats *string    `json:"textFormats,omitempty"`
 	Rotation    *float64   `json:"rotation,omitempty"`
-	ZIndex      *int       `json:"zIndex,omitempty"`
 	Locked      *bool      `json:"locked,omitempty"`
+	ParentID    *string    `json:"parentId,omitempty"`
+	OrderKey    *string    `json:"orderKey,omitempty"`
 	Fill        *string    `json:"fill,omitempty"`
 	Stroke      *string    `json:"stroke,omitempty"`
 	StrokeWidth *float64   `json:"strokeWidth,omitempty"`
@@ -238,6 +240,7 @@ const (
 	ShapeTypeEllipse ShapeType = "ELLIPSE"
 	ShapeTypeText    ShapeType = "TEXT"
 	ShapeTypeSticker ShapeType = "STICKER"
+	ShapeTypeGroup   ShapeType = "GROUP"
 )
 
 var AllShapeType = []ShapeType{
@@ -245,11 +248,12 @@ var AllShapeType = []ShapeType{
 	ShapeTypeEllipse,
 	ShapeTypeText,
 	ShapeTypeSticker,
+	ShapeTypeGroup,
 }
 
 func (e ShapeType) IsValid() bool {
 	switch e {
-	case ShapeTypeRect, ShapeTypeEllipse, ShapeTypeText, ShapeTypeSticker:
+	case ShapeTypeRect, ShapeTypeEllipse, ShapeTypeText, ShapeTypeSticker, ShapeTypeGroup:
 		return true
 	}
 	return false

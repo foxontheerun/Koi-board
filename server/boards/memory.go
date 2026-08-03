@@ -90,6 +90,20 @@ func (s *MemoryStore) UpsertShape(_ context.Context, boardID string, input graph
 		return nil, false, ErrBoardNotFound
 	}
 
+	if input.ParentID != nil && *input.ParentID != "" {
+		parent := *input.ParentID
+		if !hasShape(board, parent) {
+			// The parent is gone - most likely another client deleted the group
+			// while this move was in flight. Put the shape at the root rather
+			// than refuse: the sender cannot fix it, and a shape outside its
+			// group is better than a shape nobody can see.
+			root := ""
+			input.ParentID = &root
+		} else if wouldCycle(board, input.ID, parent) {
+			return nil, false, ErrShapeCycle
+		}
+	}
+
 	for _, sh := range board.Shapes {
 		if sh.ID == input.ID {
 			applyShapePatch(sh, input)
@@ -97,13 +111,38 @@ func (s *MemoryStore) UpsertShape(_ context.Context, boardID string, input graph
 		}
 	}
 
-	shape := &graph.Shape{ID: input.ID, BoardID: boardID}
+	shape := &graph.Shape{ID: input.ID, BoardID: boardID, OrderKey: defaultOrderKey}
 	applyShapePatch(shape, input)
 	board.Shapes = append(board.Shapes, shape)
 	return shape, true, nil
 }
 
-func (s *MemoryStore) DeleteShape(_ context.Context, boardID, shapeID string) (*graph.Shape, error) {
+func hasShape(board *graph.Board, id string) bool {
+	for _, sh := range board.Shapes {
+		if sh.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func wouldCycle(board *graph.Board, shapeID, parentID string) bool {
+	for at := parentID; at != ""; {
+		if at == shapeID {
+			return true
+		}
+		next := ""
+		for _, sh := range board.Shapes {
+			if sh.ID == at && sh.ParentID != nil {
+				next = *sh.ParentID
+			}
+		}
+		at = next
+	}
+	return false
+}
+
+func (s *MemoryStore) DeleteShape(_ context.Context, boardID, shapeID string) ([]*graph.Shape, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -111,12 +150,29 @@ func (s *MemoryStore) DeleteShape(_ context.Context, boardID, shapeID string) (*
 	if !ok {
 		return nil, nil
 	}
+	if !hasShape(board, shapeID) {
+		return nil, nil
+	}
+
+	// Postgres gets this from ON DELETE CASCADE; here it is done by hand, which
+	// is exactly why the conformance suite checks both.
+	doomed := map[string]bool{shapeID: true}
+	for grew := true; grew; {
+		grew = false
+		for _, sh := range board.Shapes {
+			if doomed[sh.ID] || sh.ParentID == nil || !doomed[*sh.ParentID] {
+				continue
+			}
+			doomed[sh.ID] = true
+			grew = true
+		}
+	}
 
 	remaining := make([]*graph.Shape, 0, len(board.Shapes))
-	var deleted *graph.Shape
+	deleted := make([]*graph.Shape, 0, len(doomed))
 	for _, sh := range board.Shapes {
-		if sh.ID == shapeID {
-			deleted = sh
+		if doomed[sh.ID] {
+			deleted = append(deleted, sh)
 			continue
 		}
 		remaining = append(remaining, sh)

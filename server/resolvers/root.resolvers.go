@@ -109,15 +109,15 @@ func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shap
 		return false, err
 	}
 
-	if deleted != nil {
+	for _, shape := range deleted {
 		subscriptions.Publish(boardID, &graph.ShapeEvent{
 			Type:     graph.ShapeEventTypeDeleted,
-			Shape:    deleted,
+			Shape:    shape,
 			ClientID: "system",
 		})
 	}
 
-	return deleted != nil, nil
+	return len(deleted) > 0, nil
 }
 
 // SetShapeLock is the resolver for the setShapeLock field.

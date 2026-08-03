@@ -155,14 +155,117 @@ func runBoardStoreSuite(t *testing.T, s Store, ownerID, otherID string) {
 	}
 
 	del, err := s.DeleteShape(ctx, b.ID, "s1")
-	if err != nil || del == nil {
+	if err != nil || len(del) != 1 {
 		t.Fatalf("delete shape: del=%v err=%v", del, err)
 	}
 	if board, _ := s.Get(ctx, b.ID, ownerID); len(board.Shapes) != 0 {
 		t.Fatal("shape should be gone after delete")
 	}
-	if del, err := s.DeleteShape(ctx, b.ID, "nope"); err != nil || del != nil {
-		t.Fatalf("delete missing shape: want (nil, nil), got (%v, %v)", del, err)
+	if del, err := s.DeleteShape(ctx, b.ID, "nope"); err != nil || len(del) != 0 {
+		t.Fatalf("delete missing shape: want none, got (%v, %v)", del, err)
+	}
+
+	runShapeTreeSuite(t, s, b.ID, ownerID)
+}
+
+func child(id, parentID, orderKey string) graph.ShapeInput {
+	in := newShape(id)
+	in.ParentID = ptrS(parentID)
+	in.OrderKey = ptrS(orderKey)
+	return in
+}
+
+func shapeByID(board *graph.Board, id string) *graph.Shape {
+	for _, sh := range board.Shapes {
+		if sh.ID == id {
+			return sh
+		}
+	}
+	return nil
+}
+
+func runShapeTreeSuite(t *testing.T, s Store, boardID, userID string) {
+	ctx := context.Background()
+
+	group := newShape("g1")
+	group.Type = ptrType(graph.ShapeTypeGroup)
+	group.OrderKey = ptrS("V")
+	if _, _, err := s.UpsertShape(ctx, boardID, group); err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+	for _, in := range []graph.ShapeInput{child("c1", "g1", "V"), child("c2", "g1", "k")} {
+		if _, _, err := s.UpsertShape(ctx, boardID, in); err != nil {
+			t.Fatalf("create child: %v", err)
+		}
+	}
+
+	board, _ := s.Get(ctx, boardID, userID)
+	c1 := shapeByID(board, "c1")
+	if c1 == nil || c1.ParentID == nil || *c1.ParentID != "g1" {
+		t.Fatalf("child should keep its parent, got %v", c1)
+	}
+	if c1.OrderKey != "V" {
+		t.Fatalf("child should keep its order key, got %q", c1.OrderKey)
+	}
+
+	if _, _, err := s.UpsertShape(ctx, boardID, moveX("c1", 55)); err != nil {
+		t.Fatalf("move child: %v", err)
+	}
+	board, _ = s.Get(ctx, boardID, userID)
+	if moved := shapeByID(board, "c1"); moved.ParentID == nil || *moved.ParentID != "g1" {
+		t.Fatalf("an unrelated patch should not detach a child, got %v", moved)
+	}
+
+	// The empty string is how a client says "root"; null still means "leave alone".
+	if _, _, err := s.UpsertShape(ctx, boardID, graph.ShapeInput{ID: "c2", ParentID: ptrS("")}); err != nil {
+		t.Fatalf("ungroup child: %v", err)
+	}
+	board, _ = s.Get(ctx, boardID, userID)
+	if freed := shapeByID(board, "c2"); freed.ParentID != nil {
+		t.Fatalf("empty parent should mean the root, got %v", freed.ParentID)
+	}
+
+	// A parent that no longer exists heals to the root rather than failing: the
+	// sender cannot fix it, and a shape nobody can see is worse.
+	if _, _, err := s.UpsertShape(ctx, boardID, child("c3", "gone", "V")); err != nil {
+		t.Fatalf("unknown parent should be healed, not refused: %v", err)
+	}
+	board, _ = s.Get(ctx, boardID, userID)
+	if healed := shapeByID(board, "c3"); healed == nil || healed.ParentID != nil {
+		t.Fatalf("unknown parent should land at the root, got %v", healed)
+	}
+
+	if _, _, err := s.UpsertShape(ctx, boardID, graph.ShapeInput{ID: "g1", ParentID: ptrS("c1")}); !errors.Is(err, ErrShapeCycle) {
+		t.Fatalf("a group under its own child: want ErrShapeCycle, got %v", err)
+	}
+	if _, _, err := s.UpsertShape(ctx, boardID, graph.ShapeInput{ID: "g1", ParentID: ptrS("g1")}); !errors.Is(err, ErrShapeCycle) {
+		t.Fatalf("a group under itself: want ErrShapeCycle, got %v", err)
+	}
+
+	// Deleting a group takes its subtree, and every removed shape comes back so
+	// the other clients can be told about all of them.
+	if _, _, err := s.UpsertShape(ctx, boardID, child("c4", "c1", "V")); err != nil {
+		t.Fatalf("create grandchild: %v", err)
+	}
+	deleted, err := s.DeleteShape(ctx, boardID, "g1")
+	if err != nil {
+		t.Fatalf("delete group: %v", err)
+	}
+	gone := map[string]bool{}
+	for _, sh := range deleted {
+		gone[sh.ID] = true
+	}
+	if len(deleted) != 3 || !gone["g1"] || !gone["c1"] || !gone["c4"] {
+		t.Fatalf("deleting a group should return its whole subtree, got %v", gone)
+	}
+	board, _ = s.Get(ctx, boardID, userID)
+	for _, id := range []string{"g1", "c1", "c4"} {
+		if shapeByID(board, id) != nil {
+			t.Fatalf("%s should be gone with its group", id)
+		}
+	}
+	if shapeByID(board, "c2") == nil || shapeByID(board, "c3") == nil {
+		t.Fatal("shapes outside the group should survive")
 	}
 }
 

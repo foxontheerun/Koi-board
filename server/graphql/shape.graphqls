@@ -3,6 +3,7 @@ enum ShapeType {
   ELLIPSE
   TEXT
   STICKER
+  GROUP
 }
 
 enum TextAlign {
@@ -28,8 +29,10 @@ type Shape {
   textColor: String
   textFormats: String
   rotation: Float!
-  zIndex: Int!
   locked: Boolean!
+
+  parentId: ID
+  orderKey: String!
 
   fill: String
   stroke: String
@@ -53,8 +56,12 @@ input ShapeInput {
   textColor: String
   textFormats: String
   rotation: Float
-  zIndex: Int
   locked: Boolean
+
+  # Empty string means the root, the way an emptied text is sent as "": null
+  # keeps its patch meaning of "leave this alone".
+  parentId: ID
+  orderKey: String
   fill: String
   stroke: String
   strokeWidth: Float
