@@ -97,7 +97,8 @@ ignores its own echoes via a `clientID` guard.
 - **Auth** — email + password with **JWT** (short access token + refresh). The
   token is verified by HTTP middleware and on the WebSocket handshake
   (`connectionParams`), so live channels aren't open to anonymous clients.
-  Passwords are stored as **bcrypt** hashes.
+  Passwords are stored as **bcrypt** hashes. Every operation naming a board —
+  mutation or subscription — then checks membership, not just authentication.
 - **Persistence** — **Postgres** holds users, boards, memberships and shapes.
   Persisted shape writes happen on release; transient moves, locks and cursors
   stay in-memory pub/sub (they're realtime, not durable state). Storage sits
@@ -117,7 +118,8 @@ Two separate sync channels, on purpose:
   Used for cursor movement and live dragging. Lossy by design — the latest
   position is all that matters, so it favors **latency**.
 - **Persisted** — low-frequency, reliable, one write on release. The final,
-  correct state. Favors **correctness**.
+  correct state. Favors **correctness**: a subscriber too slow to keep up is
+  disconnected and re-reads the board, rather than quietly missing a shape.
 
 Concurrent editing is coordinated with **soft-locks**: a client holding a shape
 takes a short **lease** (renewed each frame); if it vanishes (closes the tab), the
@@ -185,6 +187,9 @@ koi/
   (see `server/.env.example`). Migrations apply automatically on boot. Without
   `DATABASE_URL` the backend falls back to in-memory storage. Override the host
   port with `DB_PORT` if 5432 is taken.
+- **Configuration:** `PORT`, `ALLOWED_ORIGINS`, `ENABLE_PLAYGROUND`, `APP_ENV`.
+  With `APP_ENV=production` the server refuses to start on the dev defaults —
+  see [server/README.md](server/README.md#environment).
 
 ## Testing
 
