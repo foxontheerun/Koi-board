@@ -110,6 +110,37 @@ func (s *PostgresStore) ListForUser(ctx context.Context, userID string) ([]*grap
 	return out, rows.Err()
 }
 
+func (s *PostgresStore) HasAccess(ctx context.Context, boardID, userID string) (bool, error) {
+	var member bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+		   SELECT 1 FROM board_members WHERE board_id = $1 AND user_id = $2
+		 ) AND EXISTS (
+		   SELECT 1 FROM boards WHERE id = $1
+		 )`,
+		boardID, userID,
+	).Scan(&member)
+	if err != nil {
+		return false, err
+	}
+
+	if !member {
+		// Tell "no such board" apart from "not yours": the first is a dead
+		// link, the second is a refusal.
+		var exists bool
+		if err := s.pool.QueryRow(ctx,
+			`SELECT EXISTS (SELECT 1 FROM boards WHERE id = $1)`, boardID,
+		).Scan(&exists); err != nil {
+			return false, err
+		}
+		if !exists {
+			return false, ErrBoardNotFound
+		}
+	}
+
+	return member, nil
+}
+
 func (s *PostgresStore) Get(ctx context.Context, boardID, userID string) (*graph.Board, error) {
 	var board graph.Board
 	err := s.pool.QueryRow(ctx,

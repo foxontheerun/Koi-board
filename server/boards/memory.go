@@ -57,6 +57,17 @@ func (s *MemoryStore) Get(_ context.Context, boardID, userID string) (*graph.Boa
 	return board, nil
 }
 
+func (s *MemoryStore) HasAccess(_ context.Context, boardID, userID string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if _, ok := s.boards[boardID]; !ok {
+		return false, ErrBoardNotFound
+	}
+
+	return s.members[boardID][userID], nil
+}
+
 func (s *MemoryStore) ListForUser(_ context.Context, userID string) ([]*graph.Board, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

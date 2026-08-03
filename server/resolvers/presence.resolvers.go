@@ -12,6 +12,10 @@ import (
 
 // UpdateCursor is the resolver for the updateCursor field.
 func (r *mutationResolver) UpdateCursor(ctx context.Context, boardID string, clientID string, x float64, y float64, name *string) (bool, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return false, err
+	}
+
 	presence.Publish(boardID, &graph.CursorPresence{
 		ClientID: clientID,
 		X:        x,
@@ -23,6 +27,10 @@ func (r *mutationResolver) UpdateCursor(ctx context.Context, boardID string, cli
 
 // CursorsMoved is the resolver for the cursorsMoved field.
 func (r *subscriptionResolver) CursorsMoved(ctx context.Context, boardID string) (<-chan *graph.CursorPresence, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return nil, err
+	}
+
 	ch := make(chan *graph.CursorPresence, 1)
 	presence.Subscribe(boardID, ch)
 
