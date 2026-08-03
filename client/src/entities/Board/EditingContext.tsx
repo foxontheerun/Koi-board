@@ -77,9 +77,21 @@ export function useEditingProvider(): EditingContextValue & {
     return range && range.length > 0 ? { element, range } : null;
   };
 
+  // While the editor is open every style goes through it, selected range or
+  // whole text. The editor renders its content once on open - re-rendering per
+  // keystroke would destroy the caret - so a change made anywhere else would
+  // reach the model and never reach the screen.
   const styleSelection = (attributes: TextAttributes) => {
-    const found = selectionIn(editingShape);
-    if (!editingShape || !found) return false;
+    const element = editorRef.current;
+    if (!editingShape || !element) return false;
+
+    const selected = selectionIn(editingShape);
+    const found = selected ?? {
+      element,
+      range: { index: 0, length: editingShape.text.length },
+    };
+
+    if (found.range.length === 0) return false;
 
     const formats = applyFormat(
       editingShape.formats,
@@ -89,14 +101,17 @@ export function useEditingProvider(): EditingContextValue & {
     );
 
     // Re-rendering replaces the nodes the selection lives in, so it has to be
-    // put back afterwards.
+    // put back afterwards - the caret where it was, not the range that was
+    // styled, or styling with nothing selected would select everything.
+    const before = selectionRange(element);
+
     renderInto(
       found.element,
       editingShape.text,
       formats,
       handleRef.current?.scale ?? 1,
     );
-    restoreSelection(found.element, found.range);
+    restoreSelection(found.element, before ?? found.range);
 
     setEditingShape({ ...editingShape, formats });
     handleRef.current?.onFormats(formats);
@@ -104,8 +119,17 @@ export function useEditingProvider(): EditingContextValue & {
     return true;
   };
 
+  // With nothing selected the toolbar describes the whole block, since that is
+  // what a click would style.
   const selectionAttributes = () => {
-    const found = selectionIn(editingShape);
+    const found =
+      selectionIn(editingShape) ??
+      (editingShape && editorRef.current
+        ? {
+            element: editorRef.current,
+            range: { index: 0, length: editingShape.text.length },
+          }
+        : null);
     if (!editingShape || !found) return null;
 
     return attributesIn(
