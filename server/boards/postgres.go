@@ -19,7 +19,7 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool}
 }
 
-const shapeColumns = `id, board_id, type, x, y, width, height, rotation, z_index, locked, text, font_size, font_weight, text_align, text_color, text_formats, fill, stroke, stroke_width`
+const shapeColumns = `id, board_id, type, x, y, width, height, rotation, parent_id, order_key, locked, text, font_size, font_weight, text_align, text_color, text_formats, fill, stroke, stroke_width`
 
 func scanShape(row pgx.Row) (*graph.Shape, error) {
 	var sh graph.Shape
@@ -27,7 +27,7 @@ func scanShape(row pgx.Row) (*graph.Shape, error) {
 	var textAlign *string
 	if err := row.Scan(
 		&sh.ID, &sh.BoardID, &shapeType, &sh.X, &sh.Y, &sh.Width, &sh.Height,
-		&sh.Rotation, &sh.ZIndex, &sh.Locked, &sh.Text, &sh.FontSize, &sh.FontWeight,
+		&sh.Rotation, &sh.ParentID, &sh.OrderKey, &sh.Locked, &sh.Text, &sh.FontSize, &sh.FontWeight,
 		&textAlign, &sh.TextColor, &sh.TextFormats, &sh.Fill, &sh.Stroke, &sh.StrokeWidth,
 	); err != nil {
 		return nil, err
@@ -111,6 +111,22 @@ func (s *PostgresStore) ListForUser(ctx context.Context, userID string) ([]*grap
 }
 
 func (s *PostgresStore) HasAccess(ctx context.Context, boardID, userID string) (bool, error) {
+	if userID == "" {
+		// User ids are uuids, and an empty one would fail the cast rather than
+		// answer the question. An anonymous caller has no access to anything,
+		// but a dead link still has to read as a dead link.
+		var exists bool
+		if err := s.pool.QueryRow(ctx,
+			`SELECT EXISTS (SELECT 1 FROM boards WHERE id = $1)`, boardID,
+		).Scan(&exists); err != nil {
+			return false, err
+		}
+		if !exists {
+			return false, ErrBoardNotFound
+		}
+		return false, nil
+	}
+
 	var member bool
 	err := s.pool.QueryRow(ctx,
 		`SELECT EXISTS (
@@ -163,7 +179,7 @@ func (s *PostgresStore) Get(ctx context.Context, boardID, userID string) (*graph
 	}
 
 	rows, err := s.pool.Query(ctx,
-		`SELECT `+shapeColumns+` FROM shapes WHERE board_id = $1 ORDER BY z_index`, boardID,
+		`SELECT `+shapeColumns+` FROM shapes WHERE board_id = $1 ORDER BY order_key, id`, boardID,
 	)
 	if err != nil {
 		return nil, err
@@ -185,6 +201,12 @@ func (s *PostgresStore) Get(ctx context.Context, boardID, userID string) (*graph
 }
 
 func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input graph.ShapeInput) (*graph.Shape, bool, error) {
+	parentID, err := s.resolveParent(ctx, boardID, input.ID, input.ParentID)
+	if err != nil {
+		return nil, false, err
+	}
+	input.ParentID = parentID
+
 	var shapeType *string
 	if input.Type != nil {
 		t := string(*input.Type)
@@ -195,10 +217,10 @@ func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input g
 	var outType string
 	var outAlign *string
 	var created bool
-	err := s.pool.QueryRow(ctx,
-		`INSERT INTO shapes (id, board_id, type, x, y, width, height, rotation, z_index, locked, text, font_size, font_weight, text_align, text_color, text_formats, fill, stroke, stroke_width)
+	err = s.pool.QueryRow(ctx,
+		`INSERT INTO shapes (id, board_id, type, x, y, width, height, rotation, parent_id, order_key, locked, text, font_size, font_weight, text_align, text_color, text_formats, fill, stroke, stroke_width)
 		 VALUES ($1, $2, COALESCE($3, ''), COALESCE($4, 0), COALESCE($5, 0), COALESCE($6, 0), COALESCE($7, 0),
-		         COALESCE($8, 0), COALESCE($9, 0), COALESCE($10, false), $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		         COALESCE($8, 0), NULLIF($9, ''), COALESCE($20, 'V'), COALESCE($10, false), $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		 ON CONFLICT (id) DO UPDATE SET
 		     type = COALESCE($3, shapes.type),
 		     x = COALESCE($4, shapes.x),
@@ -206,7 +228,8 @@ func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input g
 		     width = COALESCE($6, shapes.width),
 		     height = COALESCE($7, shapes.height),
 		     rotation = COALESCE($8, shapes.rotation),
-		     z_index = COALESCE($9, shapes.z_index),
+		     parent_id = CASE WHEN $9 = '' THEN NULL ELSE COALESCE($9, shapes.parent_id) END,
+		     order_key = COALESCE($20, shapes.order_key),
 		     locked = COALESCE($10, shapes.locked),
 		     text = COALESCE($11, shapes.text),
 		     font_size = COALESCE($12, shapes.font_size),
@@ -220,12 +243,12 @@ func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input g
 		     updated_at = now()
 		 RETURNING `+shapeColumns+`, (xmax = 0)`,
 		input.ID, boardID, shapeType, input.X, input.Y, input.Width, input.Height,
-		input.Rotation, input.ZIndex, input.Locked, input.Text, input.FontSize,
+		input.Rotation, input.ParentID, input.Locked, input.Text, input.FontSize,
 		input.FontWeight, fromTextAlign(input.TextAlign), input.TextColor,
-		input.TextFormats, input.Fill, input.Stroke, input.StrokeWidth,
+		input.TextFormats, input.Fill, input.Stroke, input.StrokeWidth, input.OrderKey,
 	).Scan(
 		&sh.ID, &sh.BoardID, &outType, &sh.X, &sh.Y, &sh.Width, &sh.Height,
-		&sh.Rotation, &sh.ZIndex, &sh.Locked, &sh.Text, &sh.FontSize, &sh.FontWeight,
+		&sh.Rotation, &sh.ParentID, &sh.OrderKey, &sh.Locked, &sh.Text, &sh.FontSize, &sh.FontWeight,
 		&outAlign, &sh.TextColor, &sh.TextFormats, &sh.Fill, &sh.Stroke, &sh.StrokeWidth, &created,
 	)
 	if err != nil {
@@ -236,16 +259,71 @@ func (s *PostgresStore) UpsertShape(ctx context.Context, boardID string, input g
 	return &sh, created, nil
 }
 
-func (s *PostgresStore) DeleteShape(ctx context.Context, boardID, shapeID string) (*graph.Shape, error) {
-	shape, err := scanShape(s.pool.QueryRow(ctx,
-		`DELETE FROM shapes WHERE id = $1 AND board_id = $2 RETURNING `+shapeColumns,
+// Deleting a group takes its subtree. ON DELETE CASCADE would remove the rows
+// on its own, but silently: the walk is here so every removed shape can be
+// announced to the other clients.
+func (s *PostgresStore) DeleteShape(ctx context.Context, boardID, shapeID string) ([]*graph.Shape, error) {
+	rows, err := s.pool.Query(ctx,
+		`WITH RECURSIVE subtree AS (
+		     SELECT id FROM shapes WHERE id = $1 AND board_id = $2
+		     UNION ALL
+		     SELECT s.id FROM shapes s JOIN subtree t ON s.parent_id = t.id
+		 )
+		 DELETE FROM shapes WHERE id IN (SELECT id FROM subtree)
+		 RETURNING `+shapeColumns,
 		shapeID, boardID,
-	))
+	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return shape, nil
+	defer rows.Close()
+
+	var deleted []*graph.Shape
+	for rows.Next() {
+		shape, err := scanShape(rows)
+		if err != nil {
+			return nil, err
+		}
+		deleted = append(deleted, shape)
+	}
+	return deleted, rows.Err()
+}
+
+// A parent that is gone puts the shape at the root instead of failing the
+// write; a parent that sits below the shape itself is refused, because a cycle
+// hangs every walk of the tree afterwards.
+func (s *PostgresStore) resolveParent(ctx context.Context, boardID, shapeID string, parentID *string) (*string, error) {
+	if parentID == nil || *parentID == "" {
+		return parentID, nil
+	}
+
+	var exists bool
+	if err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM shapes WHERE id = $1 AND board_id = $2)`,
+		*parentID, boardID,
+	).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if !exists {
+		root := ""
+		return &root, nil
+	}
+
+	var cycles bool
+	if err := s.pool.QueryRow(ctx,
+		`WITH RECURSIVE ancestors AS (
+		     SELECT id, parent_id FROM shapes WHERE id = $1
+		     UNION ALL
+		     SELECT s.id, s.parent_id FROM shapes s JOIN ancestors a ON s.id = a.parent_id
+		 )
+		 SELECT EXISTS (SELECT 1 FROM ancestors WHERE id = $2)`,
+		*parentID, shapeID,
+	).Scan(&cycles); err != nil {
+		return nil, err
+	}
+	if cycles {
+		return nil, ErrShapeCycle
+	}
+
+	return parentID, nil
 }
