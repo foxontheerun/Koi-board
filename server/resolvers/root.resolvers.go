@@ -27,7 +27,7 @@ func (r *mutationResolver) CreateBoard(ctx context.Context, title *string) (*gra
 
 // UpdateShape is the resolver for the updateShape field.
 func (r *mutationResolver) UpdateShape(ctx context.Context, boardID string, shape graph.ShapeInput, clientID string) (*graph.Shape, error) {
-	if _, err := requireUser(ctx); err != nil {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
 		return nil, err
 	}
 
@@ -52,6 +52,10 @@ func (r *mutationResolver) UpdateShape(ctx context.Context, boardID string, shap
 
 // MoveShapeTransient is the resolver for the moveShapeTransient field.
 func (r *mutationResolver) MoveShapeTransient(ctx context.Context, boardID string, shape graph.TransientShapeInput, clientID string) (bool, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return false, err
+	}
+
 	ts := &graph.TransientShape{
 		ID:       shape.ID,
 		X:        shape.X,
@@ -69,6 +73,10 @@ func (r *mutationResolver) MoveShapeTransient(ctx context.Context, boardID strin
 
 // MoveShapesTransient is the resolver for the moveShapesTransient field.
 func (r *mutationResolver) MoveShapesTransient(ctx context.Context, boardID string, shapes []*graph.TransientShapeInput, clientID string) (bool, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return false, err
+	}
+
 	batch := &graph.TransientShapesBatch{
 		ClientID: clientID,
 		Shapes:   make([]*graph.TransientShape, 0, len(shapes)),
@@ -92,7 +100,7 @@ func (r *mutationResolver) MoveShapesTransient(ctx context.Context, boardID stri
 
 // DeleteShape is the resolver for the deleteShape field.
 func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shapeID string) (bool, error) {
-	if _, err := requireUser(ctx); err != nil {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
 		return false, err
 	}
 
@@ -114,6 +122,10 @@ func (r *mutationResolver) DeleteShape(ctx context.Context, boardID string, shap
 
 // SetShapeLock is the resolver for the setShapeLock field.
 func (r *mutationResolver) SetShapeLock(ctx context.Context, boardID string, shapeID string, clientID string, action graph.LockAction) (bool, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return false, err
+	}
+
 	locks.Publish(boardID, &graph.LockEvent{
 		ShapeID:  shapeID,
 		ClientID: clientID,
@@ -148,6 +160,10 @@ func (r *queryResolver) Hello(ctx context.Context) (string, error) {
 
 // ShapeMoved is the resolver for the shapeMoved field.
 func (r *subscriptionResolver) ShapeMoved(ctx context.Context, boardID string) (<-chan *graph.TransientShape, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return nil, err
+	}
+
 	ch := make(chan *graph.TransientShape, 1)
 	transient.Subscribe(boardID, ch)
 
@@ -161,6 +177,10 @@ func (r *subscriptionResolver) ShapeMoved(ctx context.Context, boardID string) (
 
 // ShapesMoved is the resolver for the shapesMoved field.
 func (r *subscriptionResolver) ShapesMoved(ctx context.Context, boardID string) (<-chan *graph.TransientShapesBatch, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return nil, err
+	}
+
 	ch := make(chan *graph.TransientShapesBatch, 1)
 	transient.SubscribeBatch(boardID, ch)
 
@@ -174,6 +194,10 @@ func (r *subscriptionResolver) ShapesMoved(ctx context.Context, boardID string) 
 
 // ShapeEvents is the resolver for the shapeEvents field.
 func (r *subscriptionResolver) ShapeEvents(ctx context.Context, boardID string) (<-chan *graph.ShapeEvent, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return nil, err
+	}
+
 	ch := make(chan *graph.ShapeEvent, 1)
 	subscriptions.Subscribe(boardID, ch)
 
@@ -187,6 +211,10 @@ func (r *subscriptionResolver) ShapeEvents(ctx context.Context, boardID string) 
 
 // ShapeLocks is the resolver for the shapeLocks field.
 func (r *subscriptionResolver) ShapeLocks(ctx context.Context, boardID string) (<-chan *graph.LockEvent, error) {
+	if _, err := r.requireBoardAccess(ctx, boardID); err != nil {
+		return nil, err
+	}
+
 	ch := make(chan *graph.LockEvent, 1)
 	locks.Subscribe(boardID, ch)
 

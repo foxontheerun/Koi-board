@@ -43,8 +43,10 @@ server/
   Transient moves, soft-locks and cursors are **in-memory pub/sub** only — they're
   realtime signals, not durable state, and never touch the database.
 - **Auth on both transports.** HTTP middleware and the WebSocket `InitFunc` both
-  verify the JWT and inject the user id into the request/subscription context;
-  resolvers guard board operations with `requireUser`.
+  verify the JWT and inject the user id into the request/subscription context.
+  Every operation that names a board — mutations and subscriptions alike — then
+  goes through `requireBoardAccess`, which answers "may *this* user touch *this*
+  board" rather than merely "is this a user".
 - **Migrations on boot.** When a database is configured, embedded migrations are
   applied automatically at startup (idempotent).
 - **Shape writes are patches.** `updateShape` is a single

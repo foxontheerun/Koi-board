@@ -55,11 +55,27 @@ func runBoardStoreSuite(t *testing.T, s Store, ownerID, otherID string) {
 		t.Fatalf("missing board: want ErrBoardNotFound, got %v", err)
 	}
 
+	if ok, err := s.HasAccess(ctx, b.ID, ownerID); err != nil || !ok {
+		t.Fatalf("owner should have access: ok=%v err=%v", ok, err)
+	}
+	if ok, err := s.HasAccess(ctx, b.ID, otherID); err != nil || ok {
+		t.Fatalf("stranger should be refused: ok=%v err=%v", ok, err)
+	}
+	if ok, err := s.HasAccess(ctx, b.ID, ""); err != nil || ok {
+		t.Fatalf("anonymous should be refused: ok=%v err=%v", ok, err)
+	}
+	if _, err := s.HasAccess(ctx, "missing-id", ownerID); !errors.Is(err, ErrBoardNotFound) {
+		t.Fatalf("access to a missing board: want ErrBoardNotFound, got %v", err)
+	}
+
 	if _, err := s.Get(ctx, b.ID, otherID); err != nil {
 		t.Fatalf("open by link: %v", err)
 	}
 	if list, _ := s.ListForUser(ctx, otherID); len(list) != 1 {
 		t.Fatalf("open-by-link should grant membership, got %d boards", len(list))
+	}
+	if ok, err := s.HasAccess(ctx, b.ID, otherID); err != nil || !ok {
+		t.Fatalf("open-by-link should grant access: ok=%v err=%v", ok, err)
 	}
 
 	sh, created, err := s.UpsertShape(ctx, b.ID, newShape("s1"))

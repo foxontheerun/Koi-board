@@ -12,6 +12,10 @@ var ErrBoardNotFound = errors.New("board not found")
 type Store interface {
 	Create(ctx context.Context, ownerID, title string) (*graph.Board, error)
 	Get(ctx context.Context, boardID, userID string) (*graph.Board, error)
+	// Answers whether a user may act on a board, without loading it. Get would
+	// also answer, but it fetches every shape and joins the caller as a member
+	// on the way - too much for a guard that runs on every mutation.
+	HasAccess(ctx context.Context, boardID, userID string) (bool, error)
 	ListForUser(ctx context.Context, userID string) ([]*graph.Board, error)
 	UpsertShape(ctx context.Context, boardID string, input graph.ShapeInput) (*graph.Shape, bool, error)
 	DeleteShape(ctx context.Context, boardID, shapeID string) (*graph.Shape, error)
