@@ -18,6 +18,7 @@ export interface _Shape {
   fontWeight?: number;
   textAlign?: TextAlign;
   textColor?: string;
+  textFormats?: string;
   locked?: boolean;
 }
 export interface ManipulationBounds {

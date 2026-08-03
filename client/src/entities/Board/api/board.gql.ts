@@ -20,6 +20,7 @@ export const BOARD_QUERY = gql`
         fontWeight
         textAlign
         textColor
+        textFormats
         rotation
         zIndex
         locked
@@ -48,6 +49,7 @@ export const UPDATE_SHAPE_MUTATION = gql`
       fontWeight
       textAlign
       textColor
+      textFormats
       rotation
       zIndex
       locked
@@ -101,6 +103,7 @@ export const SHAPE_EVENTS_SUBSCRIPTION = gql`
         fontWeight
         textAlign
         textColor
+        textFormats
         rotation
         zIndex
         locked

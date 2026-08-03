@@ -26,6 +26,7 @@ type Shape {
   fontWeight: Int
   textAlign: TextAlign
   textColor: String
+  textFormats: String
   rotation: Float!
   zIndex: Int!
   locked: Boolean!
@@ -50,6 +51,7 @@ input ShapeInput {
   fontWeight: Int
   textAlign: TextAlign
   textColor: String
+  textFormats: String
   rotation: Float
   zIndex: Int
   locked: Boolean

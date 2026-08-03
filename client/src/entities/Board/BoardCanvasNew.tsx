@@ -11,6 +11,10 @@ import { type CameraController, BoardRuntime } from "../../canvas";
 import type { RemoteCursor } from "../../canvas/types";
 import type { _Shape } from "../../canvas/entities";
 import type { TextStyle } from "../../canvas/core/ShapeCommands";
+import {
+  BOLD_FONT_WEIGHT,
+  parseFormats,
+} from "../../canvas/entities/shapes/text";
 import { BoardSyncGateway } from "./model/BoardSyncGateway";
 import type { ShapeType, StickyColorId, Tool } from "../Shape";
 import type { EditingContextValue } from "./EditingContext";
@@ -23,7 +27,7 @@ import {
 } from "../../features/presence/lib/displayName";
 import { NamePlate } from "../../features/presence/ui/NamePlate";
 import { useAuth } from "../../features/auth/model/AuthContext";
-import { TextEditor } from "./TextEditor";
+import { TextEditor } from "./textEditor/TextEditor";
 
 export const MIN_ZOOM = 5;
 export const MAX_ZOOM = 400;
@@ -184,7 +188,11 @@ export const BoardCanvasNew = forwardRef<
 
         // A new text block is empty, so it is only visible once you type.
         if (shape.type === "TEXT" && !shape.text) {
-          editingContextRef.current.startEditing({ id: shape.id, text: "" });
+          editingContextRef.current.startEditing({
+            id: shape.id,
+            text: "",
+            formats: [],
+          });
         }
       },
       onLocalLock: (shapeId, action) => {
@@ -282,6 +290,7 @@ export const BoardCanvasNew = forwardRef<
     editingContextRef.current.startEditing({
       id: shape.id,
       text: shape.text ?? "",
+      formats: parseFormats(shape.textFormats),
       caretAt: { x: e.clientX, y: e.clientY },
     });
   };
@@ -342,6 +351,21 @@ export const BoardCanvasNew = forwardRef<
           isLocked={selection.isLocked}
           textStyle={selection.textStyle}
           onTextStyleChange={(patch) => {
+            // A selection inside the editor takes precedence; with nothing
+            // selected the style applies to the whole shape, as before.
+            const styled = editingContextRef.current.styleSelection({
+              bold:
+                patch.fontWeight === undefined
+                  ? undefined
+                  : patch.fontWeight >= BOLD_FONT_WEIGHT,
+              italic: patch.italic,
+              strike: patch.strike,
+              fontSize: patch.fontSize,
+              color: patch.textColor,
+            });
+
+            if (styled) return;
+
             runtimeRef.current?.setTextStyle(selection.ids, patch);
             setSelection((current) =>
               current

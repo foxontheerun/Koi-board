@@ -4,6 +4,7 @@ import {
   DEFAULT_FONT_SIZE,
   MIN_TEXT_WIDTH,
   clampFontSize,
+  parseFormats,
   textBlockHeight,
 } from "../entities/shapes/text";
 
@@ -99,14 +100,27 @@ export class ResizeCalculator {
       ? clampFontSize((startFontSize * width) / shape.width)
       : startFontSize;
 
-    const fitted = textBlockHeight(text, width, fontSize, shape.fontWeight);
+    const formats = parseFormats(shape.textFormats);
+    const fitted = textBlockHeight(
+      text,
+      width,
+      fontSize,
+      shape.fontWeight,
+      formats,
+    );
 
     // A block whose height still matches its text is treated as following it;
     // once it has been given slack by hand, that slack is kept.
     const wasFitted =
       Math.abs(
         shape.height -
-          textBlockHeight(text, shape.width, startFontSize, shape.fontWeight),
+          textBlockHeight(
+            text,
+            shape.width,
+            startFontSize,
+            shape.fontWeight,
+            formats,
+          ),
       ) < 1;
 
     const dragged = anchorBottom

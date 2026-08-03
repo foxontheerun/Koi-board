@@ -18,6 +18,7 @@ import { CollabController } from "../collab/CollabController";
 import { ShapeCreationController } from "../interaction/ShapeCreationController";
 import { ShapeCommands } from "./ShapeCommands";
 import type { TextStyle, TextStylePatch } from "./ShapeCommands";
+import type { TextFormat } from "../entities/shapes/text";
 import { PointerController } from "../interaction/PointerController";
 
 export class BoardRuntime {
@@ -271,13 +272,13 @@ export class BoardRuntime {
     return this.shapeCommands.textStyleOf(ids);
   }
 
-  previewShapeText(id: string, text: string) {
+  previewShapeText(id: string, text: string, formats?: TextFormat[]) {
     this.collab.renew([id]);
-    this.shapeCommands.previewShapeText(id, text);
+    this.shapeCommands.previewShapeText(id, text, formats);
   }
 
-  commitShapeText(id: string, text: string) {
-    this.shapeCommands.commitShapeText(id, text);
+  commitShapeText(id: string, text: string, formats?: TextFormat[]) {
+    this.shapeCommands.commitShapeText(id, text, formats);
   }
 
   getShape(id: string): _Shape | null {

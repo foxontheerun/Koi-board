@@ -53,6 +53,7 @@ type Shape struct {
 	FontWeight  *int       `json:"fontWeight,omitempty"`
 	TextAlign   *TextAlign `json:"textAlign,omitempty"`
 	TextColor   *string    `json:"textColor,omitempty"`
+	TextFormats *string    `json:"textFormats,omitempty"`
 	Rotation    float64    `json:"rotation"`
 	ZIndex      int        `json:"zIndex"`
 	Locked      bool       `json:"locked"`
@@ -79,6 +80,7 @@ type ShapeInput struct {
 	FontWeight  *int       `json:"fontWeight,omitempty"`
 	TextAlign   *TextAlign `json:"textAlign,omitempty"`
 	TextColor   *string    `json:"textColor,omitempty"`
+	TextFormats *string    `json:"textFormats,omitempty"`
 	Rotation    *float64   `json:"rotation,omitempty"`
 	ZIndex      *int       `json:"zIndex,omitempty"`
 	Locked      *bool      `json:"locked,omitempty"`

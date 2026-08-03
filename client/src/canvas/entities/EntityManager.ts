@@ -2,87 +2,6 @@ import type { ShapeType, TextAlign } from "../../entities/Shape";
 import { ResizeCalculator } from "../interaction";
 import type { _Shape } from "./shapes";
 
-const SHAPES: _Shape[] = [
-  {
-    id: "1",
-    x: 100,
-    y: 100,
-    width: 100,
-    height: 100,
-    fill: "#c0ff96ff",
-    stroke: "#9deb55ff",
-    state: "static",
-    radius: 8,
-    type: "RECT",
-    zIndex: 0,
-  },
-  {
-    id: "2",
-    x: 300,
-    y: 300,
-    width: 300,
-    height: 300,
-    fill: "#ffa2efff",
-    stroke: "#ff00d4ff",
-    state: "static",
-    radius: 8,
-    type: "RECT",
-    zIndex: 1,
-  },
-  {
-    id: "3",
-    x: 700,
-    y: 400,
-    width: 300,
-    height: 300,
-    fill: "#79d5ffff",
-    stroke: "#26badfff",
-    state: "static",
-    type: "RECT",
-    radius: 8,
-    zIndex: 2,
-  },
-  {
-    id: "4",
-    x: 800,
-    y: 100,
-    width: 100,
-    height: 100,
-    fill: "#ffefa8",
-    stroke: "#d1a037",
-    state: "static",
-    type: "RECT",
-    zIndex: 3,
-    radius: 8,
-  },
-  {
-    id: "5",
-    x: 100,
-    y: 400,
-    width: 100,
-    height: 100,
-    fill: "#7992ff",
-    stroke: "#2638df",
-    state: "static",
-    radius: 8,
-    type: "RECT",
-    zIndex: 4,
-  },
-  {
-    id: "6",
-    x: 400,
-    y: 100,
-    width: 100,
-    height: 100,
-    fill: "#ffaf79",
-    stroke: "#df6a26",
-    state: "static",
-    radius: 8,
-    type: "RECT",
-    zIndex: 5,
-  },
-];
-
 export interface RemoteShape {
   id: string;
   x: number;
@@ -94,6 +13,7 @@ export interface RemoteShape {
   fontWeight?: number | null;
   textAlign?: TextAlign | null;
   textColor?: string | null;
+  textFormats?: string | null;
   fill?: string | null;
   stroke?: string | null;
   strokeWidth?: number | null;
@@ -116,7 +36,7 @@ export interface ShapeEventPayload {
 }
 
 export class EntityManager {
-  private shapes: _Shape[] = SHAPES;
+  private shapes: _Shape[] = [];
   private byId = new Map<string, _Shape>();
   // getShapes() re-sorts only when z-order may have changed, not on every call.
   private sortDirty = true;
@@ -143,6 +63,7 @@ export class EntityManager {
       fontWeight: shape.fontWeight ?? undefined,
       textAlign: shape.textAlign ?? undefined,
       textColor: shape.textColor ?? undefined,
+      textFormats: shape.textFormats ?? undefined,
       fill: shape.fill ?? "#c5ff5b",
       stroke: shape.stroke ?? "#c5ff5b",
       strokeWidth: shape.strokeWidth ? String(shape.strokeWidth) : undefined,

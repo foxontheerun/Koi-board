@@ -105,6 +105,7 @@ type ComplexityRoot struct {
 		Text        func(childComplexity int) int
 		TextAlign   func(childComplexity int) int
 		TextColor   func(childComplexity int) int
+		TextFormats func(childComplexity int) int
 		Type        func(childComplexity int) int
 		Width       func(childComplexity int) int
 		X           func(childComplexity int) int
@@ -492,6 +493,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Shape.TextColor(childComplexity), true
+	case "Shape.textFormats":
+		if e.complexity.Shape.TextFormats == nil {
+			break
+		}
+
+		return e.complexity.Shape.TextFormats(childComplexity), true
 	case "Shape.type":
 		if e.complexity.Shape.Type == nil {
 			break
@@ -916,6 +923,7 @@ type Shape {
   fontWeight: Int
   textAlign: TextAlign
   textColor: String
+  textFormats: String
   rotation: Float!
   zIndex: Int!
   locked: Boolean!
@@ -940,6 +948,7 @@ input ShapeInput {
   fontWeight: Int
   textAlign: TextAlign
   textColor: String
+  textFormats: String
   rotation: Float
   zIndex: Int
   locked: Boolean
@@ -1507,6 +1516,8 @@ func (ec *executionContext) fieldContext_Board_shapes(_ context.Context, field g
 				return ec.fieldContext_Shape_textAlign(ctx, field)
 			case "textColor":
 				return ec.fieldContext_Shape_textColor(ctx, field)
+			case "textFormats":
+				return ec.fieldContext_Shape_textFormats(ctx, field)
 			case "rotation":
 				return ec.fieldContext_Shape_rotation(ctx, field)
 			case "zIndex":
@@ -2015,6 +2026,8 @@ func (ec *executionContext) fieldContext_Mutation_updateShape(ctx context.Contex
 				return ec.fieldContext_Shape_textAlign(ctx, field)
 			case "textColor":
 				return ec.fieldContext_Shape_textColor(ctx, field)
+			case "textFormats":
+				return ec.fieldContext_Shape_textFormats(ctx, field)
 			case "rotation":
 				return ec.fieldContext_Shape_rotation(ctx, field)
 			case "zIndex":
@@ -2815,6 +2828,35 @@ func (ec *executionContext) fieldContext_Shape_textColor(_ context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _Shape_textFormats(ctx context.Context, field graphql.CollectedField, obj *Shape) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Shape_textFormats,
+		func(ctx context.Context) (any, error) {
+			return obj.TextFormats, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Shape_textFormats(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Shape",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Shape_rotation(ctx context.Context, field graphql.CollectedField, obj *Shape) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3066,6 +3108,8 @@ func (ec *executionContext) fieldContext_ShapeEvent_shape(_ context.Context, fie
 				return ec.fieldContext_Shape_textAlign(ctx, field)
 			case "textColor":
 				return ec.fieldContext_Shape_textColor(ctx, field)
+			case "textFormats":
+				return ec.fieldContext_Shape_textFormats(ctx, field)
 			case "rotation":
 				return ec.fieldContext_Shape_rotation(ctx, field)
 			case "zIndex":
@@ -5122,7 +5166,7 @@ func (ec *executionContext) unmarshalInputShapeInput(ctx context.Context, obj an
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"id", "type", "x", "y", "width", "height", "text", "fontSize", "fontWeight", "textAlign", "textColor", "rotation", "zIndex", "locked", "fill", "stroke", "strokeWidth"}
+	fieldsInOrder := [...]string{"id", "type", "x", "y", "width", "height", "text", "fontSize", "fontWeight", "textAlign", "textColor", "textFormats", "rotation", "zIndex", "locked", "fill", "stroke", "strokeWidth"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -5206,6 +5250,13 @@ func (ec *executionContext) unmarshalInputShapeInput(ctx context.Context, obj an
 				return it, err
 			}
 			it.TextColor = data
+		case "textFormats":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("textFormats"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TextFormats = data
 		case "rotation":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("rotation"))
 			data, err := ec.unmarshalOFloat2ᚖfloat64(ctx, v)
@@ -5815,6 +5866,8 @@ func (ec *executionContext) _Shape(ctx context.Context, sel ast.SelectionSet, ob
 			out.Values[i] = ec._Shape_textAlign(ctx, field, obj)
 		case "textColor":
 			out.Values[i] = ec._Shape_textColor(ctx, field, obj)
+		case "textFormats":
+			out.Values[i] = ec._Shape_textFormats(ctx, field, obj)
 		case "rotation":
 			out.Values[i] = ec._Shape_rotation(ctx, field, obj)
 			if out.Values[i] == graphql.Null {

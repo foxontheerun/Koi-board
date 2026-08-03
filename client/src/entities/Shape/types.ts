@@ -26,6 +26,7 @@ export interface Shape {
   fontWeight?: number | null;
   textAlign?: TextAlign | null;
   textColor?: string | null;
+  textFormats?: string | null;
 
   rotation?: number;
   zIndex?: number;

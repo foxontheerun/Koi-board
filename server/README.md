@@ -26,7 +26,7 @@ server/
   users/            # user Store: MemoryStore + PostgresStore (bcrypt)
   boards/           # board Store: MemoryStore + PostgresStore (boards, shapes, membership)
   db/               # pgxpool connection + embedded migrations
-  db/migrations/    # SQL migrations (0001_init…)
+  db/migrations/    # SQL migrations (0001_init, then text styling and formats)
   presence/         # cursor pub/sub (in-memory)
   transient/        # transient move pub/sub (in-memory)
   locks/            # soft-lock pub/sub (in-memory)
@@ -47,6 +47,16 @@ server/
   resolvers guard board operations with `requireUser`.
 - **Migrations on boot.** When a database is configured, embedded migrations are
   applied automatically at startup (idempotent).
+- **Shape writes are patches.** `updateShape` is a single
+  `INSERT ... ON CONFLICT DO UPDATE` with `COALESCE` per column, so a client
+  sends only what changed, and `RETURNING (xmax = 0)` tells an insert from an
+  update in the same round trip. The trade-off is that null means "leave alone",
+  so a field cannot be cleared by sending null — an emptied text is sent as an
+  empty string.
+- **Text carries its formatting.** Besides `text`, a shape has block-level style
+  (`fontSize`, `fontWeight`, `textAlign`, `textColor`) and `textFormats`: the
+  ranges that style parts of the text, stored as JSON in a `text` column. There
+  is no JSON scalar in the schema because nothing else needs one.
 
 ---
 
@@ -75,6 +85,7 @@ go run ./cmd/api
 | -------------- | ---------------------------------------------- | -------------------------- |
 | `DATABASE_URL` | Postgres connection string; unset → in-memory  | *(unset)*                  |
 | `JWT_SECRET`   | JWT signing key; a dev fallback is used if unset | *(insecure dev fallback)* |
+| `DEV_NO_AUTH`  | `1` treats every request without a token as a `dev@local` user, on HTTP and the websocket alike. Pair with `VITE_DEV_NO_AUTH=1` on the client | *(off)* |
 
 See `.env.example`.
 
@@ -108,6 +119,10 @@ TEST_DATABASE_URL=postgres://koi:koi@localhost:5433/koi?sslmode=disable \
   both the in-memory and Postgres implementations. The Postgres cases **skip**
   unless `TEST_DATABASE_URL` is set; when set they migrate + truncate a real
   database and exercise the actual SQL (unique index, foreign keys, upsert,
-  open-by-link membership).
+  open-by-link membership). A new shape field is not done until this suite checks
+  it in both stores.
+
+> **`TEST_DATABASE_URL` gets truncated.** Point it at its own database, not the
+> one `DATABASE_URL` uses, or the tests will take your dev data with them.
 - **Auth** — JWT and `StripBearer` unit tests, plus a real-socket WebSocket
   handshake test proving unauthenticated sockets are refused.
