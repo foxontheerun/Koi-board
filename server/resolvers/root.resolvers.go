@@ -198,7 +198,7 @@ func (r *subscriptionResolver) ShapeEvents(ctx context.Context, boardID string) 
 		return nil, err
 	}
 
-	ch := make(chan *graph.ShapeEvent, 1)
+	ch := subscriptions.NewChannel()
 	subscriptions.Subscribe(boardID, ch)
 
 	go func() {

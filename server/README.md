@@ -47,6 +47,11 @@ server/
   Every operation that names a board — mutations and subscriptions alike — then
   goes through `requireBoardAccess`, which answers "may *this* user touch *this*
   board" rather than merely "is this a user".
+- **Two delivery modes.** Cursors and transient moves are lossy on purpose: only
+  the latest position matters, so a full channel means the message is dropped.
+  Shape events are not — a missed create or delete leaves the board silently
+  wrong — so a subscriber that overflows its buffer is disconnected instead, and
+  reconnects onto a fresh read of the board.
 - **Migrations on boot.** When a database is configured, embedded migrations are
   applied automatically at startup (idempotent).
 - **Shape writes are patches.** `updateShape` is a single
