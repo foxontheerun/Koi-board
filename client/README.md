@@ -40,6 +40,10 @@ Backend: `Go + gqlgen` with WebSocket streaming.
     the canvas metrics
   - Side handles reflow the text, corner handles scale the font with the block;
     height can be given slack but never crops the text
+  - **Formatting per selection** - size, weight and colour apply to the selected
+    range, or to the whole block when nothing is selected. Stored as flat text
+    plus ranges of attributes, the shape Quill calls a Delta and Yjs stores
+    natively, so collaborative editing can be added without restructuring it
 - Realtime collaboration between clients:
   - **Live cursors** (presence) rendered as a smoothed DOM overlay, each with an
     editable **display name** (auto-generated, persisted in localStorage)
@@ -50,7 +54,8 @@ Backend: `Go + gqlgen` with WebSocket streaming.
 
 ### Planned / TODO
 
-- Text styling (size, colour, alignment) beyond the font size a corner drag sets
+- Grouping shapes (a parent link and an ordering key; see docs)
+- Pending format at a collapsed caret - press bold, then type bold
 - More shape types (image, line, arrow)
 - Undo/Redo history
 - Keyboard shortcuts

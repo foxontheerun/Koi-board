@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import {
   AlignCenter,
   AlignLeft,
@@ -18,9 +18,12 @@ import {
   DEFAULT_FONT_WEIGHT,
   FONT_SIZE_STEPS,
   TEXT_COLORS,
+  MIXED,
   clampFontSize,
 } from "../../../canvas/entities/shapes/text";
 import { iconButton, popover } from "./toolbarStyles";
+import { useEditing } from "../../../entities/Board/EditingContext";
+
 
 interface TextStyleControlsProps {
   style: TextStyle;
@@ -58,8 +61,36 @@ function stepFontSize(current: number, direction: 1 | -1): number {
 export function TextStyleControls({ style, onChange }: TextStyleControlsProps) {
   const [colorsOpen, setColorsOpen] = useState(false);
   const colorsRef = useRef<HTMLDivElement>(null);
-  const size = Math.round(style.fontSize);
-  const isBold = style.fontWeight >= BOLD_FONT_WEIGHT;
+  const { selectionAttributes } = useEditing();
+  const [, follow] = useReducer((n: number) => n + 1, 0);
+
+  // The toolbar has to describe the selection, and a selection changes without
+  // React hearing about it.
+  useEffect(() => {
+    document.addEventListener("selectionchange", follow);
+    return () => document.removeEventListener("selectionchange", follow);
+  }, []);
+
+  // What the selection says wins; where it says nothing, the style falls
+  // through to the shape's own.
+  const selected = selectionAttributes();
+
+  const boldState =
+    selected?.bold === MIXED
+      ? MIXED
+      : (selected?.bold ?? style.fontWeight >= BOLD_FONT_WEIGHT);
+  const isBold = boldState === true;
+
+  const sizeState =
+    selected?.fontSize === MIXED
+      ? MIXED
+      : (selected?.fontSize ?? Math.round(style.fontSize));
+  const size = sizeState === MIXED ? Math.round(style.fontSize) : sizeState;
+
+  const colour =
+    selected?.color === MIXED
+      ? undefined
+      : (selected?.color ?? style.textColor);
 
   useEffect(() => {
     if (!colorsOpen) return;
@@ -92,8 +123,10 @@ export function TextStyleControls({ style, onChange }: TextStyleControlsProps) {
       <input
         // Uncontrolled while typing, reset by key when the size changes
         // elsewhere - a half-typed number should not be applied.
-        key={size}
-        defaultValue={size}
+        key={sizeState === MIXED ? "mixed" : size}
+        // Mixed sizes show nothing rather than picking one of them.
+        defaultValue={sizeState === MIXED ? "" : size}
+        placeholder={sizeState === MIXED ? "—" : undefined}
         onChange={(e) => {
           e.target.value = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
         }}
@@ -123,8 +156,12 @@ export function TextStyleControls({ style, onChange }: TextStyleControlsProps) {
       </button>
 
       <button
-        className={`${iconButton} ${isBold ? "bg-[#E3F6FB]" : ""}`}
-        title="Bold"
+        className={`${iconButton} ${isBold ? "bg-[#E3F6FB]" : ""} ${
+          boldState === MIXED ? "ring-1 ring-inset ring-[#E3F6FB]" : ""
+        }`}
+        title={boldState === MIXED ? "Bold (mixed)" : "Bold"}
+        // A partly bold selection turns fully bold first, the way every editor
+        // resolves the third state.
         onClick={() =>
           onChange({
             fontWeight: isBold ? DEFAULT_FONT_WEIGHT : BOLD_FONT_WEIGHT,
@@ -153,7 +190,7 @@ export function TextStyleControls({ style, onChange }: TextStyleControlsProps) {
           title="Text colour"
           onClick={() => setColorsOpen((open) => !open)}
         >
-          <Palette className="w-4 h-4" style={{ color: style.textColor }} />
+          <Palette className="w-4 h-4" style={{ color: colour }} />
         </button>
 
         {colorsOpen && (

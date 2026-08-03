@@ -85,6 +85,11 @@ export function SelectionToolbar({
       ref={rootRef}
       className="fixed -translate-x-1/2 -translate-y-full z-50"
       style={{ left: x, top: y }}
+      // Taking focus here would collapse the selection in the text editor
+      // before a style could be applied to it.
+      onMouseDown={(e) => {
+        if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+      }}
     >
       <div className="flex items-center gap-0.5 bg-white rounded-lg shadow-xl border border-[#E5E5E5] px-1 py-1">
         {textStyle && onTextStyleChange && !isLocked && (

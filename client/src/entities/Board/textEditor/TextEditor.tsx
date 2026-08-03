@@ -1,5 +1,5 @@
 import { useEffect, useReducer } from "react";
-import type { BoardRuntime, CameraController } from "../../canvas";
+import type { BoardRuntime, CameraController } from "../../../canvas";
 import {
   DEFAULT_FONT_SIZE,
   DEFAULT_FONT_WEIGHT,
@@ -8,12 +8,12 @@ import {
   TEXT_FONT_FAMILY,
   TEXT_LINE_HEIGHT_RATIO,
   TEXT_PADDING,
-} from "../../canvas/entities/shapes/text";
+} from "../../../canvas/entities/shapes/text";
 
 const EDITOR_BORDER_COLOR = BRAND.aqua;
-import { BRAND } from "../../shared/theme";
-import { EditableText } from "../../shared/ui/editable-text/EditableText";
-import { useEditing } from "./EditingContext";
+import { BRAND } from "../../../shared/theme";
+import { EditableText } from "./EditableText";
+import { useEditing } from "../EditingContext";
 
 interface TextEditorProps {
   runtime: BoardRuntime;
@@ -21,7 +21,8 @@ interface TextEditorProps {
 }
 
 export function TextEditor({ runtime, camera }: TextEditorProps) {
-  const { editingShape, stopEditing, updateText } = useEditing();
+  const { editingShape, stopEditing, updateText, editorRef, setEditorHandle } =
+    useEditing();
   const [, follow] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => camera.subscribe(follow), [camera]);
@@ -37,6 +38,23 @@ export function TextEditor({ runtime, camera }: TextEditorProps) {
     };
   }, [runtime, editingId]);
 
+  // The toolbar styles a selection through the context, which needs to know how
+  // the editor renders and where to send the result.
+  useEffect(() => {
+    if (!editingShape) {
+      setEditorHandle(null);
+      return;
+    }
+
+    setEditorHandle({
+      scale: camera.getScale(),
+      onFormats: (formats) =>
+        runtime.previewShapeText(editingShape.id, editingShape.text, formats),
+    });
+
+    return () => setEditorHandle(null);
+  });
+
   if (!editingShape) return null;
 
   const shape = runtime.getShape(editingShape.id);
@@ -46,14 +64,21 @@ export function TextEditor({ runtime, camera }: TextEditorProps) {
   const scale = camera.getScale();
 
   const commit = () => {
-    runtime.commitShapeText(editingShape.id, editingShape.text);
+    runtime.commitShapeText(
+      editingShape.id,
+      editingShape.text,
+      editingShape.formats,
+    );
     stopEditing();
   };
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
       <EditableText
+        ref={editorRef as React.RefObject<HTMLDivElement>}
         value={editingShape.text}
+        formats={editingShape.formats}
+        scale={scale}
         placeholder="Type something"
         caretAt={editingShape.caretAt}
         autoFocus
@@ -85,9 +110,9 @@ export function TextEditor({ runtime, camera }: TextEditorProps) {
             (shape.type === "TEXT" ? TEXT_COLOR : STICKER_TEXT_COLOR),
           cursor: "text",
         }}
-        onChange={(text) => {
-          updateText(text);
-          runtime.previewShapeText(editingShape.id, text);
+        onChange={(text, formats) => {
+          updateText(text, formats);
+          runtime.previewShapeText(editingShape.id, text, formats);
         }}
         onBlur={commit}
         onKeyDown={(e) => {
