@@ -93,6 +93,19 @@ go run ./cmd/api
 | `DATABASE_URL` | Postgres connection string; unset → in-memory  | *(unset)*                  |
 | `JWT_SECRET`   | JWT signing key; a dev fallback is used if unset | *(insecure dev fallback)* |
 | `DEV_NO_AUTH`  | `1` treats every request without a token as a `dev@local` user, on HTTP and the websocket alike. Pair with `VITE_DEV_NO_AUTH=1` on the client | *(off)* |
+| `PORT`         | Listen port                                     | `8080`                     |
+| `ALLOWED_ORIGINS` | Comma-separated origins for CORS and the websocket `CheckOrigin` | `http://localhost:5173,http://localhost:5174` |
+| `ENABLE_PLAYGROUND` | Serve the GraphQL playground at `/`        | on outside production      |
+| `APP_ENV`      | `production` turns the dev defaults off          | *(unset)*                  |
+
+With `APP_ENV=production` the server refuses to start unless `JWT_SECRET` and
+`ALLOWED_ORIGINS` are set and `DEV_NO_AUTH` is off — every one of those defaults
+is convenient locally and a hole in production.
+
+`GET /healthz` returns `200 ok`, or `503` when a configured database cannot be
+reached. `SIGINT`/`SIGTERM` shut the server down gracefully (in-flight HTTP
+requests get up to 10s; websockets are hijacked connections and their clients
+reconnect).
 
 See `.env.example`.
 
