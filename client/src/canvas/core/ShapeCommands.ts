@@ -6,6 +6,7 @@ import {
   DEFAULT_FONT_WEIGHT,
   STICKER_TEXT_COLOR,
   TEXT_COLOR,
+  applyFormat,
   parseFormats,
   serializeFormats,
   type TextFormat,
@@ -20,7 +21,13 @@ export interface TextStyle {
   textColor: string;
 }
 
-export type TextStylePatch = Partial<TextStyle>;
+// Italic and strikethrough exist only as inline attributes - there is no
+// block-level field for them on a shape - so with no selection they are applied
+// across the whole text instead.
+export type TextStylePatch = Partial<TextStyle> & {
+  italic?: boolean;
+  strike?: boolean;
+};
 
 interface ShapeCommandCallbacks {
   onPersist: (shape: _Shape) => void;
@@ -141,8 +148,23 @@ export class ShapeCommands {
 
     if (changed.length === 0) return;
 
+    const { italic, strike, ...blockStyle } = patch;
+
     changed.forEach((shape) => {
-      Object.assign(shape, patch);
+      Object.assign(shape, blockStyle);
+
+      if (italic !== undefined || strike !== undefined) {
+        const text = shape.text ?? "";
+        const formats = applyFormat(
+          parseFormats(shape.textFormats),
+          { index: 0, length: text.length },
+          { italic, strike },
+          text.length,
+        );
+
+        shape.textFormats = serializeFormats(formats) ?? undefined;
+      }
+
       if (shape.type === "TEXT") {
         // The block was measured with the old style; re-fit it to the new one.
         shape.height = textBlockHeight(

@@ -84,7 +84,7 @@ export function metricsForAttributes(base: {
         ? DEFAULT_FONT_WEIGHT
         : base.fontWeight;
 
-    const font = fontString(fontSize, fontWeight);
+    const font = fontString(fontSize, fontWeight, attributes.italic === true);
     const { ascent, halfLeading } = fontMetricsFor(font, fontSize);
     const lineHeight = lineHeightFor(fontSize);
 

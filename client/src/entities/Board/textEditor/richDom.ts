@@ -11,6 +11,8 @@ import {
 // normalises CSS on its own terms, and comparing colours as written is a losing
 // game.
 const BOLD_ATTRIBUTE = "data-bold";
+const ITALIC_ATTRIBUTE = "data-italic";
+const STRIKE_ATTRIBUTE = "data-strike";
 const SIZE_ATTRIBUTE = "data-size";
 const COLOR_ATTRIBUTE = "data-color";
 
@@ -19,6 +21,14 @@ function styleOf(attributes: TextAttributes, scale: number): string {
 
   if (attributes.bold !== undefined) {
     declarations.push(`font-weight:${attributes.bold ? 700 : 400}`);
+  }
+  if (attributes.italic !== undefined) {
+    declarations.push(`font-style:${attributes.italic ? "italic" : "normal"}`);
+  }
+  if (attributes.strike !== undefined) {
+    declarations.push(
+      `text-decoration:${attributes.strike ? "line-through" : "none"}`,
+    );
   }
   if (attributes.fontSize !== undefined) {
     declarations.push(`font-size:${attributes.fontSize * scale}px`);
@@ -32,9 +42,11 @@ function styleOf(attributes: TextAttributes, scale: number): string {
 
 function spanFor(segment: TextSegment, scale: number): HTMLElement {
   const span = document.createElement("span");
-  const { bold, fontSize, color } = segment.attributes;
+  const { bold, italic, strike, fontSize, color } = segment.attributes;
 
   if (bold !== undefined) span.setAttribute(BOLD_ATTRIBUTE, String(bold));
+  if (italic !== undefined) span.setAttribute(ITALIC_ATTRIBUTE, String(italic));
+  if (strike !== undefined) span.setAttribute(STRIKE_ATTRIBUTE, String(strike));
   if (fontSize !== undefined) span.setAttribute(SIZE_ATTRIBUTE, String(fontSize));
   if (color !== undefined) span.setAttribute(COLOR_ATTRIBUTE, color);
 
@@ -62,12 +74,20 @@ function attributesOf(node: Node): TextAttributes {
     if (!(current instanceof Element)) continue;
 
     const bold = current.getAttribute(BOLD_ATTRIBUTE);
+    const italic = current.getAttribute(ITALIC_ATTRIBUTE);
+    const strike = current.getAttribute(STRIKE_ATTRIBUTE);
     const size = current.getAttribute(SIZE_ATTRIBUTE);
     const color = current.getAttribute(COLOR_ATTRIBUTE);
 
     // Nearest wins, so only fill what an inner span has not already set.
     if (attributes.bold === undefined && bold !== null) {
       attributes.bold = bold === "true";
+    }
+    if (attributes.italic === undefined && italic !== null) {
+      attributes.italic = italic === "true";
+    }
+    if (attributes.strike === undefined && strike !== null) {
+      attributes.strike = strike === "true";
     }
     if (attributes.fontSize === undefined && size !== null) {
       attributes.fontSize = Number(size);
@@ -144,7 +164,11 @@ export function readFrom(element: HTMLElement): {
 
 function sameAttributes(a: TextAttributes, b: TextAttributes): boolean {
   return (
-    a.bold === b.bold && a.fontSize === b.fontSize && a.color === b.color
+    a.bold === b.bold &&
+    a.italic === b.italic &&
+    a.strike === b.strike &&
+    a.fontSize === b.fontSize &&
+    a.color === b.color
   );
 }
 

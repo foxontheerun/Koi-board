@@ -75,6 +75,9 @@ export function TextEditor({ runtime, camera }: TextEditorProps) {
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
       <EditableText
+        // Remount per shape: the content is rendered on mount only, so reusing
+        // the element between shapes would keep the previous text.
+        key={editingShape.id}
         ref={editorRef as React.RefObject<HTMLDivElement>}
         value={editingShape.text}
         formats={editingShape.formats}

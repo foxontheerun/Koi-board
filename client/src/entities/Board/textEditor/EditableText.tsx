@@ -19,7 +19,11 @@ function placeCaret(el: HTMLDivElement, at?: { x: number; y: number }) {
   const selection = window.getSelection();
   if (!selection) return;
 
-  const range = at ? rangeFromPoint(at) : null;
+  const fromPoint = at ? rangeFromPoint(at) : null;
+  // An empty block has no text node to hit, and the point then resolves to
+  // whatever is behind the editor - which would put the caret outside it.
+  const range =
+    fromPoint && el.contains(fromPoint.startContainer) ? fromPoint : null;
 
   if (range) {
     selection.removeAllRanges();

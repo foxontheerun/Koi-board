@@ -20,9 +20,17 @@ export const TEXT_COLORS = TEXT_PALETTE;
 export function fontString(
   fontSize: number = DEFAULT_FONT_SIZE,
   fontWeight: number = DEFAULT_FONT_WEIGHT,
+  italic = false,
 ): string {
-  return `${fontWeight} ${fontSize}px ${TEXT_FONT_FAMILY}`;
+  // Style comes first in the shorthand, and italic changes the glyphs' widths,
+  // so it has to be part of what gets measured.
+  return `${italic ? "italic " : ""}${fontWeight} ${fontSize}px ${TEXT_FONT_FAMILY}`;
 }
+
+// Where a strikethrough sits, as a fraction of the font size above the
+// baseline, with a thickness that scales with it.
+export const STRIKE_OFFSET_RATIO = 0.28;
+export const STRIKE_THICKNESS_RATIO = 1 / 14;
 
 export function lineHeightFor(fontSize: number = DEFAULT_FONT_SIZE): number {
   return fontSize * TEXT_LINE_HEIGHT_RATIO;

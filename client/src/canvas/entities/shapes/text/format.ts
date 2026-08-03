@@ -5,6 +5,8 @@
 
 export interface TextAttributes {
   bold?: boolean;
+  italic?: boolean;
+  strike?: boolean;
   fontSize?: number;
   color?: string;
 }
@@ -31,11 +33,19 @@ export type AttributeValue<T> = T | typeof MIXED | undefined;
 
 export interface SelectionAttributes {
   bold: AttributeValue<boolean>;
+  italic: AttributeValue<boolean>;
+  strike: AttributeValue<boolean>;
   fontSize: AttributeValue<number>;
   color: AttributeValue<string>;
 }
 
-const ATTRIBUTE_KEYS = ["bold", "fontSize", "color"] as const;
+const ATTRIBUTE_KEYS = [
+  "bold",
+  "italic",
+  "strike",
+  "fontSize",
+  "color",
+] as const;
 
 function sameAttributes(a: TextAttributes, b: TextAttributes): boolean {
   return ATTRIBUTE_KEYS.every((key) => a[key] === b[key]);
@@ -169,6 +179,8 @@ export function attributesIn(
 
   return {
     bold: read("bold"),
+    italic: read("italic"),
+    strike: read("strike"),
     fontSize: read("fontSize"),
     color: read("color"),
   };

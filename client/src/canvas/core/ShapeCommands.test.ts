@@ -110,6 +110,23 @@ describe("ShapeCommands text editing", () => {
     expect(callbacks.onPersist).toHaveBeenCalledTimes(1);
   });
 
+  it("applies italic across the whole text when nothing is selected", () => {
+    const { commands, shape } = setup(textShape());
+
+    commands.setTextStyle(["t1"], { italic: true });
+
+    expect(shape.textFormats).toContain('"italic":true');
+  });
+
+  it("keeps italic out of the shape's block style, which has no such field", () => {
+    const { commands, shape } = setup(textShape());
+
+    commands.setTextStyle(["t1"], { italic: true, fontSize: 24 });
+
+    expect(shape.fontSize).toBe(24);
+    expect("italic" in shape).toBe(false);
+  });
+
   it("re-fits the block when the font size changes", () => {
     const { commands, shape } = setup(textShape());
     const before = shape.height;

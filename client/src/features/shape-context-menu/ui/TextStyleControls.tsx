@@ -4,6 +4,8 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  Italic,
+  Strikethrough,
   Minus,
   Palette,
   Plus,
@@ -87,6 +89,11 @@ export function TextStyleControls({ style, onChange }: TextStyleControlsProps) {
       : (selected?.fontSize ?? Math.round(style.fontSize));
   const size = sizeState === MIXED ? Math.round(style.fontSize) : sizeState;
 
+  const italicState =
+    selected?.italic === MIXED ? MIXED : (selected?.italic ?? false);
+  const strikeState =
+    selected?.strike === MIXED ? MIXED : (selected?.strike ?? false);
+
   const colour =
     selected?.color === MIXED
       ? undefined
@@ -169,6 +176,26 @@ export function TextStyleControls({ style, onChange }: TextStyleControlsProps) {
         }
       >
         <Bold className="w-4 h-4" />
+      </button>
+
+      <button
+        className={`${iconButton} ${italicState === true ? "bg-[#E3F6FB]" : ""} ${
+          italicState === MIXED ? "ring-1 ring-inset ring-[#E3F6FB]" : ""
+        }`}
+        title={italicState === MIXED ? "Italic (mixed)" : "Italic"}
+        onClick={() => onChange({ italic: italicState !== true })}
+      >
+        <Italic className="w-4 h-4" />
+      </button>
+
+      <button
+        className={`${iconButton} ${strikeState === true ? "bg-[#E3F6FB]" : ""} ${
+          strikeState === MIXED ? "ring-1 ring-inset ring-[#E3F6FB]" : ""
+        }`}
+        title={strikeState === MIXED ? "Strikethrough (mixed)" : "Strikethrough"}
+        onClick={() => onChange({ strike: strikeState !== true })}
+      >
+        <Strikethrough className="w-4 h-4" />
       </button>
 
       {ALIGNMENTS.map((option) => (

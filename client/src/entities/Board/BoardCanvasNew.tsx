@@ -358,6 +358,8 @@ export const BoardCanvasNew = forwardRef<
                 patch.fontWeight === undefined
                   ? undefined
                   : patch.fontWeight >= BOLD_FONT_WEIGHT,
+              italic: patch.italic,
+              strike: patch.strike,
               fontSize: patch.fontSize,
               color: patch.textColor,
             });

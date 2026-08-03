@@ -7,6 +7,8 @@ import {
   DEFAULT_FONT_WEIGHT,
   STICKER_TEXT_COLOR,
   TEXT_COLOR,
+  STRIKE_OFFSET_RATIO,
+  STRIKE_THICKNESS_RATIO,
   TEXT_PADDING,
   contentWidth,
   fontString,
@@ -203,9 +205,28 @@ export class CanvasPainter {
             ? DEFAULT_FONT_WEIGHT
             : base.fontWeight;
 
-        ctx.font = fontString(fontSize, fontWeight);
+        const x = left + segment.x;
+        const baseline = top + line.baseline;
+
+        ctx.font = fontString(
+          fontSize,
+          fontWeight,
+          segment.attributes.italic === true,
+        );
         ctx.fillStyle = segment.attributes.color ?? blockColour;
-        ctx.fillText(segment.text, left + segment.x, top + line.baseline);
+        ctx.fillText(segment.text, x, baseline);
+
+        // Canvas has no text-decoration, so a strikethrough is a line drawn
+        // across the segment at a fixed fraction of its size.
+        if (segment.attributes.strike) {
+          const thickness = Math.max(1, fontSize * STRIKE_THICKNESS_RATIO);
+          ctx.fillRect(
+            x,
+            baseline - fontSize * STRIKE_OFFSET_RATIO - thickness / 2,
+            segment.width,
+            thickness,
+          );
+        }
       }
 
       top += line.height;
