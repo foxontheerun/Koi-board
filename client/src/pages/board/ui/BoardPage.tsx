@@ -30,10 +30,15 @@ export function BoardPage() {
   return (
     <EditingContext.Provider value={editing}>
       <div className="board-root">
-        {camera && (
+        {/* The bar needs a camera it cannot have until the canvas runtime is
+            up, so its height is held open rather than letting the canvas
+            start full-height and get pushed down a frame later. */}
+        {camera ? (
           <CameraContext.Provider value={camera}>
             <TopBar />
           </CameraContext.Provider>
+        ) : (
+          <div className="h-14 border-b border-[#E5E5E5] bg-white shadow-sm" />
         )}
 
         <div className="flex-1 flex relative overflow-hidden bg-[#F5F5F5]">
