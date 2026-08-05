@@ -17,7 +17,7 @@ import type {
   TransientShapePatch,
 } from "../../../canvas/entities/EntityManager";
 import type { BoardRuntime } from "../../../canvas";
-import { throttle } from "lodash";
+import throttle from "lodash/throttle";
 import type { _Shape } from "../../../canvas/entities";
 import type { LockAction } from "../../../canvas/collab/types";
 

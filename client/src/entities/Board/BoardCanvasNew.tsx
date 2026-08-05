@@ -6,7 +6,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
-import { throttle } from "lodash";
+import throttle from "lodash/throttle";
 import { type CameraController, BoardRuntime } from "../../canvas";
 import type { RemoteCursor } from "../../canvas/types";
 import type { _Shape } from "../../canvas/entities";
