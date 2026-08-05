@@ -41,7 +41,7 @@ export function BoardPage() {
           <div className="h-14 border-b border-[#E5E5E5] bg-white shadow-sm" />
         )}
 
-        <div className="flex-1 flex relative overflow-hidden bg-[#F5F5F5]">
+        <main className="flex-1 flex relative overflow-hidden bg-[#F5F5F5]">
           <Toolbar
             activeTool={activeTool}
             setActiveTool={setActiveTool}
@@ -62,7 +62,7 @@ export function BoardPage() {
             onBoardNotFound={() => navigate("/", { replace: true })}
             editingContextRef={editing.ref}
           />
-        </div>
+        </main>
       </div>
     </EditingContext.Provider>
   );

@@ -37,7 +37,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5] px-4">
+    <main className="flex min-h-screen items-center justify-center bg-[#F5F5F5] px-4">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm ring-1 ring-black/5"
@@ -72,7 +72,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[#1A1A1A] outline-none focus:border-[#16B8D4]"
+          className="mb-4 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[#1A1A1A] focus:border-[#0E7C99]"
         />
 
         <label className="mb-1 block text-sm text-[#666666]" htmlFor="password">
@@ -86,7 +86,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           minLength={6}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[#1A1A1A] outline-none focus:border-[#16B8D4]"
+          className="mb-4 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[#1A1A1A] focus:border-[#0E7C99]"
         />
 
         {error && (
@@ -98,7 +98,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-lg bg-[#16B8D4] py-2 font-medium text-white transition-colors hover:bg-[#0E7C99] disabled:opacity-60"
+          className="w-full rounded-lg bg-[#0E7C99] py-2 font-medium text-white transition-colors hover:bg-[#0A5E73] disabled:opacity-60"
         >
           {busy ? "Please wait…" : isLogin ? "Log in" : "Sign up"}
         </button>
@@ -107,20 +107,20 @@ export function AuthForm({ mode }: AuthFormProps) {
           {isLogin ? (
             <>
               No account?{" "}
-              <Link to="/signup" className="text-[#16B8D4] hover:underline">
+              <Link to="/signup" className="text-[#0E7C99] underline">
                 Sign up
               </Link>
             </>
           ) : (
             <>
               Already have an account?{" "}
-              <Link to="/login" className="text-[#16B8D4] hover:underline">
+              <Link to="/login" className="text-[#0E7C99] underline">
                 Log in
               </Link>
             </>
           )}
         </p>
       </form>
-    </div>
+    </main>
   );
 }

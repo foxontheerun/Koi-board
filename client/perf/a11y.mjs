@@ -57,6 +57,9 @@ async function keyboardWalk(page, maxStops = 25) {
   const stops = [];
   for (let i = 0; i < maxStops; i++) {
     await page.keyboard.press("Tab");
+    // The toolbar buttons carry transition-all, which animates outline-width
+    // and outline-color too; reading straight away catches them mid-way.
+    await page.waitForTimeout(300);
     const stop = await page.evaluate(() => {
       const el = document.activeElement;
       if (!el || el === document.body) return null;

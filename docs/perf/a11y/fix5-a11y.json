@@ -1,0 +1,262 @@
+{
+  "label": "fix5-a11y",
+  "states": {
+    "login": {
+      "violations": [],
+      "incomplete": [],
+      "passes": 25
+    },
+    "boards-list": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 1
+        }
+      ],
+      "passes": 21
+    },
+    "board-idle": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 2
+        }
+      ],
+      "passes": 26
+    },
+    "board-colour-picker": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 2
+        }
+      ],
+      "passes": 27
+    },
+    "board-selection-toolbar": {
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 2
+        }
+      ],
+      "passes": 27
+    }
+  },
+  "keyboard": {
+    "login": [
+      {
+        "tag": "input",
+        "text": "",
+        "title": null,
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "input",
+        "text": "",
+        "title": null,
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Log in",
+        "title": null,
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "a",
+        "text": "Sign up",
+        "title": null,
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "body",
+        "note": "focus left the document"
+      }
+    ],
+    "board": [
+      {
+        "tag": "input",
+        "text": "",
+        "title": null,
+        "ariaLabel": "Board title",
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Undo",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Redo",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Zoom out",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Zoom in",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Share",
+        "title": null,
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Log out",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Pointer",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.1) 0px 4px 6px -1px, rgba(0, 0, 0, 0.1) 0px 2px 4px -2px",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Sticky note",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Rectangle",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Ellipse",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Text",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Hand",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "",
+        "title": "Delete",
+        "ariaLabel": null,
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "input",
+        "text": "",
+        "title": null,
+        "ariaLabel": "Your display name",
+        "outline": "solid 2px rgb(14, 124, 153)",
+        "boxShadow": null,
+        "visible": true
+      },
+      {
+        "tag": "body",
+        "note": "focus left the document"
+      }
+    ]
+  },
+  "canvas": [
+    {
+      "tabIndex": -1,
+      "role": null,
+      "ariaLabel": null,
+      "hasFallbackContent": false
+    },
+    {
+      "tabIndex": -1,
+      "role": null,
+      "ariaLabel": null,
+      "hasFallbackContent": false
+    },
+    {
+      "tabIndex": -1,
+      "role": null,
+      "ariaLabel": null,
+      "hasFallbackContent": false
+    },
+    {
+      "tabIndex": -1,
+      "role": null,
+      "ariaLabel": null,
+      "hasFallbackContent": false
+    }
+  ],
+  "liveRegions": 0
+}

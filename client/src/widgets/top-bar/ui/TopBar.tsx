@@ -42,7 +42,7 @@ export function TopBar() {
   };
 
   return (
-    <div className="h-14 bg-white border-b border-[#E5E5E5] flex items-center justify-between px-4 shadow-sm">
+    <header className="h-14 bg-white border-b border-[#E5E5E5] flex items-center justify-between px-4 shadow-sm">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-[#16B8D4] flex items-center justify-center">
@@ -57,22 +57,30 @@ export function TopBar() {
         <div className="h-6 w-px bg-[#E5E5E5]" />
         <input
           type="text"
+          aria-label="Board title"
           defaultValue="Новый проект!"
-          className="bg-transparent border-none outline-none text-[#1A1A1A] w-40"
+          className="bg-transparent border-none text-[#1A1A1A] w-40"
         />
       </div>
 
       <div className="flex items-center gap-2">
-        <button className="p-2 hover:bg-[#F5F5F5] rounded-lg transition-colors">
+        <button
+          title="Undo"
+          className="p-2 hover:bg-[#F5F5F5] rounded-lg transition-colors"
+        >
           <Undo2 className="w-4 h-4 text-[#666666]" />
         </button>
-        <button className="p-2 hover:bg-[#F5F5F5] rounded-lg transition-colors">
+        <button
+          title="Redo"
+          className="p-2 hover:bg-[#F5F5F5] rounded-lg transition-colors"
+        >
           <Redo2 className="w-4 h-4 text-[#666666]" />
         </button>
         <div className="h-6 w-px bg-[#E5E5E5] mx-2" />
         <div className="flex items-center gap-1 bg-[#F5F5F5] rounded-lg px-2 py-1.5">
           <button
             onClick={handleZoomOut}
+            title="Zoom out"
             className="p-1 hover:bg-[#E5E5E5] rounded transition-colors"
           >
             <ZoomOut className="w-3.5 h-3.5 text-[#666666]" />
@@ -82,6 +90,7 @@ export function TopBar() {
           </span>
           <button
             onClick={handleZoomIn}
+            title="Zoom in"
             className="p-1 hover:bg-[#E5E5E5] rounded transition-colors"
           >
             <ZoomIn className="w-3.5 h-3.5 text-[#666666]" />
@@ -90,7 +99,7 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="px-4 py-1.5 bg-[#16B8D4] text-white rounded-lg hover:bg-[#0E7C99] transition-colors flex items-center gap-2">
+        <button className="px-4 py-1.5 bg-[#0E7C99] text-white rounded-lg hover:bg-[#0A5E73] transition-colors flex items-center gap-2">
           <Share2 className="w-4 h-4" />
           <span>Share</span>
         </button>
@@ -114,6 +123,6 @@ export function TopBar() {
           </div>
         )}
       </div>
-    </div>
+    </header>
   );
 }

@@ -85,7 +85,7 @@ export function BoardsListPage() {
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h1 className="font-logo text-2xl text-[#14202B]">Your boards</h1>
-            <p className="mt-1 text-sm text-[#8A8A8A]">
+            <p className="mt-1 text-sm text-[#666666]">
               {boards.length > 0
                 ? `${boards.length} board${boards.length === 1 ? "" : "s"}`
                 : "Your collaborative whiteboards live here"}
@@ -94,7 +94,7 @@ export function BoardsListPage() {
           <button
             onClick={handleCreate}
             disabled={creating}
-            className="flex items-center gap-2 rounded-lg bg-[#16B8D4] px-4 py-2 font-medium text-white shadow-sm transition-colors hover:bg-[#0E7C99] disabled:opacity-60"
+            className="flex items-center gap-2 rounded-lg bg-[#0E7C99] px-4 py-2 font-medium text-white shadow-sm transition-colors hover:bg-[#0A5E73] disabled:opacity-60"
           >
             <Plus className="h-4 w-4" />
             {creating ? "Creating…" : "New board"}
@@ -123,7 +123,7 @@ export function BoardsListPage() {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="flex items-center gap-2 rounded-lg bg-[#16B8D4] px-4 py-2 font-medium text-white shadow-sm transition-colors hover:bg-[#0E7C99] disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-[#0E7C99] px-4 py-2 font-medium text-white shadow-sm transition-colors hover:bg-[#0A5E73] disabled:opacity-60"
             >
               <Plus className="h-4 w-4" />
               {creating ? "Creating…" : "New board"}
