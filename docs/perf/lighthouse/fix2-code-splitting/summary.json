@@ -1,0 +1,268 @@
+{
+  "label": "fix2-code-splitting",
+  "shapeCount": 400,
+  "boardId": "b3db2219-1bc9-40cb-b8af-91561ea1a490",
+  "runs": 3,
+  "results": {
+    "login-mobile": {
+      "samples": [
+        {
+          "performance": 81,
+          "accessibility": 82,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 3628.0037,
+          "lcp": 3703.6096000000002,
+          "tbt": 49,
+          "cls": 0,
+          "speed-index": 3655.5333999762347,
+          "tti": 3762.9037000000003,
+          "total-byte-weight": 209052,
+          "script-bytes": 130749,
+          "script-requests": 1
+        },
+        {
+          "performance": 81,
+          "accessibility": 82,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 3594.2149000000004,
+          "lcp": 3707.6647,
+          "tbt": 14.72489999999948,
+          "cls": 0,
+          "speed-index": 3635.1598959769826,
+          "tti": 3709.0673100000004,
+          "total-byte-weight": 209052,
+          "script-bytes": 130749,
+          "script-requests": 1
+        },
+        {
+          "performance": 82,
+          "accessibility": 82,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 3544.7430999999997,
+          "lcp": 3691.9052999999994,
+          "tbt": 8,
+          "cls": 0,
+          "speed-index": 3572.4915840160747,
+          "tti": 3691.9052999999994,
+          "total-byte-weight": 209052,
+          "script-bytes": 130749,
+          "script-requests": 1
+        }
+      ],
+      "median": {
+        "performance": 81,
+        "accessibility": 82,
+        "best-practices": 100,
+        "seo": 82,
+        "fcp": 3594.215,
+        "lcp": 3703.61,
+        "tbt": 14.725,
+        "cls": 0,
+        "speed-index": 3635.16,
+        "tti": 3709.067,
+        "total-byte-weight": 209052,
+        "script-bytes": 130749,
+        "script-requests": 1
+      },
+      "medianRun": 1
+    },
+    "login-desktop": {
+      "samples": [
+        {
+          "performance": 71,
+          "accessibility": 82,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 2619.7555999999995,
+          "lcp": 2619.7555999999995,
+          "tbt": 0,
+          "cls": 0,
+          "speed-index": 2619.7555999999995,
+          "tti": 2619.7555999999995,
+          "total-byte-weight": 209052,
+          "script-bytes": 130749,
+          "script-requests": 1
+        },
+        {
+          "performance": 72,
+          "accessibility": 82,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 2527.6523999999995,
+          "lcp": 2527.6523999999995,
+          "tbt": 0,
+          "cls": 0,
+          "speed-index": 2527.6523999999995,
+          "tti": 2527.6524,
+          "total-byte-weight": 209052,
+          "script-bytes": 130749,
+          "script-requests": 1
+        },
+        {
+          "performance": 72,
+          "accessibility": 82,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 2542.8997999999997,
+          "lcp": 2542.8997999999997,
+          "tbt": 0,
+          "cls": 0,
+          "speed-index": 2542.8997999999997,
+          "tti": 2542.8997999999997,
+          "total-byte-weight": 209052,
+          "script-bytes": 130749,
+          "script-requests": 1
+        }
+      ],
+      "median": {
+        "performance": 72,
+        "accessibility": 82,
+        "best-practices": 100,
+        "seo": 82,
+        "fcp": 2542.9,
+        "lcp": 2542.9,
+        "tbt": 0,
+        "cls": 0,
+        "speed-index": 2542.9,
+        "tti": 2542.9,
+        "total-byte-weight": 209052,
+        "script-bytes": 130749,
+        "script-requests": 1
+      },
+      "medianRun": 3
+    },
+    "board-mobile": {
+      "samples": [
+        {
+          "performance": 61,
+          "accessibility": 77,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 2014.36555,
+          "lcp": 4504.210250000001,
+          "tbt": 941.9999999999995,
+          "cls": 0,
+          "speed-index": 2653.878668722261,
+          "tti": 4504.210250000001,
+          "total-byte-weight": 413107,
+          "script-bytes": 164165,
+          "script-requests": 3
+        },
+        {
+          "performance": 70,
+          "accessibility": 77,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 2016.9523,
+          "lcp": 4177.826499999999,
+          "tbt": 553,
+          "cls": 0,
+          "speed-index": 2397.2785266957303,
+          "tti": 4177.826499999999,
+          "total-byte-weight": 413107,
+          "script-bytes": 164165,
+          "script-requests": 3
+        },
+        {
+          "performance": 66,
+          "accessibility": 77,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 2020.3831500000001,
+          "lcp": 4229.6897500000005,
+          "tbt": 658,
+          "cls": 0.06804374240583232,
+          "speed-index": 2728.019276385596,
+          "tti": 4229.689750000001,
+          "total-byte-weight": 413107,
+          "script-bytes": 164165,
+          "script-requests": 3
+        }
+      ],
+      "median": {
+        "performance": 66,
+        "accessibility": 77,
+        "best-practices": 100,
+        "seo": 82,
+        "fcp": 2016.952,
+        "lcp": 4229.69,
+        "tbt": 658,
+        "cls": 0,
+        "speed-index": 2653.879,
+        "tti": 4229.69,
+        "total-byte-weight": 413107,
+        "script-bytes": 164165,
+        "script-requests": 3
+      },
+      "medianRun": 3
+    },
+    "board-desktop": {
+      "samples": [
+        {
+          "performance": 91,
+          "accessibility": 79,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 503.89595,
+          "lcp": 1020.1685,
+          "tbt": 207.9999999999999,
+          "cls": 0.04148148148148148,
+          "speed-index": 1060.554084444986,
+          "tti": 1020.1685,
+          "total-byte-weight": 413107,
+          "script-bytes": 164165,
+          "script-requests": 3
+        },
+        {
+          "performance": 92,
+          "accessibility": 79,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 511.59815000000003,
+          "lcp": 1024.6719,
+          "tbt": 194.9999999999999,
+          "cls": 0.04148148148148148,
+          "speed-index": 1074.0121782074007,
+          "tti": 1024.6719,
+          "total-byte-weight": 413107,
+          "script-bytes": 164165,
+          "script-requests": 3
+        },
+        {
+          "performance": 93,
+          "accessibility": 79,
+          "best-practices": 100,
+          "seo": 82,
+          "fcp": 523.5269999999999,
+          "lcp": 1031.514,
+          "tbt": 172,
+          "cls": 0.04148148148148148,
+          "speed-index": 1020.9540259477285,
+          "tti": 1031.5140000000001,
+          "total-byte-weight": 413107,
+          "script-bytes": 164165,
+          "script-requests": 3
+        }
+      ],
+      "median": {
+        "performance": 92,
+        "accessibility": 79,
+        "best-practices": 100,
+        "seo": 82,
+        "fcp": 511.598,
+        "lcp": 1024.672,
+        "tbt": 195,
+        "cls": 0.041,
+        "speed-index": 1060.554,
+        "tti": 1024.672,
+        "total-byte-weight": 413107,
+        "script-bytes": 164165,
+        "script-requests": 3
+      },
+      "medianRun": 2
+    }
+  }
+}
