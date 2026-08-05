@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import "./fonts.css";
 import "./index.css";
 import { ApolloProvider } from "@apollo/client/react";
 import { apolloClient } from "./apolloClient";
