@@ -42,9 +42,31 @@ local `.env` sets `VITE_DEV_NO_AUTH=1`, which would have measured a build
 that skips the login screen entirely. `client/perf/build.mjs` pins that off
 for every measured build.
 
-**Reproducing.** `docker compose up -d db`, run the server, then from
-`client/`: `npm run perf:seed`, `npm run perf:build`, `npm run preview`, then
-`npm run perf:lighthouse` / `perf:interaction` / `perf:a11y` / `perf:bundle`.
+**Reproducing.** Start Postgres and the API, letting the API accept both
+preview origins:
+
+```
+DB_PORT=5433 docker compose up -d db
+cd server && DATABASE_URL=postgres://koi:koi@localhost:5433/koi?sslmode=disable \
+  ALLOWED_ORIGINS=http://localhost:4173,http://localhost:4174 go run ./cmd/api
+```
+
+Then from `client/`:
+
+```
+npm run perf:seed          # 400 shapes on a fresh board, deterministic
+npm run perf:build         # dist (measured), dist-perf (A/B arm), dist-map (sourcemaps)
+npx vite preview --port 4173                        # serves dist
+npx vite preview --outDir dist-perf --port 4174     # serves dist-perf
+
+PERF_LABEL=mine npm run perf:lighthouse    # against 4173
+PERF_LABEL=mine npm run perf:a11y          # against 4173
+PERF_LABEL=mine npm run perf:interaction   # against 4174
+PERF_LABEL=mine npm run perf:bundle        # reads dist-map
+```
+
+`perf:seed` writes `client/perf/session.json` (board id + refresh token);
+it is gitignored, and every other script reads the board from it.
 
 ---
 

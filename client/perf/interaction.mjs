@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { ensureOutDir, median, percentile, readSession, round } from "./lib.mjs";
 
-const APP_URL = process.env.PERF_PERF_APP_URL ?? "http://localhost:4174";
+// The perf build, not the measured one: it is the only build that carries the
+// dirty-rect A/B arm and the per-move timing.
+const APP_URL = process.env.PERF_BUILD_URL ?? "http://localhost:4174";
 const TRIALS = Number(process.env.PERF_TRIALS ?? 5);
 const LABEL = process.env.PERF_LABEL ?? "baseline";
 const VIEWPORT = { width: 1440, height: 900 };
