@@ -1,0 +1,172 @@
+{
+  "label": "baseline",
+  "chunks": [
+    {
+      "file": "index-CuJYEMMo.js",
+      "raw": 650021,
+      "gzip": 205525
+    }
+  ],
+  "byPackage": [
+    {
+      "name": "react-dom",
+      "bytes": 181594,
+      "share": 27.9
+    },
+    {
+      "name": "@apollo/client",
+      "bytes": 97913,
+      "share": 15.1
+    },
+    {
+      "name": "lodash",
+      "bytes": 72822,
+      "share": 11.2
+    },
+    {
+      "name": "src/canvas",
+      "bytes": 52624,
+      "share": 8.1
+    },
+    {
+      "name": "graphql",
+      "bytes": 42623,
+      "share": 6.6
+    },
+    {
+      "name": "react-router",
+      "bytes": 32789,
+      "share": 5
+    },
+    {
+      "name": "rxjs",
+      "bytes": 23880,
+      "share": 3.7
+    },
+    {
+      "name": "src/entities",
+      "bytes": 21468,
+      "share": 3.3
+    },
+    {
+      "name": "react-draggable",
+      "bytes": 19705,
+      "share": 3
+    },
+    {
+      "name": "re-resizable",
+      "bytes": 16659,
+      "share": 2.6
+    },
+    {
+      "name": "src/features",
+      "bytes": 16290,
+      "share": 2.5
+    },
+    {
+      "name": "react-rnd",
+      "bytes": 11306,
+      "share": 1.7
+    },
+    {
+      "name": "graphql-ws",
+      "bytes": 9720,
+      "share": 1.5
+    },
+    {
+      "name": "react",
+      "bytes": 8539,
+      "share": 1.3
+    },
+    {
+      "name": "lucide-react",
+      "bytes": 6857,
+      "share": 1.1
+    },
+    {
+      "name": "src/pages",
+      "bytes": 5110,
+      "share": 0.8
+    },
+    {
+      "name": "src/widgets",
+      "bytes": 4480,
+      "share": 0.7
+    },
+    {
+      "name": "optimism",
+      "bytes": 4370,
+      "share": 0.7
+    },
+    {
+      "name": "tslib",
+      "bytes": 4220,
+      "share": 0.6
+    },
+    {
+      "name": "scheduler",
+      "bytes": 3776,
+      "share": 0.6
+    },
+    {
+      "name": "@wry/caches",
+      "bytes": 2906,
+      "share": 0.4
+    },
+    {
+      "name": "graphql-tag",
+      "bytes": 1876,
+      "share": 0.3
+    },
+    {
+      "name": "(unmapped)",
+      "bytes": 1849,
+      "share": 0.3
+    },
+    {
+      "name": "@wry/equality",
+      "bytes": 1799,
+      "share": 0.3
+    },
+    {
+      "name": "@wry/trie",
+      "bytes": 1102,
+      "share": 0.2
+    },
+    {
+      "name": "@wry/context",
+      "bytes": 1028,
+      "share": 0.2
+    },
+    {
+      "name": "src/app",
+      "bytes": 922,
+      "share": 0.1
+    },
+    {
+      "name": "prop-types",
+      "bytes": 813,
+      "share": 0.1
+    },
+    {
+      "name": "clsx",
+      "bytes": 531,
+      "share": 0.1
+    },
+    {
+      "name": "src/shared",
+      "bytes": 133,
+      "share": 0
+    }
+  ],
+  "css": [
+    {
+      "file": "index-CthuSpAE.css",
+      "raw": 23115,
+      "gzip": 5062
+    }
+  ],
+  "totalJsRaw": 650021,
+  "totalJsGzip": 205525,
+  "chunkCount": 1
+}
