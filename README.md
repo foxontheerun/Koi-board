@@ -51,6 +51,13 @@ constantly but only the moving shapes. **Dirty-rect** clipping limits each redra
 to the changed region (`computeShapesBoundingRect` + `ctx.clip`), so moving one
 shape among hundreds touches a few thousand pixels, not the whole canvas.
 
+That is measurable, and it is measured: dragging a shape across a 400-shape
+board costs **0.85 ms per pointer move at p50 and 1.20 ms at p95**, against
+3.80 / 4.81 ms with invalidation switched off — 4.5x and 4.0x. Under a 4x CPU
+throttle the gap widens to 5.2x / 5.9x, and the p95 frame interval without it
+goes from 16.7 ms to 166.6 ms. Method and raw data:
+[docs/perf/README.md](docs/perf/README.md).
+
 Two rules keep that honest. **No shape is painted on two canvases at once**: a
 dragged shape and every neighbour the region touches are lifted onto the drag
 layer, and the static layer skips them — otherwise their semi-transparent
@@ -206,4 +213,31 @@ koi/
   against both the in-memory and Postgres implementations (users, boards); the
   Postgres integration tests run when `TEST_DATABASE_URL` is set. Plus JWT and
   WebSocket-auth unit and handshake tests. See [server/README.md](server/README.md).
-  </content>
+
+---
+
+## Performance & accessibility
+
+Measured, not asserted. Full method, raw Lighthouse reports and the honest
+caveats: **[docs/perf/README.md](docs/perf/README.md)**.
+
+Lighthouse, production build, median of 3 runs, on a 400-shape board:
+
+| | performance | accessibility | LCP | CLS |
+| --- | --- | --- | --- | --- |
+| login, desktop | 71 -> 100 | 82 -> 100 | 2571 -> 580 ms | 0 |
+| login, mobile | 73 -> 95 | 82 -> 100 | 4504 -> 2310 ms | 0 |
+| board, desktop | 93 -> 96 | 79 -> 100 | 986 -> 832 ms | 0.041 -> 0 |
+| board, mobile | 62 -> 66 | 77 -> 95 | 4350 -> 3673 ms | 0.068 -> 0 |
+
+The board's mobile LCP still misses the 2.5 s target; the bottleneck is now
+the 149 kB GraphQL response for 400 shapes, which is a backend problem, not a
+bundler one. Route-level code splitting was tried and reverted — it cost the
+board more LCP than it saved the login page.
+
+axe-core over five screens: four violation types across sixteen nodes, now
+zero. The canvas itself is still unreachable by keyboard and announces
+nothing; that gap is specified rather than glossed over.
+
+Reproduce it yourself: `npm run perf:seed`, `perf:build`, `perf:lighthouse`,
+`perf:interaction`, `perf:a11y`, `perf:bundle` in `client/`.
