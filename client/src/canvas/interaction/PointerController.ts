@@ -6,6 +6,7 @@ import type { CollabController } from "../collab/CollabController";
 import type { ShapeCreationController } from "./ShapeCreationController";
 import type { RenderOrchestrator } from "../rendering/RenderOrchestrator";
 import { RESIZE_HANDLE_SIZE } from "../rendering/layers/mouseEventHandlingHelpers";
+import { PERF_BUILD, perf } from "../utils/perfMode";
 
 interface PointerCallbacks {
   onLocalCursor: (x: number, y: number) => void;
@@ -118,8 +119,10 @@ export class PointerController {
       interaction.type === "group-resize"
     ) {
       this.collab.renew(this.interactionManager.getSelectedIds());
+      const started = PERF_BUILD ? performance.now() : 0;
       this.render.dragLayer();
       this.render.overlay();
+      if (PERF_BUILD) perf.samples.push(performance.now() - started);
       return;
     }
 

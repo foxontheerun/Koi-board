@@ -14,6 +14,7 @@ import {
   unionRects,
 } from "../utils/dirtyRect";
 import { BRAND } from "../../shared/theme";
+import { PERF_BUILD, perf } from "../utils/perfMode";
 
 const MOVING_STATES = ["dragging", "resizing", "remote-dragging"];
 const TEXT_PREVIEW_COLOR = BRAND.aqua;
@@ -173,7 +174,32 @@ export class RenderManager {
     this.mainCtx.restore();
   }
 
+  // The A/B arm behind the perf build: no lifting, no clipping, no partial
+  // clears — every shape repainted on the main canvas once per pointer move.
+  private drawWithoutDirtyRects(
+    camera: CameraController,
+    entityManager: EntityManager,
+  ) {
+    this.liftedIds = new Set();
+
+    this.mainCtx.setTransform(1, 0, 0, 1, 0, 0);
+    this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+
+    this.mainCtx.save();
+    camera.applyTransform(this.mainCtx);
+    this.dragLayer.draw(this.mainCtx, entityManager.getShapes());
+    this.mainCtx.restore();
+
+    clearDirtyRect(this.dragCtx, this.dragCanvas, null);
+    this.prevDragRect = null;
+  }
+
   drawDrag(camera: CameraController, entityManager: EntityManager) {
+    if (PERF_BUILD && perf.naive) {
+      this.drawWithoutDirtyRects(camera, entityManager);
+      return;
+    }
+
     const candidates = entityManager.getShapesOnDragLayer();
     const { lifted, dirtyRect } = this.liftShapes(camera, candidates);
 
@@ -220,7 +246,13 @@ export class RenderManager {
     },
     previewShape?: _Shape,
   ) {
-    clearDirtyRect(this.overlayCtx, this.overlayCanvas, this.prevOverlayRect);
+    const naive = PERF_BUILD && perf.naive;
+
+    clearDirtyRect(
+      this.overlayCtx,
+      this.overlayCanvas,
+      naive ? null : this.prevOverlayRect,
+    );
 
     // The editor draws its own outline, and handles cannot be used mid-typing.
     const selectedShapes = (selectedIds ?? [])
@@ -251,7 +283,7 @@ export class RenderManager {
 
     this.overlayCtx.save();
 
-    if (dirtyRect) {
+    if (dirtyRect && !naive) {
       this.overlayCtx.beginPath();
       this.overlayCtx.rect(dirtyRect.x, dirtyRect.y, dirtyRect.w, dirtyRect.h);
       this.overlayCtx.clip();

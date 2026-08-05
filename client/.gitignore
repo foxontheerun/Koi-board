@@ -32,3 +32,8 @@ CLAUDE.md
 # Local env
 .env
 .env.local
+
+# Perf harness (docs/perf)
+dist-perf
+dist-map
+perf/session.json
